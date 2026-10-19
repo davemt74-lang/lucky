@@ -116,3 +116,6 @@ When a game ends, the platform creates a non-destructive, video-first montage **
 ## V5Q.5 — Post-game review and long-session draft handling
 
 When a session ends, the host screen shows **Review highlights** linking directly to that game’s editor. Existing manual timelines are never overwritten. For long game nights, auto-draft prefers video from each prize claim, trims overly long individual recordings to two minutes without altering source files, and stays within 80 clips/20 minutes. Nothing renders until you press **Export MP4**. See `docs/V5Q5_POSTGAME_REVIEW.md`.
+
+## V5Q.9 Host Full-Width View
+The Host Game page now fills the browser, including its header; the four quick links above the game were removed. Tools remain in the console menu (accessible by Escape or paired phone Menu). The claim ledger shows number awarded, total awarded, and summed value of remaining configured, unclaimed prizes across all tiers. Unspent budget not attached to a prize is excluded.

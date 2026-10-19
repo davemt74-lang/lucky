@@ -272,3 +272,15 @@ body.editor-workspace #editor-feedback{margin:0;min-height:27px;padding:6px 10px
 body.editor-workspace .render-jobs{max-height:76px;overflow-y:auto}
 @media(max-width:990px){body.editor-workspace{overflow:auto}body.editor-workspace .media-editor-studio{height:auto;min-height:100dvh;overflow:visible;display:flex;flex-direction:column}body.editor-workspace .media-editor-layout{grid-template-columns:minmax(0,1fr)}body.editor-workspace .media-editor-stage{min-height:600px;grid-template-rows:auto minmax(230px,1fr) auto auto minmax(180px,.4fr)}body.editor-workspace .media-editor-settings{max-height:none;overflow:visible}body.editor-workspace .media-editor-top{flex-wrap:wrap}body.editor-workspace .editor-track{max-height:360px}}
 @media(max-width:600px){body.editor-workspace .media-editor-studio{padding:7px}body.editor-workspace .media-editor-top{padding:10px}body.editor-workspace .media-editor-top label{max-width:none;min-width:0;flex:1 1 160px}body.editor-workspace .media-editor-top .platform-control-row{flex:1 1 100%;grid-template-columns:repeat(2,minmax(0,1fr))}body.editor-workspace .media-editor-top .btn{white-space:normal}body.editor-workspace .editor-exit{flex:1 1 100%}body.editor-workspace .editor-exit .btn{flex:1}}
+
+/* V5Q.9 — host console full-viewport display, with page-wide header and slim game tabs. */
+body.game-fullwidth .shell{max-width:none;width:100%;margin:0;padding:0 clamp(12px,1.6vw,38px)}
+body.game-fullwidth .header{width:100%;max-width:none;min-height:76px;height:auto;padding:10px 0;gap:clamp(12px,2vw,28px)}
+body.game-fullwidth main{width:100%;max-width:none;margin:0;padding:clamp(10px,1.4vw,22px) 0}
+body.game-fullwidth .host-workspace{grid-template-columns:minmax(0,1fr) minmax(300px,clamp(330px,25vw,530px));gap:clamp(12px,1.5vw,26px)}
+body.game-fullwidth .host-workspace-panels .platform-wheel-wrap{width:min(770px,100%)}
+body.game-fullwidth .host-compact-top{display:block}
+body.game-fullwidth .host-main-tabs{border-radius:16px 16px 0 0}
+body.game-fullwidth #session-totals{font-size:clamp(13px,1vw,16px);color:#e5d7b8;line-height:1.6;font-variant-numeric:tabular-nums}
+@media(max-width:1050px){body.game-fullwidth .host-workspace{grid-template-columns:minmax(0,1fr)}body.game-fullwidth .game-claims-side{position:static}body.game-fullwidth .header{flex-wrap:wrap}body.game-fullwidth .nav{max-width:100%;overflow-x:auto;flex-wrap:wrap;margin-left:auto}}
+@media(max-width:580px){body.game-fullwidth .shell{padding:0 10px}body.game-fullwidth main{padding:10px 0}body.game-fullwidth .header{gap:9px}body.game-fullwidth .nav{margin-left:0;flex:1 1 100%}body.game-fullwidth .nav>a{padding:9px 11px}}

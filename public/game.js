@@ -21,7 +21,16 @@
   $('pause-game').textContent=view?.status==='paused'?'▶ Resume':'Ⅱ Pause';
   $('end-game').disabled=busy||!view||!['active','paused'].includes(view.status);
   $('game-state').textContent=!view?'READY FOR NEW GAME':active?`ACTIVE GAME · ${view.spinCount} SPINS`:view.status==='paused'?'GAME PAUSED':'GAME ENDED';
-  const items=(view?.claims||[]).slice().reverse();$('session-totals').textContent=`${items.length} claimed · ${L.money(items.reduce((n,p)=>n+p.cents,0))} awarded`;
+  const items=(view?.claims||[]).slice().reverse();
+  // Count the actual unclaimed prize values across all three configured tiers.
+  // Pool budgets can include unused money and must not be treated as winnable prizes.
+  const claimed=(data?.session?.claims||[]);
+  const claimedKeys=new Set(claimed.map(c=>`${c.tier}:${c.prizeId}`));
+  const pools=data?.session?.pools||{};
+  const available=['tier1','tier2','bonus'].reduce((total,tier)=>total+(pools[tier]?.prizes||[])
+    .reduce((sum,p)=>sum+(p.cents>0&&!claimedKeys.has(`${tier}:${p.id}`)?p.cents:0),0),0);
+  const awarded=items.reduce((n,p)=>n+p.cents,0);
+  $('session-totals').textContent=`${items.length} claimed · ${L.money(awarded)} awarded · ${L.money(available)} available to win`;
   const root=$('claim-list');root.replaceChildren();if(!items.length){const empty=document.createElement('p');empty.textContent='No prizes claimed yet. Spin the wheel to begin.';root.append(empty);}
   for(const c of items){const row=document.createElement('div');row.className='platform-claim claim-proof-row';const info=document.createElement('div');info.className='claim-proof-info';const name=document.createElement('strong');name.textContent=c.name;
    const amount=document.createElement('span');amount.textContent=`${c.tier.toUpperCase()} · ${L.money(c.cents)}`;info.append(name,amount);
