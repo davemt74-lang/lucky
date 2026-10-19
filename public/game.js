@@ -25,6 +25,9 @@
     const a=document.createElement('strong');a.textContent=c.name;const b=document.createElement('span');b.textContent=`${c.tier.toUpperCase()} · ${L.money(c.cents)}`;e.append(a,b);root.append(e);});
   if(!busy)wheel.setSlices(toSlices(view));
   if(data?.view?.id){$('open-game-editor').href='editor.php?session='+encodeURIComponent(data.view.id);}else $('open-game-editor').href='editor.php';
+  const finished=view?.status==='ended';
+  $('postgame-review').hidden=!finished;
+  $('review-highlight').href=view?.id?'editor.php?session='+encodeURIComponent(view.id):'editor.php';
   if(data?.viewerToken){
     const url=new URL('display.php',document.baseURI);url.searchParams.set('session',view.id);url.searchParams.set('token',data.viewerToken);
     viewerUrl=url.href;$('share-display').hidden=false;$('viewer-link').value=viewerUrl;$('open-viewer').href=viewerUrl;
