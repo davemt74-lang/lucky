@@ -302,3 +302,15 @@ body.game-fullwidth .host-claims-column{min-height:0}
 .device-secondary{margin-top:10px}
 @media(max-width:1050px){body.game-fullwidth .game-claims-side{max-height:none}}
 @media(max-width:600px){.device-phone-primary .phone-pair-invite{grid-template-columns:minmax(0,1fr)}.device-phone-primary .phone-pair-qr{width:210px}body.game-fullwidth .game-claims-side{max-height:none}}
+
+/* V5Q.11 - Restore in-game Connected Phones and move build tag to footer. */
+.host-main-tabs button{min-width:0}
+.host-main-tabs #host-tab-phones{display:flex;align-items:center;justify-content:center;gap:7px}
+#host-phone-count:not(:empty){display:inline-grid;place-items:center;min-width:1.65rem;height:1.65rem;padding:0 5px;border:1px solid #559c83;background:#1b4840;color:#acffe0;border-radius:99px;font-size:.72rem;font-weight:850}
+#host-panel-phones .phone-pair-panel{max-width:850px;margin:0 auto}
+#host-panel-phones .console-footnote{margin:12px auto 0;max-width:850px}
+#host-panel-phones .console-footnote a{color:#ffe2a1;text-decoration:underline}
+.footer-menu{display:flex;align-items:center;gap:16px;flex-wrap:wrap;justify-content:flex-end}
+.footer-menu a{color:#b1c3d9}
+.footer-version{display:inline-flex;align-items:center;border:1px solid #6a563e;border-radius:99px;padding:6px 10px;color:#f4c37b;font-size:10px;letter-spacing:.07em;font-weight:850}
+@media(max-width:650px){.host-main-tabs #host-tab-phones{font-size:11px;white-space:normal}.host-main-tabs button{padding:9px 5px}.footer-menu{justify-content:flex-start}}

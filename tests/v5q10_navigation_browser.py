@@ -25,7 +25,7 @@ async def main():
     check('claim proof editing preserves originating session', 'sessionId)}&claim=${encodeURIComponent(c.id)}&from=claims' in claim_js)
     check('devices page owns phone pairing widget', 'pairingWidget()' in devices and 'device-phone-primary' in devices)
     check('devices page loads QR and phone approval script', 'public/pairing-host.js' in devices and 'public/qr.js' in devices)
-    check('game page has no phone pairing widget', 'pairingWidget(' not in game and 'host-panel-phones' not in game)
+    check('game page restores phone pairing as dedicated tab', 'pairingWidget()' in game and 'host-panel-phones' in game and 'host-tab-phones' in game)
     check('game page retains exact-session claims link', 'id="claims-page-link"' in game)
     check('editor session claims link is scoped to selected session', "'claims.php?session='+encodeURIComponent(session)" in editor)
     errors=[]
@@ -41,7 +41,7 @@ async def main():
             check(f'{width} claim action links to its own game',('proof.php?session='+fixture.SID) in await page.locator('#claim-list a').first.get_attribute('href'))
             check(f'{width} phone arrow moves between tabs',await page.evaluate("async () => {document.querySelector('#host-tab-game').focus();await LuckyHostRemote('right');return document.querySelector('#host-tab-music').getAttribute('aria-selected')==='true';}"))
             check(f'{width} tab change leaves claim ledger visible',await page.locator('.host-claims-column').is_visible())
-            check(f'{width} no unintentional phone panel in host',await page.locator('#host-panel-phones').count()==0)
+            check(f'{width} phone panel is present but hidden unless selected',await page.locator('#host-panel-phones').count()==1 and await page.locator('#host-panel-phones').is_hidden())
             check(f'{width} no horizontal overflow',await page.evaluate('document.documentElement.scrollWidth<=innerWidth+2'))
             await page.close()
         await browser.close()
