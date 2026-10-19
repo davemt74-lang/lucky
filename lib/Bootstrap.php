@@ -62,5 +62,9 @@ function saveState(PDO $db,array $s):void {
  $q=$db->prepare('UPDATE game_sessions SET state_json=?, status=?, version=?, updated_at=UTC_TIMESTAMP(),ended_at=? WHERE id=? AND version=?');
  $q->execute([json_encode($s,JSON_THROW_ON_ERROR),$s['status'],$s['version'],$s['endedAt'],$s['id'],$s['version']-1]);
  if($q->rowCount()!==1)throw new RuntimeException('Concurrent session update conflict.');
+ if(($s['status']??'')==='ended'){
+  try{require_once __DIR__.'/MontageAutoDraft.php';MontageAutoDraft::ensure($db,(string)$s['id']);}
+  catch(Throwable $e){error_log('Lucky end-of-game montage draft: '.$e->getMessage());}
+ }
 }
 function sql(string $path):string{return file_get_contents(LUCKY_ROOT.'/'.$path);}
