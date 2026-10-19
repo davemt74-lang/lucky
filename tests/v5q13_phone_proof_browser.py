@@ -1,5 +1,5 @@
 """Phone proof buttons are shown only for active claim review, closed by default."""
-import asyncio
+import asyncio, re
 from pathlib import Path
 from playwright.async_api import async_playwright
 ROOT=Path(__file__).resolve().parents[1]
@@ -16,10 +16,10 @@ async def run():
  results=[];errors=[]
  def ok(name,good):results.append((name,bool(good)))
  raw=(ROOT/'controller.php').read_text().split('?>',1)[1]
- raw=raw.replace('<link rel="stylesheet" href="public/style.css"><link rel="stylesheet" href="public/platform.css?v=5q14">','<style>'+(ROOT/'public/style.css').read_text()+'\n'+(ROOT/'public/platform.css').read_text()+'</style>')
+ raw=re.sub(r'<link rel="stylesheet" href="public/style.css"><link rel="stylesheet" href="public/platform.css\?v=[^"]+">', lambda _: '<style>'+(ROOT/'public/style.css').read_text()+'\n'+(ROOT/'public/platform.css').read_text()+'</style>',raw)
  raw=raw.replace('</head>','<base href="https://example.test/controller.php?invite='+ID+'&key='+SECRET+'">'+MOCK+'</head>',1)
  raw=raw.replace('<script src="public/voice-commands.js?v=5p2" defer></script>','')
- raw=raw.replace('<script src="public/phone-controller.js?v=5q14" defer></script>', '<script>'+(ROOT/'public/phone-controller.js').read_text()+'</script>')
+ raw=re.sub(r'<script src="public/phone-controller.js\?v=[^"]+" defer></script>',lambda _: '<script>'+(ROOT/'public/phone-controller.js').read_text()+'</script>',raw)
  async with async_playwright() as pw:
   browser=await pw.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox'])
   page=await browser.new_page(viewport={'width':390,'height':844});page.on('pageerror',lambda e:errors.append(str(e)))

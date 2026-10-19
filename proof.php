@@ -27,5 +27,5 @@ shellStart('Edit Prize Proof','claims');
   <div id="capture-clip-list" class="capture-clip-list"></div><a id="capture-open-editor" class="btn btn-primary" href="editor.php">🎬 Open video timeline</a>
  </section>
 </div></div></dialog>
-<script src="public/client.js" defer></script><script src="public/proof-sequence.js?v=5q2" defer></script><script src="public/claim-capture.js?v=5q13" defer></script><script src="public/proof.js?v=5q14" defer></script><script src="public/ui-receiver.js?v=5q8b" defer></script>
+<script src="public/client.js" defer></script><script src="public/proof-sequence.js?v=5q2" defer></script><script src="public/claim-capture.js?v=5q14a" defer></script><script src="public/proof.js?v=5q14a" defer></script><script src="public/ui-receiver.js?v=5q8b" defer></script>
 <?php shellEnd(); ?>
