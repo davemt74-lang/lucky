@@ -20,7 +20,7 @@ if(action==='queue'){{demo.queued=JSON.parse(opt.body);out={{ok:true,render:{{id
 if(action==='cancel')out={{ok:true}};
 return new Response(JSON.stringify(out),{{status:200,headers:{{'Content-Type':'application/json'}}}});}};
 </script>'''
-html='<html><head><base href="https://example.test/"><style>'+CSS+'</style>'+mock+'</head><body>'+section.replace('<script src="public/client.js" defer></script>','').replace('<script src="public/editor.js?v=5q3-2" defer></script>','')+'<script>'+SCRIPT+'</script></body></html>'
+html='<html><head><base href="https://example.test/"><style>'+CSS+'</style>'+mock+'</head><body>'+section.replace('<script src="public/client.js" defer></script>','').replace('<script src="public/editor.js?v=5q7" defer></script>','').replace('<script src="public/ui-receiver.js?v=5q7" defer></script>','')+'<script>'+SCRIPT+'</script></body></html>'
 async def main():
  tests=[];errors=[]
  def check(name,ok):tests.append((name,bool(ok)))

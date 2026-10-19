@@ -16,12 +16,20 @@
  function mark(el){document.querySelectorAll('.lucky-focus').forEach(x=>x.classList.remove('lucky-focus'));if(!el)return false;el.focus({preventScroll:true});el.classList.add('lucky-focus');el.scrollIntoView?.({block:'nearest',inline:'nearest',behavior:'instant'});return true;}
  function initial(list){return (document.querySelector('.game-console-tile')&&list.includes(document.querySelector('.game-console-tile'))&&document.querySelector('.game-console-tile')) || (game()&&!game().disabled&&list.includes(game())&&game()) || (document.getElementById('start-game')&&!document.getElementById('start-game').disabled&&list.includes(document.getElementById('start-game'))&&document.getElementById('start-game')) || list[0];}
  function move(direction){const list=navigable();if(!list.length)return false;const current=document.activeElement;
+   // D-pad tab switching: same behavior for physical keyboard, gamepad and phone.
+   const hostTabs=window.LuckyHostTabs;
+   if(hostTabs&&current?.getAttribute?.('role')==='tab'&&['left','right'].includes(direction)){
+     const items=hostTabs.items,index=items.findIndex(x=>document.getElementById('host-tab-'+x)===current);
+     if(index>=0){const next=items[(index+(direction==='right'?1:-1)+items.length)%items.length];
+       hostTabs.activate(next,{focus:true});return true;}
+   }
+
    if(current?.matches?.('input[type="range"]')&&['left','right'].includes(direction)){
      const min=Number(current.min||0),max=Number(current.max||100),step=Number(current.step)||1;
      current.value=String(Math.max(min,Math.min(max,Number(current.value)+(direction==='left'?-step:step))));
      current.dispatchEvent(new Event('input',{bubbles:true}));current.dispatchEvent(new Event('change',{bubbles:true}));return true;
    }
-   if(!list.includes(current))return mark(initial(list));
+   if(!list.includes(current))return mark(document.querySelector('.host-main-tabs [aria-selected="true"]')||initial(list));
    const r=current.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;
    const candidates=list.filter(el=>el!==current).map(el=>{const e=el.getBoundingClientRect(),dx=e.left+e.width/2-cx,dy=e.top+e.height/2-cy;
      const axis=['left','right'].includes(direction)?dx:dy,cross=['left','right'].includes(direction)?dy:dx;

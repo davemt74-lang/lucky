@@ -188,8 +188,24 @@
      default:return false;
    }
  }
- function setHostTab(which){for(const option of ['music','phones']){const active=option===which;const tab=$('host-tab-'+option),panel=$('host-panel-'+option);tab.setAttribute('aria-selected',String(active));tab.tabIndex=active?0:-1;panel.hidden=!active;}}
- for(const option of ['music','phones']){$('host-tab-'+option).onclick=()=>setHostTab(option);$('host-tab-'+option).onkeydown=e=>{if(e.key!=='ArrowLeft'&&e.key!=='ArrowRight')return;e.preventDefault();const next=option==='music'?'phones':'music';setHostTab(next);$('host-tab-'+next).focus();};}
+ const hostTabs=['game','music','phones'];
+ function setHostTab(which,{focus=false}={}){
+   if(!hostTabs.includes(which))return false;
+   for(const option of hostTabs){const active=option===which,tab=$('host-tab-'+option),panel=$('host-panel-'+option);
+     tab.setAttribute('aria-selected',String(active));tab.tabIndex=active?0:-1;panel.hidden=!active;
+   }
+   if(focus)$('host-tab-'+which).focus();
+   return true;
+ }
+ for(const option of hostTabs){const tab=$('host-tab-'+option);
+   tab.onclick=()=>setHostTab(option);
+   tab.onkeydown=e=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;
+     e.preventDefault();e.stopPropagation();const i=hostTabs.indexOf(option);
+     const next=e.key==='Home'?hostTabs[0]:e.key==='End'?hostTabs.at(-1):hostTabs[(i+(e.key==='ArrowRight'?1:-1)+hostTabs.length)%hostTabs.length];
+     setHostTab(next,{focus:true});
+   };
+ }
+ window.LuckyHostTabs=Object.freeze({activate:setHostTab,items:hostTabs});
  window.addEventListener('lucky:paired-phones',e=>{$('connected-phone-count').textContent=e.detail?.count?`(${e.detail.count})`:'';});
  window.LuckyHostRemote=remoteCommand;
  $('start-game').onclick=start;$('spin-game').onclick=spin;$('pause-game').onclick=pause;$('end-game').onclick=end;

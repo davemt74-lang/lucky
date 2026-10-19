@@ -123,5 +123,13 @@
  }
  window.addEventListener('beforeunload',event=>{if(!dirty)return;event.preventDefault();event.returnValue='';});
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
+ // The same approved phone D-pad navigates the editor when this page is the host screen.
+ // Do not interpret D-pad input as audio playback, spin, or montage destruction.
+ window.LuckyHostRemote=async command=>{
+   if(['up','down','left','right','select','back','done','menu'].includes(command)){
+     return window.LuckyConsole?.emit(command==='done'?'back':command)??false;
+   }
+   return false;
+ };
  window.LuckyEditor={preview,stop};
 })();

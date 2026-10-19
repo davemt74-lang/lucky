@@ -1,68 +1,75 @@
-"""V5Q.6 isolated browser coverage for prize proof revisions and game UI."""
+"""V5Q.6 browser contracts for top claims, tab controls and claim-level proof history."""
 import asyncio,re
 from pathlib import Path
 from playwright.async_api import async_playwright
-BASE=Path(__file__).resolve().parents[1];SID='c'*32;CID='d'*32
+BASE=Path(__file__).resolve().parents[1]
+SID='c'*32;CID='d'*32
 CSS=(BASE/'public/style.css').read_text()+'\n'+(BASE/'public/platform.css').read_text()
-def page_markup(file,script,mock):
- text=(BASE/file).read_text().split('?>',1)[1].split('<?php shellEnd()',1)[0]
- text=text.replace('<?php pairingWidget(true); ?>','<section class="phone-pair-panel">Connect phone</section>')
- text=re.sub(r'<script\b[^>]*>.*?</script>','',text,flags=re.S|re.I)
- return '<html><head><style>'+CSS+'</style><script>'+mock+'</script></head><body>'+text+'<script>'+script+'</script></body></html>'
-MOCK="""
-window.__claims=[{id:'CID',prizeId:'p1',name:'Camera Prize',tier:'tier1',cents:1250,at:'2026-10-19T12:00:00Z'}];
-window.LuckyWheel=class{setSlices(){} async spinTo(){}};
-window.Lucky={$:id=>document.getElementById(id),money:n=>'$'+(n/100).toFixed(2),getMe:async()=>({csrf:'test'}),
-note:(id,s)=>{const e=document.getElementById(id);if(e)e.textContent=s;},
-api:async(a)=>a==='last'?{data:{view:{id:'SID',status:'active',version:1,claims:__claims,slots:[],spinCount:0},session:{id:'SID',claims:__claims,pools:{tier1:{prizes:[]},bonus:{prizes:[]}}}}}:{session:{id:'SID',claims:__claims,pools:{tier1:{prizes:[{id:'p1',proofAngles:[]}]}}}},
-loadTracks:async()=>[],bindMusic:()=>{},beep:()=>{},speak:()=>{},pref:{musicOn:false},idempotency:()=>'x'};
-window.LuckyCapture={show:(...a)=>window.__captureArgs=a};
-window.fetch=async(url,opts={})=>{const u=new URL(String(url),'https://example.test/');
-if(u.pathname.endsWith('claim-proof.php')){
- if(opts.method==='POST'){window.__post=JSON.parse(opts.body);return new Response(JSON.stringify({ok:true,status:{needsRevision:false,latestRevision:1}}));}
- if(u.searchParams.get('action')==='summary')return new Response(JSON.stringify({ok:true,states:{'CID':{needsRevision:true,latestRevision:1}}}));
- return new Response(JSON.stringify({ok:true,status:{needsRevision:true,requestNote:'Reshoot',latestRevision:1},clipCount:1,revisions:[{id:'r',number:1,at:'2026-10-19',note:'Original',clips:[{title:'USB Camera',kind:'video',src:'api/claim-media.php?action=stream&id=x'}]}]}));}
-return new Response(JSON.stringify({ok:true,clips:[]}));};
-""".replace('SID',SID).replace('CID',CID)
-async def run():
- checks=[];errors=[]
- def check(label,truth):checks.append((label,bool(truth)))
- async with async_playwright() as p:
-  browser=await p.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox'])
+def html_page(filename,js,mock):
+ markup=(BASE/filename).read_text().split('?>',1)[1].split('<?php shellEnd()',1)[0]
+ markup=markup.replace('<?php pairingWidget(true); ?>','<section class="phone-pair-panel">Connect a phone</section>')
+ markup=re.sub(r'<script\b[^>]*>.*?</script>', '',markup,flags=re.S|re.I)
+ return '<!doctype html><html><head><style>'+CSS+'</style><script>'+mock+'</script></head><body>'+markup+'<script>'+js+'</script></body></html>'
+MOCK='''
+window.__errors=[];
+window.__claims=[{id:'CLAIM_ID',prizeId:'p1',name:'Camera Prize',tier:'tier1',cents:1250,at:'2026-10-19T12:00:00Z'}];
+window.__state='active';window.__version=1;
+window.LuckyWheel=class {setSlices(){} async spinTo(){}};
+window.Lucky={ $:id=>document.getElementById(id),money:n=>'$'+(n/100).toFixed(2),dollars:n=>(n/100).toFixed(2),
+ note:(id,s)=>{const n=document.getElementById(id);if(n)n.textContent=s;},getMe:async()=>({csrf:'test'}),
+ api:async(a)=>{if(a==='last')return {data:{view:{id:'SESSION_ID',status:__state,version:__version,claims:__claims,slots:[],spinCount:0},session:{id:'SESSION_ID',pools:{tier1:{prizes:[]},bonus:{prizes:[]}},claims:__claims}}};if(a==='session')return {session:{id:'SESSION_ID',claims:__claims,pools:{tier1:{prizes:[{id:'p1',proofAngles:[]}]}}},view:{id:'SESSION_ID',status:'active',version:1}};return {};},
+ loadTracks:async()=>[],bindMusic:()=>{},beep:()=>{},speak:()=>{},pref:{musicOn:false},idempotency:()=>'k'};
+window.LuckyCapture={show:(...a)=>window.__captureArgs=a,release:()=>{}};
+const nativeFetch=window.fetch.bind(window);
+window.fetch=async (input,opts={})=>{const url=new URL(String(input),'https://example.test/');if(url.pathname.endsWith('claim-proof.php')){
+ if(opts.method==='POST'){window.__post=JSON.parse(opts.body);return new Response(JSON.stringify({ok:true,status:{needsRevision:false,latestRevision:1}}),{headers:{'Content-Type':'application/json'}});}
+ if(url.searchParams.get('action')==='summary')return new Response(JSON.stringify({ok:true,states:{'CLAIM_ID':{needsRevision:true,latestRevision:1}}}));
+ return new Response(JSON.stringify({ok:true,status:{needsRevision:true,requestNote:'Needs a clearer angle',latestRevision:1},clipCount:1,revisions:[{id:'r',number:1,at:'2026-10-19',note:'Original proof',clips:[{title:'Hero view',kind:'video',src:'api/claim-media.php?action=stream&id=x'}]}]}));}
+ return nativeFetch(input,opts);};
+'''.replace('CLAIM_ID',CID).replace('SESSION_ID',SID)
+async def main():
+ tests=[];errors=[]
+ def ok(label,val):tests.append((label,bool(val)))
+ async with async_playwright() as pw:
+  browser=await pw.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox'])
   for width in [390,1280]:
-   page=await browser.new_page(viewport={'width':width,'height':820},reduced_motion='reduce')
-   page.on('pageerror',lambda e:errors.append(str(e)))
-   await page.set_content(page_markup('game.php',(BASE/'public/game.js').read_text(),MOCK))
-   await page.wait_for_timeout(300)
-   check('claims lead wheel '+str(width),await page.evaluate("Boolean(document.querySelector('.game-claims-top').compareDocumentPosition(document.querySelector('.platform-game-layout')) & Node.DOCUMENT_POSITION_FOLLOWING)"))
-   check('edit proof linked '+str(width),await page.locator('#claim-list a[href*="proof.php"]').count()==1)
-   check('needs revision displayed '+str(width),await page.locator('.proof-revision-needed').count()==1)
-   check('phones hidden by default '+str(width),await page.locator('#host-panel-phones').is_hidden())
+   page=await browser.new_page(viewport={'width':width,'height':850},reduced_motion='reduce')
+   page.set_default_timeout(4000)
+   page.on('pageerror',lambda err:errors.append(str(err)))
+   await page.set_content(html_page('game.php',(BASE/'public/game.js').read_text(),MOCK),wait_until='domcontentloaded')
+   await page.wait_for_timeout(400)
+   ok(f'{width} claims in right workspace column',await page.locator('.host-claims-column .game-claims-side').count()==1)
+   ok(f'{width} prize Edit proof available',await page.locator('#claim-list a[href*="proof.php"]').count()==1)
+   ok(f'{width} revision request badge',await page.locator('#claim-list .proof-revision-needed').count()==1)
+   ok(f'{width} game tab selected by default',await page.locator('#host-tab-game').get_attribute('aria-selected')=='true')
+   ok(f'{width} phones hidden by default',await page.locator('#host-panel-phones').is_hidden())
    await page.locator('#host-tab-phones').click()
-   check('phones visible when selected '+str(width),await page.locator('#host-panel-phones').is_visible())
-   check('music hidden in phones tab '+str(width),await page.locator('#host-panel-music').is_hidden())
+   ok(f'{width} phones panel visible',await page.locator('#host-panel-phones').is_visible())
+   ok(f'{width} music panel hidden',await page.locator('#host-panel-music').is_hidden())
    await page.locator('#host-tab-phones').press('ArrowLeft')
-   check('arrow returns to music '+str(width),await page.locator('#host-panel-music').is_visible())
-   check('no overflow '+str(width),await page.evaluate('document.documentElement.scrollWidth<=innerWidth+1'))
+   ok(f'{width} arrow selects music tab',await page.locator('#host-panel-music').is_visible())
+   ok(f'{width} no horizontal overflow',await page.evaluate('document.documentElement.scrollWidth <= innerWidth+1'))
    await page.close()
   page=await browser.new_page(viewport={'width':390,'height':844})
-  page.on('pageerror',lambda e:errors.append(str(e)))
-  script=(BASE/'public/proof.js').read_text().replace('new URL(location.href).searchParams',"new URLSearchParams('session="+SID+"&claim="+CID+"')")
-  await page.set_content(page_markup('proof.php',script,MOCK))
-  await page.wait_for_timeout(300)
-  check('claim loaded',await page.locator('#proof-prize-title').inner_text()=='Camera Prize')
-  check('baseline snapshot requested',await page.evaluate("(window.__post||{}).claim==='"+CID+"'"))
-  check('capture scoped to claim',await page.evaluate("(window.__captureArgs||[])[1]==='"+CID+"'"))
-  check('history available',await page.locator('.proof-revision-item').count()==1)
-  await page.locator('#proof-note').fill('New angle recording')
+  page.set_default_timeout(4000)
+  page.on('pageerror',lambda err:errors.append(str(err)))
+  proof_script=(BASE/'public/proof.js').read_text().replace('new URL(location.href).searchParams', f"new URLSearchParams('session={SID}&claim={CID}')")
+  markup=html_page('proof.php',proof_script,MOCK)
+  await page.set_content(markup,wait_until='domcontentloaded')
+  await page.wait_for_timeout(350)
+  ok('claim context loaded on proof page',await page.locator('#proof-prize-title').inner_text()=='Camera Prize')
+  ok('baseline created idempotently',await page.evaluate("window.__post?.claim==='"+CID+"'"))
+  ok('capture controls receive exact claim',await page.evaluate("window.__captureArgs?.[1]==='"+CID+"'"))
+  ok('revision history shown',await page.locator('.proof-revision-item').count()==1)
+  await page.locator('#proof-note').fill('Reshot front angle')
   await page.locator('#proof-save').click()
   await page.wait_for_timeout(100)
-  check('revision note submitted',await page.evaluate("(window.__post||{}).note==='New angle recording'"))
-  check('proof responsive',await page.evaluate('document.documentElement.scrollWidth<=innerWidth+1'))
+  ok('save sent with revision note',await page.evaluate("window.__post?.note==='Reshot front angle'"))
+  ok('proof view has no horizontal overflow',await page.evaluate('document.documentElement.scrollWidth <= innerWidth+1'))
   await browser.close()
- check('no JS errors',not errors)
- for label,value in checks:print(('PASS ' if value else 'FAIL ')+label)
- if errors:print('JavaScript exceptions',errors)
- print('V5Q.6 browser:',sum(v for _,v in checks),'/',len(checks))
- if not all(v for _,v in checks):raise SystemExit(1)
-if __name__=='__main__':asyncio.run(run())
+ ok('no uncaught JS exceptions',not errors)
+ for label,v in tests:print(('PASS' if v else 'FAIL'),label)
+ if errors:print('Browser errors:',errors)
+ print('V5Q6 browser:',sum(x for _,x in tests),'/',len(tests))
+ if not all(v for _,v in tests):raise SystemExit(1)
+if __name__=='__main__':asyncio.run(main())

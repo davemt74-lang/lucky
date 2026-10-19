@@ -1,3 +1,7 @@
+## V5Q.7 — Tabbed Host Workspace and Full-Screen Editor
+
+The host screen now has Game (default), Music and Connected Phones tabs on the left, with the claimed-prize/proof-history list permanently on the right. The video editor has a full-screen timeline workspace with an integrated inspector and MP4 export dock. Phone arrow navigation shares keyboard/gamepad focus behavior. See `docs/V5Q7_WORKSPACE.md`.
+
 # Lucky Game Hub V5Q.6 — Proof Revision Studio and Live Game Controls
 
 The latest full deployment includes immutable claim-linked proof revision history, a full-screen **Edit proof** page, a **Needs revision** marker, a claimed-prize ledger above the wheel, and Music / Connected Phones tabs. The existing multi-camera prize capture, phone controller, music library, and video timeline remain available.
