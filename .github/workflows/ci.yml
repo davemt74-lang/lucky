@@ -44,6 +44,8 @@ jobs:
           CHROME=$(find "$HOME/.cache/ms-playwright" -type f -name chrome -path '*chrome-linux64*' | head -1)
           test -x "$CHROME"
           sudo ln -sf "$CHROME" /usr/bin/chromium
+      - name: Prepare local artifact folder
+        run: sudo mkdir -p /mnt/data && sudo chown "$USER" /mnt/data
       - name: Proof capture and timeline regressions
         run: |
           python tests/proof_admin_browser.py
@@ -62,6 +64,8 @@ jobs:
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
+      - name: Install FFmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y ffmpeg
       - name: FFmpeg smoke encode
         run: |
           ffmpeg -hide_banner -v error -y -f lavfi -i color=c=blue:s=320x180:r=30 -f lavfi -i anullsrc -t 1 -c:v libx264 -c:a aac -shortest /tmp/lucky-smoke.mp4
