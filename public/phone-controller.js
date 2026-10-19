@@ -41,7 +41,9 @@
   if(proofMode)proofMode.hidden=!proof;
   if(audio)audio.hidden=proof||offer;
   if(offerMode)offerMode.hidden=!offer;
-  if(offer&&$('phone-offer-name'))$('phone-offer-name').textContent=game.offer.name+' · 
+  if(offer&&$('phone-offer-name'))$('phone-offer-name').textContent=game.offer.name+' · $'+(Number(game.offer.cents)/100).toFixed(2);
+ }
+ function updateGame(current){
   if(!current)return;game=current;applyMode();
   const panel=$('phone-game-state');if(!panel)return;
   const status=current.status==='active'?'PLAYING':current.status==='paused'?'PAUSED':current.status==='ended'?'GAME ENDED':'READY';
