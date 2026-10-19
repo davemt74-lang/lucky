@@ -1,3 +1,11 @@
+# Lucky Game Hub V5Q.6 — Proof Revision Studio and Live Game Controls
+
+The latest full deployment includes immutable claim-linked proof revision history, a full-screen **Edit proof** page, a **Needs revision** marker, a claimed-prize ledger above the wheel, and Music / Connected Phones tabs. The existing multi-camera prize capture, phone controller, music library, and video timeline remain available.
+
+**Update:** Back up the MySQL database and `storage/`, replace application files, preserve `storage/config.php` and original media, then run `upgrade.php`.
+
+**Details:** [V5Q.6 proof revision and layout guide](docs/V5Q6_PROOF_REVISIONS.md). Full source, tests and release workflows are included.
+
 # Lucky Game Hub V5Q.5 — Post-game Highlights & Draft Limits
 
 This full deployment includes the previous private PHP/MySQL home gaming platform, wireless phone controls, and the **per-prize proof camera capture/timeline upgrade**. Each prize can define up to four proof camera angles; the number actually recorded matches the checked active cameras at the game host. Automatic recording rotates through camera views with a five-second countdown before each, per-angle duration, next camera announcement, and independently labeled timeline clips. Cameras can be named locally and clips can be reordered/trimmed in the private editor.

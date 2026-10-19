@@ -2,6 +2,7 @@
  'use strict';
  const L=window.Lucky,$=L.$;
  const wheel=new LuckyWheel($('live-wheel'));
+ let proofStates={},proofSessionId='',proofPending=false;
  let data=null,busy=false,stopVoice=null,lastVersion=0,activeId='',viewerUrl='',syncedSpin=0,initialSync=true,syncPending=false;
  const msg=(s,bad=false)=>L.note(bad?'game-error':'game-message',s,bad);
  function toSlices(view){
@@ -21,8 +22,11 @@
   $('end-game').disabled=busy||!view||!['active','paused'].includes(view.status);
   $('game-state').textContent=!view?'READY FOR NEW GAME':active?`ACTIVE GAME · ${view.spinCount} SPINS`:view.status==='paused'?'GAME PAUSED':'GAME ENDED';
   const items=(view?.claims||[]).slice().reverse();$('session-totals').textContent=`${items.length} claimed · ${L.money(items.reduce((n,p)=>n+p.cents,0))} awarded`;
-  const root=$('claim-list');root.replaceChildren();items.slice(0,12).forEach(c=>{const e=document.createElement('div');e.className='platform-claim';
-    const a=document.createElement('strong');a.textContent=c.name;const b=document.createElement('span');b.textContent=`${c.tier.toUpperCase()} · ${L.money(c.cents)}`;e.append(a,b);root.append(e);});
+  const root=$('claim-list');root.replaceChildren();if(!items.length){const empty=document.createElement('p');empty.textContent='No prizes claimed yet. Spin the wheel to begin.';root.append(empty);}
+  for(const c of items){const row=document.createElement('div');row.className='platform-claim claim-proof-row';const info=document.createElement('div');info.className='claim-proof-info';const name=document.createElement('strong');name.textContent=c.name;
+   const amount=document.createElement('span');amount.textContent=`${c.tier.toUpperCase()} · ${L.money(c.cents)}`;info.append(name,amount);
+   const state=proofStates[c.id];if(state?.needsRevision){const flag=document.createElement('span');flag.className='proof-revision-needed';flag.textContent='Needs revision';info.append(flag);}else if(state?.latestRevision){const flag=document.createElement('span');flag.textContent=`Proof v${state.latestRevision}`;info.append(flag);}
+   const edit=document.createElement('a');edit.href=`proof.php?session=${encodeURIComponent(view.id)}&claim=${encodeURIComponent(c.id)}`;edit.textContent=state?.needsRevision?'Revise proof':'Edit proof';edit.className='btn btn-outline';row.append(info,edit);root.append(row);}
   if(!busy)wheel.setSlices(toSlices(view));
   if(data?.view?.id){$('open-game-editor').href='editor.php?session='+encodeURIComponent(data.view.id);}else $('open-game-editor').href='editor.php';
   const finished=view?.status==='ended';
@@ -33,9 +37,11 @@
     viewerUrl=url.href;$('share-display').hidden=false;$('viewer-link').value=viewerUrl;$('open-viewer').href=viewerUrl;
   }else $('share-display').hidden=true;
  }
+ async function updateProofStates(){const session=data?.view?.id;if(!session){proofStates={};proofSessionId='';return;}
+  if(proofPending)return;proofPending=true;try{const r=await fetch('api/claim-proof.php?action=summary&session='+encodeURIComponent(session),{credentials:'same-origin'});const out=await r.json();if(out.ok&&data?.view?.id===session){proofStates=out.states||{};proofSessionId=session;render();}}catch(_){/* Optional proof status recovers on next refresh. */}finally{proofPending=false;}}
  async function refresh(){const r=await L.api('last');
   data=r.data||null;lastVersion=data?.view?.version||0;activeId=data?.view?.id||'';
-  syncedSpin=data?.view?.lastSpin?.spinCount||0;initialSync=false;render();
+  syncedSpin=data?.view?.lastSpin?.spinCount||0;initialSync=false;render();updateProofStates();
  }
  // The phone applies gameplay on the server. The desktop must animate the persisted
  // result instead of trying to replay the command and awarding the prize twice.
@@ -48,7 +54,7 @@
    const spin=view.lastSpin;
    const age=spin?.at?Date.now()-Date.parse(spin.at):Infinity;
    const shouldAnimate=!!spin&&(spin.spinCount>(changedId?0:syncedSpin))&&age>=-5000&&age<7500;
-   activeId=view.id;lastVersion=view.version;data=fresh;
+   activeId=view.id;lastVersion=view.version;data=fresh;updateProofStates();
    if(shouldAnimate){
     syncedSpin=spin.spinCount;busy=true;msg('A phone started a wheel spin. Syncing the result…');render();
     try{
@@ -66,7 +72,7 @@
   }catch(e){msg('Game sync retrying: '+e.message,true);}finally{syncPending=false;}
  }
  async function start(){if(busy||data?.view?.status==='active')return;busy=true;render();
-  try{const r=await L.api('start',{body:{game:'spin-wheel'}});data=r.data;activeId=data.view.id;lastVersion=data.view.version;syncedSpin=0;msg('Game started! Spin whenever you are ready.');L.beep('bonus');L.speak('Welcome to Spin the Wheel. Start spinning!');}
+  try{const r=await L.api('start',{body:{game:'spin-wheel'}});data=r.data;activeId=data.view.id;lastVersion=data.view.version;syncedSpin=0;proofStates={};updateProofStates();msg('Game started! Spin whenever you are ready.');L.beep('bonus');L.speak('Welcome to Spin the Wheel. Start spinning!');}
   catch(e){msg(e.message,true);}finally{busy=false;render();}}
  function openPrize(c){const dialog=$('win-dialog');$('win-name').textContent=c.name;$('win-value').textContent=L.money(c.cents);
   $('win-tier').textContent=c.tier==='bonus'?'BONUS PRIZE':c.tier==='tier2'?'TIER 2':'TIER 1';
@@ -80,7 +86,7 @@
    const id=data.view.id,r=await L.api('spin',{body:{id,idempotencyKey:L.idempotency()}});
    const event=r.result.event,animation=event.animation;
    L.beep('tick');await wheel.spinTo(animation.index,animation.slices,matchMedia('(prefers-reduced-motion: reduce)').matches?350:3900);
-   data=(await L.api('session',{query:{id}}));lastVersion=data.view.version;syncedSpin=data.view.lastSpin?.spinCount||0;
+   data=(await L.api('session',{query:{id}}));updateProofStates();lastVersion=data.view.version;syncedSpin=data.view.lastSpin?.spinCount||0;
    if(event.type==='bonus_trigger'){msg('✧ BONUS ROUND! Spin again to reveal the bonus prize.');L.beep('bonus');L.speak('Surprise bonus round!');}
    else {msg(`🎉 ${event.claim.name} · ${L.money(event.claim.cents)} claimed!`);L.beep('win');openPrize(event.claim);
     if($('speak-winners').checked)L.speak(`Congratulations! You won ${event.claim.name}!`);}
@@ -182,6 +188,9 @@
      default:return false;
    }
  }
+ function setHostTab(which){for(const option of ['music','phones']){const active=option===which;const tab=$('host-tab-'+option),panel=$('host-panel-'+option);tab.setAttribute('aria-selected',String(active));tab.tabIndex=active?0:-1;panel.hidden=!active;}}
+ for(const option of ['music','phones']){$('host-tab-'+option).onclick=()=>setHostTab(option);$('host-tab-'+option).onkeydown=e=>{if(e.key!=='ArrowLeft'&&e.key!=='ArrowRight')return;e.preventDefault();const next=option==='music'?'phones':'music';setHostTab(next);$('host-tab-'+next).focus();};}
+ window.addEventListener('lucky:paired-phones',e=>{$('connected-phone-count').textContent=e.detail?.count?`(${e.detail.count})`:'';});
  window.LuckyHostRemote=remoteCommand;
  $('start-game').onclick=start;$('spin-game').onclick=spin;$('pause-game').onclick=pause;$('end-game').onclick=end;
  $('copy-viewer').onclick=()=>{navigator.clipboard?.writeText(viewerUrl).then(()=>msg('Display link copied.')).catch(()=>{$('viewer-link').select();});};
