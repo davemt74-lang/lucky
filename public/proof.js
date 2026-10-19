@@ -11,7 +11,8 @@
  const returnUrl=()=>!session?'game.php':from==='claims'?'claims.php?session='+encodeURIComponent(session):'game.php?session='+encodeURIComponent(session);
  let busy=false,proofBusy=false;
  async function publishProof(){if(proofBusy||!/^[a-f0-9]{32}$/.test(session)||!/^[a-f0-9]{32}$/.test(claim))return;
-  proofBusy=true;try{const me=await L.getMe();await fetch('api/controller.php?action=proof_state',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF-Token':me.csrf},body:JSON.stringify({session,claim,open:true})});}catch(_){/* Basic editing still available without the pairing upgrade. */}finally{proofBusy=false;}}
+  proofBusy=true;try{const me=await L.getMe();await fetch('api/controller.php?action=proof_state',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF-Token':me.csrf},body:JSON.stringify({session,claim,open:true,reviewCount:window.LuckyCapture?.reviewCount?.()||0})});}catch(_){/* Basic editing still available without the pairing upgrade. */}finally{proofBusy=false;}}
+ window.addEventListener('lucky:proof-review',publishProof);
  setInterval(()=>{if(!$('win-dialog')?.hidden&&document.visibilityState==='visible')publishProof();},3500);
  window.addEventListener('pagehide',()=>{const data=JSON.stringify({session,claim,open:false});L.getMe().then(me=>fetch('api/controller.php?action=proof_state',{method:'POST',credentials:'same-origin',keepalive:true,headers:{'Content-Type':'application/json','X-CSRF-Token':me.csrf},body:data})).catch(()=>{});});
 

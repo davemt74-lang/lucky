@@ -49,6 +49,9 @@
   const accordion=$('phone-proof-controls');if(!accordion)return;
   const showing=!!proof?.active;
   if(accordion.hidden===showing){accordion.hidden=!showing;if(!showing)accordion.open=false;}
+  const reviewing=showing&&Number(proof.reviewCount)>0;
+  if($('phone-proof-recording'))$('phone-proof-recording').hidden=reviewing;
+  if($('phone-proof-review'))$('phone-proof-review').hidden=!reviewing;
  }
  async function send(action){if(!active)return;
   if(busy||pendingCommand){if(commandQueue.length>=16){message('Too many pending controls. Wait for the screen to respond.',true);return;}commandQueue.push(action);message(`Waiting… (${commandQueue.length} queued)`);return;}

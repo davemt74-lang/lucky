@@ -95,10 +95,11 @@
   if(proofHeartbeatBusy)return;const session=data?.view?.id,dialog=$('win-dialog');const claimId=dialog?.dataset.claimId;
   if(!session||!claimId)return;
   proofHeartbeatBusy=true;
-  try{const me=await L.getMe();const r=await fetch('api/controller.php?action=proof_state',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF-Token':me.csrf},body:JSON.stringify({session,claim:claimId,open})});if(!r.ok){const x=await r.json();throw Error(x.error||'Proof controls unavailable.');}}
+  try{const me=await L.getMe();const r=await fetch('api/controller.php?action=proof_state',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF-Token':me.csrf},body:JSON.stringify({session,claim:claimId,open,reviewCount:window.LuckyCapture?.reviewCount?.()||0})});if(!r.ok){const x=await r.json();throw Error(x.error||'Proof controls unavailable.');}}
   catch(e){if(open)console.warn('Phone proof controls:',e.message);}finally{proofHeartbeatBusy=false;}
  }
  setInterval(()=>{if($('win-dialog').open)publishProofState(true);},3500);
+ window.addEventListener('lucky:proof-review',()=>{if($('win-dialog').open)publishProofState(true);});
  $('win-dialog').addEventListener('close',()=>{publishProofState(false);delete $('win-dialog').dataset.claimId;});
  function openPrize(c){const dialog=$('win-dialog');dialog.dataset.claimId=c.id;$('win-name').textContent=c.name;$('win-value').textContent=L.money(c.cents);
   $('win-tier').textContent=c.tier==='bonus'?'BONUS PRIZE':c.tier==='tier2'?'TIER 2':'TIER 1';

@@ -72,11 +72,11 @@ try {
    $proof=null;
    if($status==='paired'){
     if(!SchemaGuard::missing($db,['controller_proof_state'])){
-    $q=$db->prepare("SELECT s.session_id,s.claim_id,s.is_open FROM controller_proof_state s WHERE s.host_admin_id=? AND s.is_open=1 AND s.updated_at>UTC_TIMESTAMP()-INTERVAL 12 SECOND ORDER BY s.updated_at DESC LIMIT 1");
+    $q=$db->prepare("SELECT s.session_id,s.claim_id,s.is_open,s.review_count FROM controller_proof_state s WHERE s.host_admin_id=? AND s.is_open=1 AND s.updated_at>UTC_TIMESTAMP()-INTERVAL 12 SECOND ORDER BY s.updated_at DESC LIMIT 1");
     $current=ControllerGame::snapshot($db);$q->execute([(int)$p['host_admin_id']]);$proof=$q->fetch()?:null;
     }
    }
-   success(['status'=>$status,'deviceName'=>$p['device_name'],'expiresAt'=>$p['paired_expires_at'],'game'=>$status==='paired'?($current??ControllerGame::snapshot($db)):null,'proof'=>$proof?['active'=>true,'claimId'=>$proof['claim_id']]:['active'=>false],'delivery'=>$delivery,'reason'=>$reason??null]);
+   success(['status'=>$status,'deviceName'=>$p['device_name'],'expiresAt'=>$p['paired_expires_at'],'game'=>$status==='paired'?($current??ControllerGame::snapshot($db)):null,'proof'=>$proof?['active'=>true,'claimId'=>$proof['claim_id'],'reviewCount'=>(int)$proof['review_count']]:['active'=>false],'delivery'=>$delivery,'reason'=>$reason??null]);
   }
   if($action==='disconnect'){
    $db->beginTransaction();try{
@@ -157,12 +157,12 @@ try {
  requireAdmin();assertCsrf();$adminId=(int)$_SESSION['admin_id'];
  if($action==='proof_state'){
   SchemaGuard::require($db,['controller_proof_state'],'Live prize proof controls');
-  $session=(string)($in['session']??'');$claim=(string)($in['claim']??'');$open=($in['open']??false)===true;
+  $session=(string)($in['session']??'');$claim=(string)($in['claim']??'');$open=($in['open']??false)===true;$reviewCount=max(0,min(4,(int)($in['reviewCount']??0))); 
   ControllerPairing::checkId($session);
   sessionRow($db,$session);
   if($open){ControllerPairing::checkId($claim);$q=$db->prepare('SELECT id FROM game_claims WHERE id=? AND session_id=?');$q->execute([$claim,$session]);if(!$q->fetch())throw new DomainException('Claim does not belong to this session.',403);}
-  $q=$db->prepare('INSERT INTO controller_proof_state(session_id,host_admin_id,claim_id,is_open,updated_at) VALUES (?,?,?,?,UTC_TIMESTAMP()) ON DUPLICATE KEY UPDATE host_admin_id=VALUES(host_admin_id),claim_id=VALUES(claim_id),is_open=VALUES(is_open),updated_at=UTC_TIMESTAMP()');
-  $q->execute([$session,$adminId,$open?$claim:null,$open?1:0]);success(['active'=>$open]);
+  $q=$db->prepare('INSERT INTO controller_proof_state(session_id,host_admin_id,claim_id,is_open,review_count,updated_at) VALUES (?,?,?,?,?,UTC_TIMESTAMP()) ON DUPLICATE KEY UPDATE host_admin_id=VALUES(host_admin_id),claim_id=VALUES(claim_id),is_open=VALUES(is_open),review_count=VALUES(review_count),updated_at=UTC_TIMESTAMP()');
+  $q->execute([$session,$adminId,$open?$claim:null,$open?1:0,$open?$reviewCount:0]);success(['active'=>$open]);
  }
  if($action==='invite'){
   $db->beginTransaction();try{

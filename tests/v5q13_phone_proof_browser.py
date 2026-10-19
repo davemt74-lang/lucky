@@ -5,10 +5,10 @@ from playwright.async_api import async_playwright
 ROOT=Path(__file__).resolve().parents[1]
 ID='a'*32;SECRET='b'*64;CID='c'*32
 MOCK='''<script>
-window.__commands=[];window.__proofOpen=false;
+window.__commands=[];window.__proofOpen=false;window.__reviewReady=false;
 window.fetch=async(url,opts={})=>{const action=new URL(String(url),'https://example.test/').searchParams.get('action');
  if(action==='claim')return new Response(JSON.stringify({ok:true,id:'PAIR_ID',controllerToken:'TOKEN'}));
- if(action==='status')return new Response(JSON.stringify({ok:true,status:'paired',proof:{active:__proofOpen,claimId:'CLAIM_ID'},game:{status:'active',spinCount:1,claimedCount:1,remaining:4,canSpin:true}}));
+ if(action==='status')return new Response(JSON.stringify({ok:true,status:'paired',proof:{active:__proofOpen,claimId:'CLAIM_ID',reviewCount:__reviewReady?1:0},game:{status:'active',spinCount:1,claimedCount:1,remaining:4,canSpin:true}}));
  if(action==='command'){const body=JSON.parse(opts.body);__commands.push(body.command);return new Response(JSON.stringify({ok:true,applied:true,effect:'updated'}));}
  return new Response(JSON.stringify({ok:true}));};
 </script>'''.replace('PAIR_ID',ID).replace('CLAIM_ID',CID).replace('TOKEN',SECRET)
@@ -33,6 +33,10 @@ async def run():
   ok('proof accordion closed by default',not await page.locator('#phone-proof-controls').evaluate('(e)=>e.open'))
   await page.locator('#phone-proof-controls summary').click()
   ok('user can expand the proof accordion',await page.locator('#phone-proof-controls').evaluate('(e)=>e.open'))
+  ok('record buttons available before review',await page.locator('#phone-proof-recording').is_visible())
+  ok('approval controls hidden before review',await page.locator('#phone-proof-review').is_hidden())
+  await page.evaluate('__reviewReady=true');await page.wait_for_timeout(900)
+  ok('review buttons replace record buttons',await page.locator('#phone-proof-review').is_visible() and await page.locator('#phone-proof-recording').is_hidden())
   await page.locator('[data-phone="proof-approve"]').click()
   await page.wait_for_timeout(100)
   ok('Approve sent as phone command',await page.evaluate("__commands.includes('proof-approve')"))
