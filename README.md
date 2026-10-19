@@ -123,3 +123,15 @@ The Host Game page now fills the browser, including its header; the four quick l
 ## V5Q.10 game-first navigation
 
 Host Game now uses just Game and Music tabs; phone pairing and approvals live prominently on Devices. The global navigation no longer repeats Host Game or Claims. Prize history must be opened within a specific session (`claims.php?session=<32-hex-id>`). Read `docs/V5Q10_NAVIGATION.md`.
+
+
+### V5Q.11 — In-game controller restoration
+
+The Host Game screen includes Game, Music and Connected Phones tabs. The third tab restores QR pairing, pending approvals, and disconnect controls without leaving the game. `devices.php` remains the complete controller/hardware management area. The release tag now lives in the footer menu rather than the main header. No database changes are required for this update.
+
+
+### V5Q.12 — Prize proof routing repair
+
+The Host Game claimed-prizes ledger links to proof.php using the real claim ID from the authenticated game session. The public/TV view intentionally lacks those IDs, so it must not be used to construct proof links. The proof page validates the exact session and claim before allowing uploads or recording. Camera previews use browser camera permission and do not require recording consent; recording/uploads still require consent.
+
+V5Q.12 restores the in-game Phones tab and places the version in the footer. The Edit Proof link now uses signed-in session claim IDs; do not use public TV claim summaries as sources for proof links.

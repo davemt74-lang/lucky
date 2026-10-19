@@ -21,7 +21,9 @@
   $('pause-game').textContent=view?.status==='paused'?'▶ Resume':'Ⅱ Pause';
   $('end-game').disabled=busy||!view||!['active','paused'].includes(view.status);
   $('game-state').textContent=!view?'READY FOR NEW GAME':active?`ACTIVE GAME · ${view.spinCount} SPINS`:view.status==='paused'?'GAME PAUSED':'GAME ENDED';
-  const items=(view?.claims||[]).slice().reverse();
+  // The public TV view intentionally omits claim IDs. The signed-in session owns
+  // the authoritative claim IDs required for proof capture and revision history.
+  const items=(data?.session?.claims||[]).slice().reverse();
   // Count the actual unclaimed prize values across all three configured tiers.
   // Pool budgets can include unused money and must not be treated as winnable prizes.
   const claimed=(data?.session?.claims||[]);
@@ -37,7 +39,7 @@
   for(const c of items){const row=document.createElement('div');row.className='platform-claim claim-proof-row';const info=document.createElement('div');info.className='claim-proof-info';const name=document.createElement('strong');name.textContent=c.name;
    const amount=document.createElement('span');amount.textContent=`${c.tier.toUpperCase()} · ${L.money(c.cents)}`;info.append(name,amount);
    const state=proofStates[c.id];if(state?.needsRevision){const flag=document.createElement('span');flag.className='proof-revision-needed';flag.textContent='Needs revision';info.append(flag);}else if(state?.latestRevision){const flag=document.createElement('span');flag.textContent=`Proof v${state.latestRevision}`;info.append(flag);}
-   const edit=document.createElement('a');edit.href=`proof.php?session=${encodeURIComponent(view.id)}&claim=${encodeURIComponent(c.id)}&from=game`;
+   const edit=document.createElement('a');if(!/^[a-f0-9]{32}$/.test(c.id)){edit.textContent='Proof unavailable';edit.className='btn btn-outline';edit.setAttribute('aria-disabled','true');row.append(info,edit);root.append(row);continue;}edit.href=`proof.php?session=${encodeURIComponent(view.id)}&claim=${encodeURIComponent(c.id)}&from=game`;
    edit.addEventListener('click',()=>{try{sessionStorage.setItem('lucky-proof-origin',JSON.stringify({session:view.id,claim:c.id,from:'game',at:Date.now()}));}catch(_){}});edit.textContent=state?.needsRevision?'Revise proof':'Edit proof';edit.className='btn btn-outline';row.append(info,edit);root.append(row);}
   if(!busy)wheel.setSlices(toSlices(view));
   if(data?.view?.id){$('open-game-editor').href='editor.php?session='+encodeURIComponent(data.view.id);}else $('open-game-editor').href='editor.php';
@@ -200,7 +202,7 @@
      default:return false;
    }
  }
- const hostTabs=['game','music'];
+ const hostTabs=['game','music','phones'];
  function setHostTab(which,{focus=false}={}){
    if(!hostTabs.includes(which))return false;
    for(const option of hostTabs){const active=option===which,tab=$('host-tab-'+option),panel=$('host-panel-'+option);
@@ -219,6 +221,7 @@
  }
  window.LuckyHostTabs=Object.freeze({activate:setHostTab,items:hostTabs});
  
+ window.addEventListener('lucky:paired-phones',e=>{const count=$('host-phone-count');if(count)count.textContent=Number(e.detail?.count||0)>0?String(e.detail.count):'';});
  window.LuckyHostRemote=remoteCommand;
  $('start-game').onclick=start;$('spin-game').onclick=spin;$('pause-game').onclick=pause;$('end-game').onclick=end;
  $('copy-viewer').onclick=()=>{navigator.clipboard?.writeText(viewerUrl).then(()=>msg('Display link copied.')).catch(()=>{$('viewer-link').select();});};
