@@ -80,6 +80,7 @@ try {
   }
   if($action==='prize_offer'){
    requireAdmin();$session=(string)($_GET['session']??'');sessionRow($db,$session);
+   PrizeDecision::requireReady($db);
    success(['offer'=>PrizeDecision::latest($db,$session)]);
   }
   if($action==='session')success(getSessionView($db,strval($_GET['id']??'')));
@@ -108,7 +109,7 @@ try {
  if($action==='logout') {session_unset();session_destroy();success(['loggedOut'=>true]);}
  if($action==='prize_decide'){
   $data=jsonInput();$session=(string)($data['session']??'');$claim=(string)($data['claim']??'');$choice=(string)($data['choice']??'');
-  sessionRow($db,$session);if(!preg_match('/^[a-f0-9]{32}$/D',$claim))throw new DomainException('Invalid claim ID.',400);
+  sessionRow($db,$session);PrizeDecision::requireReady($db);if(!preg_match('/^[a-f0-9]{32}$/D',$claim))throw new DomainException('Invalid claim ID.',400);
   $db->beginTransaction();try{
    $offer=PrizeDecision::pending($db,$session,true);
    if(!$offer||$offer['claim_id']!==$claim)throw new DomainException('This prize is not awaiting a decision.',409);
@@ -217,6 +218,7 @@ try {
   success(['sessionId'=>$s['id'],'claims'=>count($s['claims'])],201);
  }
  if($action==='start'){
+  PrizeDecision::requireReady($db);
   $game=strval($in['game']??'spin-wheel');if($game!=='spin-wheel')throw new DomainException('Game not available.');
   $db->beginTransaction();try{
    $db->query("SELECT game_id FROM game_settings WHERE game_id='spin-wheel' FOR UPDATE")->fetch();

@@ -13,8 +13,11 @@ final class ControllerGame {
   return self::current($db)?:($db->query("SELECT * FROM game_sessions WHERE game_id='spin-wheel' ORDER BY created_at DESC,id DESC LIMIT 1")->fetch()?:null);
  }
  public static function snapshot(PDO $db):array {
+  // Existing installations may not yet have run the V5Q.15B migration.
+  // Keep the paired controller alive while disabling unsafe prize actions.
+  $prizeReady=PrizeDecision::available($db);
   $row=self::latest($db);
-  if(!$row)return ['offer'=>null,'id'=>null,'game'=>'spin-wheel','status'=>'ready','version'=>0,'spinCount'=>0,'claimedCount'=>0,'claimedCents'=>0,'remaining'=>0,'pendingBonus'=>false,'lastPrize'=>null,'spinning'=>false,'canStart'=>true,'canSpin'=>false];
+  if(!$row)return ['offer'=>null,'upgradeRequired'=>!$prizeReady,'id'=>null,'game'=>'spin-wheel','status'=>'ready','version'=>0,'spinCount'=>0,'claimedCount'=>0,'claimedCents'=>0,'remaining'=>0,'pendingBonus'=>false,'lastPrize'=>null,'spinning'=>false,'canStart'=>$prizeReady,'canSpin'=>false];
   $state=stateFromRow($row);$view=GameRegistry::module($state['game'])->publicView($state);
   $last=$state['lastSpin']??null;$spinning=!!$last&&((time()-strtotime($last['at']??'1970-01-01'))<4);
   $claimed=$view['claims']??[];
@@ -23,8 +26,8 @@ final class ControllerGame {
    'spinCount'=>$view['spinCount'],'claimedCount'=>count($claimed),'claimedCents'=>array_sum(array_column($claimed,'cents')),
    'remaining'=>count(array_filter($view['slots'],fn($s)=>!empty($s['tier']))),
    'pendingBonus'=>$view['pendingBonus'],'lastPrize'=>$claimed?end($claimed)['name']:null,
-   'spinning'=>$spinning,'offer'=>PrizeDecision::latest($db,$state['id']),'canStart'=>in_array($view['status'],['ended'],true),
-   'canSpin'=>$view['status']==='active'&&!$spinning&&!PrizeDecision::pending($db,$state['id'])&&(count(array_filter($view['slots'],fn($s)=>!empty($s['tier'])))>0||$view['pendingBonus']||($state['odds']['bonusChance']>0&&self::hasBonus($state))),
+   'spinning'=>$spinning,'offer'=>$prizeReady?PrizeDecision::latest($db,$state['id']):null,'upgradeRequired'=>!$prizeReady,'canStart'=>$prizeReady&&in_array($view['status'],['ended'],true),
+   'canSpin'=>$prizeReady&&$view['status']==='active'&&!$spinning&&!PrizeDecision::pending($db,$state['id'])&&(count(array_filter($view['slots'],fn($s)=>!empty($s['tier'])))>0||$view['pendingBonus']||($state['odds']['bonusChance']>0&&self::hasBonus($state))),
   ];
  }
  private static function hasBonus(array $state):bool {
@@ -37,6 +40,7 @@ final class ControllerGame {
    throw new DomainException('The wheel is finishing its last spin. Try again in a moment.',409);
  }
  public static function apply(PDO $db,string $command,string $pairId,string $nonce,int $hostAdminId):array {
+  if(in_array($command,['start','spin','select','prize-accept','prize-decline'],true))PrizeDecision::requireReady($db);
   // The caller already holds the controller pairing row under a transaction.
   // Lock the shared game settings before creating a session, like api/index.php.
   if($command==='start'||$command==='select'||$command==='spin'){

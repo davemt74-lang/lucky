@@ -21,11 +21,11 @@ if(($_SERVER['REQUEST_METHOD']??'')==='POST'){
   if(!$db->query("SHOW COLUMNS FROM claim_media LIKE 'angle_index'")->fetch())
     $db->exec("ALTER TABLE claim_media ADD COLUMN angle_index TINYINT UNSIGNED NOT NULL DEFAULT 0 AFTER angle_label");
   audit($db,'platform.upgrade-v5q3');
-  $message='V5Q.6 proof revisions, video render queue and timelines are ready. Re-running the migrations is safe.';
+  $message='Database upgrade complete, including V5Q.15B prize acceptance and phone controller tables. Refresh the phone controller.';
  }catch(Throwable $e){$failed=true;$message='Upgrade did not complete: '.$e->getMessage();error_log('Lucky migration: '.$e->getMessage());}
 }
 shellStart('Upgrade Platform');
-?><section class="platform-narrow"><p class="eyebrow">HOST SETUP</p><h1>V5Q.6 Proof Revision Upgrade</h1><p>For existing V5P.2 installs, this adds private prize-claim media and game video timeline tables, as well as prior migrations when needed. Your games, music, prizes, and claimed history are preserved. Back up the database before upgrading.</p>
+?><section class="platform-narrow"><p class="eyebrow">HOST SETUP</p><h1>Lucky Game Hub Database Upgrade</h1><p>For existing installations, apply pending database changes including V5Q.15B prize acceptance and phone controller pairing support. Your games, prizes and history are preserved. Back up the database before upgrading.</p>
 <?php if($message):?><p class="<?= $failed?'platform-error':'voice-status' ?>" role="status"><?=h($message)?></p><?php endif; ?>
-<form method="post"><input type="hidden" name="csrf" value="<?=h(csrf())?>"><button class="btn btn-primary">Run V5Q.6 database upgrade</button></form>
+<form method="post"><input type="hidden" name="csrf" value="<?=h(csrf())?>"><button class="btn btn-primary">Run database upgrade</button></form>
 <p><a class="btn btn-outline" href="index.php">← Back to Games</a></p></section><?php shellEnd(); ?>
