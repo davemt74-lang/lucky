@@ -85,14 +85,26 @@
    }else{syncedSpin=spin?.spinCount||0;render();}
   }catch(e){msg('Game sync retrying: '+e.message,true);}finally{syncPending=false;}
  }
- async function start(){if(busy||data?.view?.status==='active')return;busy=true;render();
+ async function start(){if(busy||data?.view?.status==='active')return;
+  // Camera request begins during the host's direct Start Game gesture, not at prize reveal.
+  window.LuckyCapture?.prime?.().catch(()=>{});busy=true;render();
   try{const r=await L.api('start',{body:{game:'spin-wheel'}});data=r.data;if(new URL(location.href).searchParams.has('session'))history.replaceState(null,'','game.php?session='+encodeURIComponent(data.view.id));activeId=data.view.id;lastVersion=data.view.version;syncedSpin=0;proofStates={};updateProofStates();msg('Game started! Spin whenever you are ready.');L.beep('bonus');L.speak('Welcome to Spin the Wheel. Start spinning!');}
   catch(e){msg(e.message,true);}finally{busy=false;render();}}
- function openPrize(c){const dialog=$('win-dialog');$('win-name').textContent=c.name;$('win-value').textContent=L.money(c.cents);
+ let proofHeartbeatBusy=false;
+ async function publishProofState(open){
+  if(proofHeartbeatBusy)return;const session=data?.view?.id,dialog=$('win-dialog');const claimId=dialog?.dataset.claimId;
+  if(!session||!claimId)return;
+  proofHeartbeatBusy=true;
+  try{const me=await L.getMe();const r=await fetch('api/controller.php?action=proof_state',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF-Token':me.csrf},body:JSON.stringify({session,claim:claimId,open})});if(!r.ok){const x=await r.json();throw Error(x.error||'Proof controls unavailable.');}}
+  catch(e){if(open)console.warn('Phone proof controls:',e.message);}finally{proofHeartbeatBusy=false;}
+ }
+ setInterval(()=>{if($('win-dialog').open)publishProofState(true);},3500);
+ $('win-dialog').addEventListener('close',()=>{publishProofState(false);delete $('win-dialog').dataset.claimId;});
+ function openPrize(c){const dialog=$('win-dialog');dialog.dataset.claimId=c.id;$('win-name').textContent=c.name;$('win-value').textContent=L.money(c.cents);
   $('win-tier').textContent=c.tier==='bonus'?'BONUS PRIZE':c.tier==='tier2'?'TIER 2':'TIER 1';
   const link=$('win-link');link.hidden=!c.url;if(c.url)link.href=c.url;else link.removeAttribute('href');
   const img=$('win-image');img.hidden=!c.image;if(c.image)img.src=c.image;else img.removeAttribute('src');
-  if(!dialog.open)dialog.showModal();const prizeProfile=data?.session?.pools?.[c.tier]?.prizes?.find(p=>p.id===c.prizeId);window.LuckyCapture?.show(data?.view?.id||'',c.id,c.name,prizeProfile?.proofAngles||[]);$('spin-again')?.focus();
+  if(!dialog.open)dialog.showModal();publishProofState(true);const prizeProfile=data?.session?.pools?.[c.tier]?.prizes?.find(p=>p.id===c.prizeId);window.LuckyCapture?.show(data?.view?.id||'',c.id,c.name,prizeProfile?.proofAngles||[]);$('spin-again')?.focus();
  }
  async function spin(){if(busy||!data||data.view.status!=='active')return;
   if($('win-dialog').open)$('win-dialog').close();busy=true;msg('The wheel is spinning…');render();
@@ -172,6 +184,7 @@
  // A phone may request interface actions, but it never calls prize award APIs directly.
  // The logged-in host browser retains control of the session and all confirmations.
  async function remoteCommand(command){
+   if(command.startsWith('proof-'))return await window.LuckyCapture?.phoneAction?.(command)??false;
    if(busy&&['spin','start','end','pause','resume'].includes(command))return false;
    const exactVolume=command.match(/^volume-(100|[0-9]{1,2})$/);if(exactVolume){const v=L.volume('music',Number(exactVolume[1]));$('music-volume').value=v;$('music-value').textContent=v+'%';return true;}
    if(command.startsWith('music-find-')){const slug=command.slice(11),normalize=t=>String(t).toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');const song=L.tracks.find(t=>normalize(t.title)===slug);if(!song)throw Error('Song not found in music library.');await L.playMusic(song.id);return true;}

@@ -314,3 +314,32 @@ body.game-fullwidth .host-claims-column{min-height:0}
 .footer-menu a{color:#b1c3d9}
 .footer-version{display:inline-flex;align-items:center;border:1px solid #6a563e;border-radius:99px;padding:6px 10px;color:#f4c37b;font-size:10px;letter-spacing:.07em;font-weight:850}
 @media(max-width:650px){.host-main-tabs #host-tab-phones{font-size:11px;white-space:normal}.host-main-tabs button{padding:9px 5px}.footer-menu{justify-content:flex-start}}
+
+/* V5Q.13: camera-first, full-screen claim proof. Nothing above the live feeds. */
+.claim-stage{overflow:auto}.claim-stage-shell{position:relative;padding:0 0 25px;display:flex;flex-direction:column;gap:12px;min-height:100%}
+.claim-stage-main{display:contents}.claim-stage .claim-capture{order:0;border:0;background:transparent;border-radius:0;padding:0 12px;min-width:0}
+.claim-stage:not(.proof-editor-page) .claim-stage-award{order:1;margin:0 12px;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;padding:12px 18px;border-radius:14px}
+.claim-stage .claim-stage-award img{max-width:96px;max-height:90px}
+.claim-stage .claim-stage-award h2{font-size:clamp(17px,2.5vw,27px);margin:3px 0}
+.claim-stage .claim-stage-award .modal-value{margin:0;font-size:18px}
+.claim-stage .claim-exit{position:fixed;z-index:15;right:20px;top:12px;background:#141e32e6;backdrop-filter:blur(8px)}
+.claim-stage .camera-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));gap:9px;margin:0;min-height:clamp(240px,55vh,780px);align-content:start;background:#030913;border-radius:0 0 12px 12px;padding:7px}
+.claim-stage .camera-source{border:0;background:#090f1a;padding:5px;border-radius:8px;position:relative}
+.claim-stage .camera-source video{aspect-ratio:16/9;min-height:clamp(180px,32vh,550px);max-height:74vh;object-fit:contain;background:#000}
+.claim-stage .camera-waiting{min-height:48vh;display:grid;place-items:center;color:#a7b7cf;text-align:center}
+.claim-stage .camera-source-title{margin:4px 0}.claim-stage .camera-source-actions{margin:4px 0}
+.claim-stage .capture-recording-tools{padding:8px 12px;background:#132037;border-radius:13px;margin-top:8px}
+.claim-stage .proof-rotation-status{padding:9px 12px;margin:5px 0}.claim-stage .proof-countdown{font-size:clamp(22px,3vw,42px)}
+.claim-stage .platform-checkbox,.claim-stage #capture-feedback,.claim-stage .capture-clip-list,.claim-stage #capture-open-editor{margin:9px 12px}
+.claim-stage .capture-review{margin:10px 12px;background:#142c3c;border:1px solid #508391;border-radius:14px;padding:14px}
+.claim-stage .capture-review-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,270px),1fr));gap:12px}
+.claim-stage .review-tile{padding:10px;border:1px solid #4c647f;border-radius:12px;background:#0b192d}
+.claim-stage .review-tile video{display:block;width:100%;aspect-ratio:16/9;background:black;border-radius:6px}
+.claim-stage .review-tile .capture-actions{margin:8px 0 0;gap:6px}
+.claim-stage [hidden]{display:none!important}
+@media(max-width:850px){.claim-stage:not(.proof-editor-page) .claim-stage-award{order:1}.claim-stage .claim-capture{order:0}.claim-stage .camera-grid{min-height:38vh}}
+/* Phone claim proof controls stay closed until actively expanded. */
+.phone-proof-controls{margin:8px 0;padding:12px;border:1px solid #556881;border-radius:12px;background:#172540}
+.phone-proof-controls summary{font-weight:800;cursor:pointer;padding:6px 0;color:#ffdc9d}
+.phone-proof-controls .phone-actions{margin:12px 0 2px}
+.phone-proof-controls [hidden]{display:none!important}

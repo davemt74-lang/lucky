@@ -1,0 +1,48 @@
+"""Phone proof buttons are shown only for active claim review, closed by default."""
+import asyncio
+from pathlib import Path
+from playwright.async_api import async_playwright
+ROOT=Path(__file__).resolve().parents[1]
+ID='a'*32;SECRET='b'*64;CID='c'*32
+MOCK='''<script>
+window.__commands=[];window.__proofOpen=false;
+window.fetch=async(url,opts={})=>{const action=new URL(String(url),'https://example.test/').searchParams.get('action');
+ if(action==='claim')return new Response(JSON.stringify({ok:true,id:'PAIR_ID',controllerToken:'TOKEN'}));
+ if(action==='status')return new Response(JSON.stringify({ok:true,status:'paired',proof:{active:__proofOpen,claimId:'CLAIM_ID'},game:{status:'active',spinCount:1,claimedCount:1,remaining:4,canSpin:true}}));
+ if(action==='command'){const body=JSON.parse(opts.body);__commands.push(body.command);return new Response(JSON.stringify({ok:true,applied:true,effect:'updated'}));}
+ return new Response(JSON.stringify({ok:true}));};
+</script>'''.replace('PAIR_ID',ID).replace('CLAIM_ID',CID).replace('TOKEN',SECRET)
+async def run():
+ results=[];errors=[]
+ def ok(name,good):results.append((name,bool(good)))
+ raw=(ROOT/'controller.php').read_text().split('?>',1)[1]
+ raw=raw.replace('<link rel="stylesheet" href="public/style.css"><link rel="stylesheet" href="public/platform.css?v=5q13">','<style>'+(ROOT/'public/style.css').read_text()+'\n'+(ROOT/'public/platform.css').read_text()+'</style>')
+ raw=raw.replace('</head>','<base href="https://example.test/controller.php?invite='+ID+'&key='+SECRET+'">'+MOCK+'</head>',1)
+ raw=raw.replace('<script src="public/voice-commands.js?v=5p2" defer></script>','')
+ raw=raw.replace('<script src="public/phone-controller.js?v=5q13" defer></script>', '<script>'+(ROOT/'public/phone-controller.js').read_text()+'</script>')
+ async with async_playwright() as pw:
+  browser=await pw.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox'])
+  page=await browser.new_page(viewport={'width':390,'height':844});page.on('pageerror',lambda e:errors.append(str(e)))
+  await page.set_content(raw,wait_until='domcontentloaded')
+  await page.locator('#phone-name').fill('Phone');await page.locator('#phone-join-form button').click()
+  await page.wait_for_timeout(950)
+  ok('controls available after pairing',await page.locator('#phone-controls').is_visible())
+  ok('proof accordion hidden without claim',await page.locator('#phone-proof-controls').is_hidden())
+  await page.evaluate('__proofOpen=true');await page.wait_for_timeout(1250)
+  ok('claim proof accordion appears',await page.locator('#phone-proof-controls').is_visible())
+  ok('proof accordion closed by default',not await page.locator('#phone-proof-controls').evaluate('(e)=>e.open'))
+  await page.locator('#phone-proof-controls summary').click()
+  ok('user can expand the proof accordion',await page.locator('#phone-proof-controls').evaluate('(e)=>e.open'))
+  await page.locator('[data-phone="proof-approve"]').click()
+  await page.wait_for_timeout(100)
+  ok('Approve sent as phone command',await page.evaluate("__commands.includes('proof-approve')"))
+  await page.evaluate('__proofOpen=false');await page.wait_for_timeout(1000)
+  ok('accordion hidden when proof closed',await page.locator('#phone-proof-controls').is_hidden())
+  ok('accordion closes again',not await page.locator('#phone-proof-controls').evaluate('(e)=>e.open'))
+  ok('no JS exceptions',not errors)
+  await browser.close()
+ for name,v in results:print(('PASS' if v else 'FAIL'),name,flush=True)
+ if errors:print('JS errors:',errors)
+ print('Phone proof:',sum(v for _,v in results),'/',len(results))
+ if not all(v for _,v in results):raise SystemExit(1)
+if __name__=='__main__':asyncio.run(run())

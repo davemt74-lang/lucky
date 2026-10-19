@@ -69,7 +69,14 @@ try {
     $q->execute([$commandId,$id]);if($r=$q->fetch())$delivery=$r['acknowledged_at']?'executed':($r['failure_message']?'failed':(strtotime($r['created_at'].' UTC')<time()-15?'expired':'pending'));
     $reason=$r['failure_message']??null;
    }
-   success(['status'=>$status,'deviceName'=>$p['device_name'],'expiresAt'=>$p['paired_expires_at'],'game'=>$status==='paired'?ControllerGame::snapshot($db):null,'delivery'=>$delivery,'reason'=>$reason??null]);
+   $proof=null;
+   if($status==='paired'){
+    if(!SchemaGuard::missing($db,['controller_proof_state'])){
+    $q=$db->prepare("SELECT s.session_id,s.claim_id,s.is_open FROM controller_proof_state s WHERE s.host_admin_id=? AND s.is_open=1 AND s.updated_at>UTC_TIMESTAMP()-INTERVAL 12 SECOND ORDER BY s.updated_at DESC LIMIT 1");
+    $current=ControllerGame::snapshot($db);$q->execute([(int)$p['host_admin_id']]);$proof=$q->fetch()?:null;
+    }
+   }
+   success(['status'=>$status,'deviceName'=>$p['device_name'],'expiresAt'=>$p['paired_expires_at'],'game'=>$status==='paired'?($current??ControllerGame::snapshot($db)):null,'proof'=>$proof?['active'=>true,'claimId'=>$proof['claim_id']]:['active'=>false],'delivery'=>$delivery,'reason'=>$reason??null]);
   }
   if($action==='disconnect'){
    $db->beginTransaction();try{
@@ -121,7 +128,7 @@ try {
   $isDisplay=$viewer!=='';
   if($isDisplay){$r=sessionRow($db,$session);if(!hash_equals((string)$r['viewer_token'],$viewer))throw new DomainException('Invalid TV display authorization.',403);}
   else {requireAdmin();assertCsrf();}
-  $filter=$isDisplay?'u.session_id=?':'p.host_admin_id=?';$scope=$isDisplay?$session:(int)$_SESSION['admin_id'];
+  $filter=$isDisplay?"u.session_id=? AND c.command NOT LIKE 'proof-%'":'p.host_admin_id=?';$scope=$isDisplay?$session:(int)$_SESSION['admin_id'];
   if($action==='ui_events'){
    $after=max(0,(int)($in['after']??0));
    $q=$db->prepare("SELECT c.id,c.command,p.device_name, u.acknowledged_at FROM controller_ui_events u JOIN controller_commands c ON c.id=u.command_id JOIN controller_pairs p ON p.id=c.pair_id WHERE $filter AND p.status='paired' AND p.paired_expires_at>UTC_TIMESTAMP() AND c.id>? AND c.created_at>UTC_TIMESTAMP()-INTERVAL 15 SECOND ORDER BY c.id ASC LIMIT 32");
@@ -148,6 +155,15 @@ try {
  }
  // Host commands always require the ordinary admin session and CSRF token.
  requireAdmin();assertCsrf();$adminId=(int)$_SESSION['admin_id'];
+ if($action==='proof_state'){
+  SchemaGuard::require($db,['controller_proof_state'],'Live prize proof controls');
+  $session=(string)($in['session']??'');$claim=(string)($in['claim']??'');$open=($in['open']??false)===true;
+  ControllerPairing::checkId($session);
+  sessionRow($db,$session);
+  if($open){ControllerPairing::checkId($claim);$q=$db->prepare('SELECT id FROM game_claims WHERE id=? AND session_id=?');$q->execute([$claim,$session]);if(!$q->fetch())throw new DomainException('Claim does not belong to this session.',403);}
+  $q=$db->prepare('INSERT INTO controller_proof_state(session_id,host_admin_id,claim_id,is_open,updated_at) VALUES (?,?,?,?,UTC_TIMESTAMP()) ON DUPLICATE KEY UPDATE host_admin_id=VALUES(host_admin_id),claim_id=VALUES(claim_id),is_open=VALUES(is_open),updated_at=UTC_TIMESTAMP()');
+  $q->execute([$session,$adminId,$open?$claim:null,$open?1:0]);success(['active'=>$open]);
+ }
  if($action==='invite'){
   $db->beginTransaction();try{
    $q=$db->prepare("SELECT COUNT(*) FROM controller_pairs WHERE host_admin_id=? AND ((status IN ('inviting','pending') AND invite_expires_at>UTC_TIMESTAMP()) OR (status='paired' AND paired_expires_at>UTC_TIMESTAMP()))");$q->execute([$adminId]);

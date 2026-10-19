@@ -135,3 +135,8 @@ The Host Game screen includes Game, Music and Connected Phones tabs. The third t
 The Host Game claimed-prizes ledger links to proof.php using the real claim ID from the authenticated game session. The public/TV view intentionally lacks those IDs, so it must not be used to construct proof links. The proof page validates the exact session and claim before allowing uploads or recording. Camera previews use browser camera permission and do not require recording consent; recording/uploads still require consent.
 
 V5Q.12 restores the in-game Phones tab and places the version in the footer. The Edit Proof link now uses signed-in session claim IDs; do not use public TV claim summaries as sources for proof links.
+
+
+### V5Q.13 camera-first proof and paired proof controls
+
+On the desktop, select **Start Game** to grant camera permission before the first prize reveal; HTTPS and a direct browser gesture are required. Cameras appear at the top of the winner modal. Recordings stay local until **Approve** is selected; **Play**, **Re-record**, and **Delete** do not upload the recording. Connect a phone and expand its closed **Prize proof controls** accordion during an active winner popup. Run `upgrade.php` to install `controller_proof_state` before using paired proof controls. If a phone starts a game remotely, the desktop may need one click to authorize its camera because browsers do not permit remote permission prompts.

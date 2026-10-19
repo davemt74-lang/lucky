@@ -1,0 +1,77 @@
+"""V5Q.13: camera-first UI, pre-game permission, video review before upload, phone proof accordion."""
+import asyncio, sys
+from pathlib import Path
+from playwright.async_api import async_playwright
+sys.path.insert(0,str(Path(__file__).parent))
+from v5q6_proof_browser import html_page, MOCK, SID, CID, BASE
+from v5p_pairing import make_html, ID, SECRET
+MOCK_CAM=r'''
+window.__uploads=[];window.__permissionCalls=0;
+Object.defineProperty(navigator,'mediaDevices',{configurable:true,value:{
+ getUserMedia:async()=>{window.__permissionCalls++;return new MediaStream()},
+ enumerateDevices:async()=>[{kind:'videoinput',deviceId:'cam-one',label:'USB Front'}],addEventListener:()=>{} }});
+HTMLMediaElement.prototype.play=function(){return Promise.resolve()};
+Object.defineProperty(HTMLVideoElement.prototype,'videoWidth',{get:()=>640});Object.defineProperty(HTMLVideoElement.prototype,'videoHeight',{get:()=>360});
+window.MediaRecorder=class{
+ static isTypeSupported(){return true}
+ constructor(stream){this.stream=stream;this.state='inactive';this.mimeType='video/webm'}
+ start(){this.state='recording'}
+ stop(){this.state='inactive';this.ondataavailable?.({data:new Blob(['video-bytes'],{type:'video/webm'}),size:11});this.onstop?.()}
+};
+const __origFetch=window.fetch;
+window.fetch=async(url,opts={})=>{
+ const u=String(url);
+ if(u.includes('claim-media.php?action=upload')){__uploads.push({session:opts.body.get('session'),claim:opts.body.get('claim'),kind:opts.body.get('kind')});return new Response(JSON.stringify({ok:true,clip:{id:'e'.repeat(32),claimId:opts.body.get('claim'),title:'clip',kind:'video'}}));}
+ if(u.includes('claim-media.php?action=list'))return new Response(JSON.stringify({ok:true,clips:[]}));
+ if(u.includes('controller.php?action=proof_state'))return new Response(JSON.stringify({ok:true,active:true}));
+ return __origFetch(url,opts);
+};
+'''
+async def main():
+ results=[];errors=[]
+ def test(name,v):results.append((name,bool(v)))
+ async with async_playwright() as pw:
+  browser=await pw.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox'])
+  page=await browser.new_page(viewport={'width':1280,'height':900})
+  page.set_default_timeout(6000);page.on('pageerror',lambda e:errors.append(str(e)))
+  # mock game script needed to establish exact claim context; do not depend on a DB fixture
+  script=MOCK_CAM+(BASE/'public/proof-sequence.js').read_text()+'\n'+(BASE/'public/claim-capture.js').read_text()+'\n'+(BASE/'public/game.js').read_text()
+  markup=html_page('game.php',script,MOCK.replace("window.__state='active'","window.__state='ended'"))
+  await page.set_content(markup,wait_until='domcontentloaded')
+  await page.wait_for_function('window.LuckyCapture && document.querySelector("#start-game")')
+  await page.locator('#start-game').click()
+  await page.wait_for_function('window.__permissionCalls>0')
+  test('Start Game requests camera permission before prize claim',await page.evaluate('window.__permissionCalls>0'))
+  await page.evaluate(f"document.querySelector('#win-dialog').showModal();LuckyCapture.show('{SID}','{CID}','Camera Prize');")
+  await page.wait_for_function('document.querySelectorAll(".camera-source video:not([hidden])").length===1')
+  test('live camera display is first in popup',await page.evaluate("document.querySelector('#camera-grid').getBoundingClientRect().top < document.querySelector('#win-name').getBoundingClientRect().top"))
+  test('original heading removed',await page.locator('.claim-stage-head,.claim-capture-heading').count()==0)
+  test('live camera feed attached',await page.evaluate("document.querySelector('.camera-source video').srcObject instanceof MediaStream"))
+  await page.locator('#capture-consent').check()
+  await page.locator('#capture-video').click()
+  await page.wait_for_function('document.querySelector("#capture-stop").hidden===false')
+  await page.locator('#capture-stop').click()
+  await page.wait_for_function('document.querySelectorAll("#capture-review-list .review-tile").length===1')
+  test('review replaces recording tools',await page.locator('#capture-recording-tools').is_hidden())
+  test('Play / Approve / Re-record / Delete shown',await page.locator('#capture-review-list button').count()==4)
+  test('unapproved video never uploaded',await page.evaluate('__uploads.length===0'))
+  await page.evaluate("LuckyCapture.phoneAction('proof-play')")
+  test('phone Play targets video review',await page.locator('#capture-review-list video[controls]').count()==1)
+  await page.evaluate("LuckyCapture.phoneAction('proof-delete')")
+  test('Delete discards without upload',await page.evaluate('window.__uploads.length===0'))
+  test('Delete restores capture buttons',await page.locator('#capture-recording-tools').is_visible())
+  await page.locator('#capture-video').click();await page.locator('#capture-stop').click()
+  await page.wait_for_function('LuckyCapture.reviewCount()===1')
+  await page.evaluate("LuckyCapture.phoneAction('proof-approve')")
+  await page.wait_for_function('__uploads.length===1')
+  test('Approve uploads exact claim',await page.evaluate(f"__uploads[0].claim==='{CID}' && __uploads[0].session==='{SID}'"))
+  test('Approve returns to live capture',await page.locator('#capture-recording-tools').is_visible())
+  await page.close();await browser.close()
+  browser=await pw.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox'])
+  await page.close();await browser.close()
+ test('no JS exceptions',not errors)
+ for name,ok in results:print(('PASS' if ok else 'FAIL'),name,flush=True)
+ print('V5Q13 camera review:',sum(bool(v) for _,v in results),'/',len(results))
+ if errors:print('JS exceptions:',errors)
+ if not all(ok for _,ok in results):raise SystemExit(1)
+if __name__=='__main__':asyncio.run(main())

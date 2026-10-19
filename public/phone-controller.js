@@ -7,7 +7,7 @@
  };
  const show=(name)=>{for(const id of ['phone-join','phone-wait','phone-controls'])$(id).hidden=id!==name;$('phone-disconnect').hidden=name==='phone-join';};
  const safeName=()=>String($('phone-name').value||'').trim().slice(0,48);
- function forget(){toggleListening(false);commandQueue=[];feedback=null;pendingCommand=null;game=null;gameVersion=-1;state=null;try{sessionStorage.removeItem(storageKey);}catch(_){}active=false;show('phone-join');message('Connection expired. Scan a new QR code on the host screen.',true);}
+ function forget(){toggleListening(false);commandQueue=[];feedback=null;pendingCommand=null;game=null;gameVersion=-1;updateProof(null);state=null;try{sessionStorage.removeItem(storageKey);}catch(_){}active=false;show('phone-join');message('Connection expired. Scan a new QR code on the host screen.',true);}
  async function request(action,body={},authenticated=true){const headers={'Content-Type':'application/json'};
   if(authenticated){if(!state)throw Error('Phone not paired.');headers['X-Controller-Token']=state.token;body={id:state.id,...body};}
   const response=await fetch('api/controller.php?action='+encodeURIComponent(action),{method:'POST',headers,credentials:'omit',cache:'no-store',body:JSON.stringify(body)});
@@ -15,7 +15,7 @@
   if(!response.ok||!data.ok)throw Error(data.error||'Connection failed.');return data;
  }
  async function status(){if(!state||busy||statusBusy)return;statusBusy=true;
-  try{const data=await request('status',pendingCommand?{commandId:pendingCommand.id}:{});if(data.status==='paired'){const wasActive=active,wasFailing=failures>=3;failures=0;active=true;show('phone-controls');updateGame(data.game);if(!wasActive||wasFailing)message(wasFailing?'Connected again.':'Phone connected.');if(pendingCommand){
+  try{const data=await request('status',pendingCommand?{commandId:pendingCommand.id}:{});if(data.status==='paired'){const wasActive=active,wasFailing=failures>=3;failures=0;active=true;show('phone-controls');updateGame(data.game);updateProof(data.proof);if(!wasActive||wasFailing)message(wasFailing?'Connected again.':'Phone connected.');if(pendingCommand){
     if(data.delivery==='executed'){feedback={text:`${pendingCommand.label} completed on game screen.`,until:Date.now()+6500};message(feedback.text);appendChat(feedback.text);pendingCommand=null;}
     else if(data.delivery==='failed'){const err=`${pendingCommand.label} failed: ${data.reason||'The screen could not perform this action.'}`;message(err,true);appendChat(err);pendingCommand=null;}
     else if(data.delivery==='expired'){const err=`${pendingCommand.label} was not executed. Open the game/TV screen and try again.`;message(err,true);appendChat(err);pendingCommand=null;}
@@ -44,6 +44,11 @@
   if(start)start.disabled=!(current.canStart||current.status==='ready');
   if(spin){spin.disabled=!(current.canSpin||current.status==='ready');spin.querySelector('span').textContent=current.status==='ready'?'START':current.pendingBonus?'BONUS SPIN':current.spinning?'SPINNING':'SPIN';}
   if(pause){pause.disabled=!['active','paused'].includes(current.status);pause.textContent=current.status==='paused'?'▶ Resume':'Ⅱ Pause';}
+ }
+ function updateProof(proof){
+  const accordion=$('phone-proof-controls');if(!accordion)return;
+  const showing=!!proof?.active;
+  if(accordion.hidden===showing){accordion.hidden=!showing;if(!showing)accordion.open=false;}
  }
  async function send(action){if(!active)return;
   if(busy||pendingCommand){if(commandQueue.length>=16){message('Too many pending controls. Wait for the screen to respond.',true);return;}commandQueue.push(action);message(`Waiting… (${commandQueue.length} queued)`);return;}
