@@ -26,6 +26,7 @@ jobs:
           php tests/engine.php
           php tests/catalog.php
           php tests/pairing.php
+          php tests/v5q15c_upgrade_readiness.php
           php tests/proof_config.php
           php tests/montage.php
           php tests/auto_draft.php
@@ -66,6 +67,7 @@ jobs:
           python tests/v5q14_single_proof_flow.py
           python tests/v5q15b_prize_acceptance_browser.py
           python tests/v5q14b_live_phone_handoff.py
+          python tests/v5q15c_phone_reconnect_browser.py
       - name: Phone controller regressions
         run: |
           python tests/v5p2_navigation_voice.py
