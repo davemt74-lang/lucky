@@ -23,6 +23,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
   foreach(array_filter(array_map('trim',explode(';',file_get_contents(__DIR__.'/lib/migrations/v5q_claim_media.sql')))) as $statement)$pdo->exec($statement);
   foreach(array_filter(array_map('trim',explode(';',file_get_contents(__DIR__.'/lib/migrations/v5q3_renders.sql')))) as $statement)$pdo->exec($statement);
   foreach(array_filter(array_map('trim',explode(';',file_get_contents(__DIR__.'/lib/migrations/v5q6_proof_revisions.sql')))) as $statement)$pdo->exec($statement);
+  foreach(array_filter(array_map('trim',explode(';',file_get_contents(__DIR__.'/lib/migrations/v5q15b_prize_decisions.sql')))) as $statement)$pdo->exec($statement);
   $q=$pdo->prepare('INSERT INTO admins(username,password_hash) VALUES (?,?)');
   $existing=(int)$pdo->query('SELECT COUNT(*) FROM admins')->fetchColumn();
   if($existing!==0)throw new RuntimeException('Existing administrators detected. Use a clean database for first-time setup.');

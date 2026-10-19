@@ -57,7 +57,7 @@ async def main():
     mockView.claims=[{id:'b'.repeat(32),name:'Test Gift',tier:'tier1',cents:1000}];}
   ''')
   await page.wait_for_timeout(1900)
-  ok('remote phone spin opens unified claim proof route',await page.evaluate("window.__proofRoute?.includes('proof.php?session=')&&window.__proofRoute?.includes('claim='+ 'b'.repeat(32))"))
+  ok('phone-awarded claim does not bypass prize acceptance',await page.evaluate('!window.__proofRoute'))
   ok('host shows claimed prize after phone spin', 'Test Gift' in await page.locator('#claim-list').inner_text())
   ok('host remains active and spin-again is available',await page.locator('#spin-game').is_enabled())
   ok('host sync produced no browser exception',not errors)

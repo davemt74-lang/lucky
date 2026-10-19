@@ -10,7 +10,7 @@ if(($_SERVER['REQUEST_METHOD']??'')==='POST'){
   if(!hash_equals(csrf(),(string)($_POST['csrf']??'')))throw new DomainException('Invalid security token.',403);
   $db=db();
   // Only a fixed bundled SQL migration, never arbitrary SQL submitted by a visitor.
-  $statements=array_filter(array_map('trim',explode(';',sql('lib/migrations/v5n.sql')."\n".sql('lib/migrations/v5p.sql')."\n".sql('lib/migrations/v5p_sync.sql')."\n".sql('lib/migrations/v5q_claim_media.sql')."\n".sql('lib/migrations/v5q3_renders.sql')."\n".sql('lib/migrations/v5q6_proof_revisions.sql')."\n".sql('lib/migrations/v5q13_capture_ui.sql'))));
+  $statements=array_filter(array_map('trim',explode(';',sql('lib/migrations/v5n.sql')."\n".sql('lib/migrations/v5p.sql')."\n".sql('lib/migrations/v5p_sync.sql')."\n".sql('lib/migrations/v5q_claim_media.sql')."\n".sql('lib/migrations/v5q3_renders.sql')."\n".sql('lib/migrations/v5q6_proof_revisions.sql')."\n".sql('lib/migrations/v5q13_capture_ui.sql')."\n".sql('lib/migrations/v5q15b_prize_decisions.sql'))));
   foreach($statements as $statement)$db->exec($statement);
   // Previous V5Q installs already have claim_media: add camera identity safely once.
   $cameraColumn=$db->query("SHOW COLUMNS FROM claim_media LIKE 'source_label'")->fetch();

@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-require __DIR__.'/../lib/Bootstrap.php';require_once __DIR__.'/../lib/ProductCatalog.php';require_once __DIR__.'/../lib/ControllerGame.php';headerSecurity();
+require __DIR__.'/../lib/Bootstrap.php';require_once __DIR__.'/../lib/ProductCatalog.php';require_once __DIR__.'/../lib/ControllerGame.php';require_once __DIR__.'/../lib/PrizeDecision.php';headerSecurity();
 $action=strval($_GET['action']??'');$method=$_SERVER['REQUEST_METHOD']??'GET';
 function setting(PDO $db,string $game='spin-wheel'):array {
  $q=$db->prepare('SELECT * FROM game_settings WHERE game_id=?');$q->execute([$game]);$r=$q->fetch();
@@ -78,6 +78,10 @@ try {
   if($action==='sessions'){
    requireAdmin();$q=$db->query('SELECT id,game_id,status,version,created_at,updated_at,ended_at FROM game_sessions ORDER BY created_at DESC,id DESC LIMIT 100');success(['sessions'=>$q->fetchAll()]);
   }
+  if($action==='prize_offer'){
+   requireAdmin();$session=(string)($_GET['session']??'');sessionRow($db,$session);
+   success(['offer'=>PrizeDecision::latest($db,$session)]);
+  }
   if($action==='session')success(getSessionView($db,strval($_GET['id']??'')));
   if($action==='watch')success(['view'=>getSessionView($db,strval($_GET['id']??''),true,strval($_GET['token']??''))]);
   if($action==='last'){
@@ -102,6 +106,16 @@ try {
  if($action==='login')throw new DomainException('Use the sign-in page.',400);
  requireAdmin();
  if($action==='logout') {session_unset();session_destroy();success(['loggedOut'=>true]);}
+ if($action==='prize_decide'){
+  $data=jsonInput();$session=(string)($data['session']??'');$claim=(string)($data['claim']??'');$choice=(string)($data['choice']??'');
+  sessionRow($db,$session);if(!preg_match('/^[a-f0-9]{32}$/D',$claim))throw new DomainException('Invalid claim ID.',400);
+  $db->beginTransaction();try{
+   $offer=PrizeDecision::pending($db,$session,true);
+   if(!$offer||$offer['claim_id']!==$claim)throw new DomainException('This prize is not awaiting a decision.',409);
+   $result=PrizeDecision::choose($db,$session,$claim,$choice);$db->commit();
+  }catch(Throwable $e){$db->rollBack();throw $e;}
+  success(['offer'=>$result]);
+ }
  if($action==='image_upload'){
   if(empty($_FILES['image'])||!is_uploaded_file($_FILES['image']['tmp_name']))throw new DomainException('Choose a JPG, PNG, or WebP photo.');
   $f=$_FILES['image'];if($f['error']!==UPLOAD_ERR_OK||$f['size']<=0||$f['size']>5*1024*1024)throw new DomainException('Image must be 5MB or less.');
@@ -223,12 +237,13 @@ try {
    $q=$db->prepare('SELECT payload_json FROM game_events WHERE session_id=? AND idempotency_key=?');$q->execute([$id,$key]);
    if($old=$q->fetch()){$out=json_decode($old['payload_json'],true,512,JSON_THROW_ON_ERROR);$db->commit();success(['result'=>$out,'repeat'=>true]);}
    $s=stateFromRow($r);$module=GameRegistry::module($s['game']);
-   if($action==='spin')ControllerGame::spinReady($s);
+   if($action==='spin'){ControllerGame::spinReady($s);PrizeDecision::assertReady($db,$id);}
    $result=$module->action($s,$action);$type=$result['type'];
    saveState($db,$s);
    if($type==='award'){
       $c=$result['claim'];$q=$db->prepare('INSERT INTO game_claims(id,session_id,prize_id,tier,prize_name,cents,created_at) VALUES (?,?,?,?,?,?,UTC_TIMESTAMP())');
       $q->execute([$c['id'],$id,$c['prizeId'],$c['tier'],$c['name'],$c['cents']]);
+      PrizeDecision::create($db,$id,$c['id']);
    }
    $out=['event'=>$result,'view'=>GameRegistry::module($s['game'])->publicView($s)];
    $q=$db->prepare('INSERT INTO game_events(session_id,idempotency_key,event_type,payload_json) VALUES (?,?,?,?)');

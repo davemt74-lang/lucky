@@ -1,7 +1,7 @@
 (() => {
  'use strict';const $=id=>document.getElementById(id),storageKey='lucky-phone-controller-v5p';
  const params=new URLSearchParams(location.search||(location.protocol==='about:'?new URL(document.baseURI).search:''));let state=null,busy=false,active=false,game=null,gameVersion=-1,pendingCommand=null,feedback=null;let speech=null,listening=false,statusBusy=false,commandQueue=[];
- let noticeTimer=null,failures=0;
+ let noticeTimer=null,failures=0,proofState={active:false};
  const message=(m,warning=false)=>{const e=$('phone-status');if(!e)return;clearTimeout(noticeTimer);e.textContent=m;e.classList.toggle('platform-error',warning);
   if(active)noticeTimer=setTimeout(()=>{e.textContent='';e.classList.remove('platform-error');},warning?6500:2300);
  };
@@ -34,8 +34,17 @@
    if(location.protocol!=='about:')history.replaceState(null,'','controller.php');show('phone-wait');message('Connection requested. The host must approve your phone.');
   }catch(e){message(e.message,true);}finally{busy=false;$('phone-join-form').querySelector('button').disabled=false;}
  }
+ function applyMode(){
+  const proof=!!proofState?.active,offer=!proof&&game?.offer?.status==='pending';
+  const gameShell=$('phone-gameplay-shell'),proofMode=$('phone-proof-mode'),audio=$('phone-game-audio'),offerMode=$('phone-prize-offer');
+  if(gameShell)gameShell.hidden=proof||offer;
+  if(proofMode)proofMode.hidden=!proof;
+  if(audio)audio.hidden=proof||offer;
+  if(offerMode)offerMode.hidden=!offer;
+  if(offer&&$('phone-offer-name'))$('phone-offer-name').textContent=game.offer.name+' · $'+(Number(game.offer.cents)/100).toFixed(2);
+ }
  function updateGame(current){
-  if(!current)return;game=current;
+  if(!current)return;game=current;applyMode();
   const panel=$('phone-game-state');if(!panel)return;
   const status=current.status==='active'?'PLAYING':current.status==='paused'?'PAUSED':current.status==='ended'?'GAME ENDED':'READY';
   const phase=current.pendingBonus?' · BONUS ROUND':'';
@@ -47,14 +56,11 @@
  }
  function updateProof(proof){
   const accordion=$('phone-proof-controls');if(!accordion)return;
-  const showing=!!proof?.active;
-  const gameShell=$('phone-gameplay-shell'),proofMode=$('phone-proof-mode'),audio=$('phone-game-audio');
-  if(gameShell)gameShell.hidden=showing;
-  if(proofMode)proofMode.hidden=!showing;
-  if(audio)audio.hidden=showing;
+  proofState=proof||{active:false};const showing=!!proofState?.active;applyMode();
+
   // The proof controls are the only primary controls while the desktop proof page is active.
   // Keep the accordion closed on first entry; preserve its user-selected state while active.
-  if(accordion.hidden!==!showing){accordion.hidden=!showing;accordion.open=false;}
+  if(accordion.hidden!==!showing){accordion.hidden=!showing;accordion.open=showing;}
   const reviewing=showing&&Number(proof.reviewCount)>0;
   if($('phone-proof-recording'))$('phone-proof-recording').hidden=reviewing;
   if($('phone-proof-review'))$('phone-proof-review').hidden=!reviewing;
@@ -64,6 +70,7 @@
  async function send(action){if(!active)return;
   if(busy||pendingCommand){if(commandQueue.length>=16){message('Too many pending controls. Wait for the screen to respond.',true);return;}commandQueue.push(action);message(`Waiting… (${commandQueue.length} queued)`);return;}
   if(action==='end'&&!confirm('End this game? The claimed prizes will be saved.'))return;
+  if(action==='prize-decline'&&!confirm('Decline this prize and end the game?'))return;
   busy=true;
   try{const nonce=(crypto.randomUUID?.()||`${Date.now()}_${Math.random().toString(36).slice(2)}`).replaceAll('.','_');
    const result=await request('command',{command:action,nonce,confirm:action==='end'});
@@ -78,6 +85,8 @@
  const appendChat=()=>{};
  const slug=title=>String(title).normalize('NFKD').toLowerCase().replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,80);
  function parseCommand(text){
+  if(/^(accept|accept prize|keep prize|yes)$/i.test(text.trim()))return 'prize-accept';
+  if(/^(decline|decline prize|reject prize|no)$/i.test(text.trim()))return 'prize-decline';
   const parsed=window.LuckyCommands?.parse(text)||{type:'unknown'};
   const map={'close-prize':'done','spin':'spin','start':'start','end':'end','pause':'pause','resume':'resume','select':'select','up':'up','down':'down','left':'left','right':'right','menu':'menu','back':'back','music-on':'music-on','music-off':'music-off','music-play':'music-play','music-pause':'music-pause','music-next':'music-next','music-previous':'music-previous','mute':'mute','unmute':'unmute','effects-on':'effects-on','effects-off':'effects-off','speech-on':'speech-on','speech-off':'speech-off','home':'home'};
   if(map[parsed.type])return map[parsed.type];

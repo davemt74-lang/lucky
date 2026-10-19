@@ -365,3 +365,32 @@ body.game-fullwidth #win-dialog{display:none!important}
 .proof-editor-page .claim-stage-head h2{margin:0;font-size:1rem}
 .proof-editor-page .claim-stage-head .eyebrow{display:none}
 @media(max-width:900px){.proof-editor-layout{grid-template-columns:minmax(0,1fr)}.proof-editor-layout>.proof-history-panel{grid-column:1;grid-row:2}}
+
+/* V5Q.15B: camera-first proof without camera diagnostics beneath the player. */
+.proof-editor-page .proof-video-stage{position:relative;min-width:0}
+.proof-editor-page .camera-grid{margin:0;min-height:clamp(300px,55vh,760px);border-radius:12px;overflow:hidden}
+.proof-editor-page .camera-source{position:relative}
+.proof-editor-page .camera-source-title{position:absolute;left:12px;bottom:10px;z-index:2;max-width:calc(100% - 24px);padding:5px 8px;border-radius:8px;background:#07101bdb;font-size:12px}
+.proof-editor-page .camera-source>input[data-camera-name],.proof-editor-page .camera-source>.mini-label,.proof-editor-page .camera-source-actions{display:none}
+.proof-editor-page .proof-consent-overlay{position:absolute;left:15px;bottom:55px;z-index:3;max-width:calc(100% - 30px);padding:8px 11px;background:#081323eb;border:1px solid #526982;border-radius:9px;font-size:12px}
+.proof-editor-page .proof-camera-settings{margin:8px 0 0;border:1px solid #4c627b;border-radius:10px;background:#101e32;padding:5px 12px}
+.proof-editor-page .proof-camera-settings>summary{cursor:pointer;color:#e6d0a3;font-size:12px;font-weight:700;padding:7px 0}
+.proof-editor-page .proof-camera-settings .capture-recording-tools{padding:8px 0;margin:0}
+.proof-editor-page .proof-camera-settings .proof-rotation-status{margin:8px 0}
+.proof-editor-page .claim-capture>#capture-feedback:not(.is-error){display:none}
+.proof-editor-page .claim-capture>#capture-feedback.is-error{display:block;padding:9px 12px}
+.proof-editor-page .proof-history-panel>.capture-clip-list{margin:8px 0;max-height:40vh;overflow:auto}
+.proof-editor-page .proof-history-panel>#capture-open-editor{display:inline-flex;margin:7px 0 12px}
+.proof-editor-page .claim-stage-shell{padding:0 12px 24px}
+.proof-editor-page .claim-capture{padding:0}
+@media(max-width:650px){.proof-editor-page .proof-consent-overlay{position:static;margin:8px 5px}.proof-editor-page .camera-grid{min-height:35vh}}
+
+/* Expanded settings restore camera aliasing and per-source controls. */
+.proof-editor-page .proof-video-stage:has(#proof-camera-settings[open]) .camera-source>input[data-camera-name],
+.proof-editor-page .proof-video-stage:has(#proof-camera-settings[open]) .camera-source>.mini-label,
+.proof-editor-page .proof-video-stage:has(#proof-camera-settings[open]) .camera-source-actions{display:flex}
+.proof-editor-page .proof-video-stage:has(#proof-camera-settings[open]) .camera-source>input[data-camera-name]{display:block;width:100%;box-sizing:border-box}
+.proof-editor-page .proof-video-stage:has(#proof-camera-settings[open]) .camera-source-title{position:static;max-width:none;background:transparent;padding:5px 2px}
+
+/* Keep explicit recording consent visible without covering settings or buttons. */
+.proof-editor-page .proof-consent-overlay{position:static;display:flex;align-items:center;margin:8px 5px;max-width:100%;width:fit-content}

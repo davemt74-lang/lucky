@@ -1,4 +1,4 @@
-"""Phone proof buttons are shown only for active claim review, closed by default."""
+"""Phone proof buttons activate immediately for live prize capture."""
 import asyncio, re
 from pathlib import Path
 from playwright.async_api import async_playwright
@@ -33,9 +33,8 @@ async def run():
   ok('gameplay controls hidden while proof open',await page.locator('#phone-gameplay-shell').is_hidden())
   ok('proof screen owns the phone interface',await page.locator('#phone-proof-mode').is_visible())
   ok('music buttons hidden while proof open',await page.locator('#phone-game-audio').is_hidden())
-  ok('proof accordion closed by default',not await page.locator('#phone-proof-controls').evaluate('(e)=>e.open'))
-  await page.locator('#phone-proof-controls summary').click()
-  ok('user can expand the proof accordion',await page.locator('#phone-proof-controls').evaluate('(e)=>e.open'))
+  ok('proof controls open immediately',await page.locator('#phone-proof-controls').evaluate('(e)=>e.open'))
+  ok('record controls require no additional tap',await page.locator('#phone-proof-recording').is_visible())
   ok('record buttons available before review',await page.locator('#phone-proof-recording').is_visible())
   ok('approval controls hidden before review',await page.locator('#phone-proof-review').is_hidden())
   await page.evaluate('__reviewReady=true');await page.wait_for_timeout(900)

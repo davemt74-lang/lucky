@@ -2,7 +2,7 @@
 declare(strict_types=1);
 require __DIR__.'/../lib/Bootstrap.php';
 require __DIR__.'/../lib/ControllerPairing.php';
-require __DIR__.'/../lib/ControllerGame.php';
+require __DIR__.'/../lib/ControllerGame.php';require_once __DIR__.'/../lib/PrizeDecision.php';
 require_once __DIR__.'/../lib/SchemaGuard.php';
 require_once __DIR__.'/../lib/ControllerRate.php';
 headerSecurity();

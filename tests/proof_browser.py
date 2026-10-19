@@ -46,6 +46,7 @@ async def main():
     LuckyCapture.show('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa','bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb','Mystery Prize',[{label:'Hero front',seconds:3},{label:'Audience reaction',seconds:3}]);
     document.getElementById('capture-consent').checked=true;
   }''')
+  await pg.locator('#proof-camera-settings summary').click()
   await pg.locator('#camera-enable').click();await pg.wait_for_timeout(300)
   ck(out,'two USB inputs detected',await pg.locator('.camera-source').count()==2)
   ck(out,'proof angles equal checked active cameras',await pg.locator('.proof-angle-chip').count()==2)

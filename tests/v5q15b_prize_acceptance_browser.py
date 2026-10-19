@@ -1,0 +1,54 @@
+"""Browser acceptance and phone decision smoke checks."""
+import asyncio,re,json
+from urllib.parse import urlparse,parse_qs
+from playwright.async_api import async_playwright
+from v5q6_proof_browser import BASE,html_page,MOCK,CID,SID
+async def main():
+ tests=[];errors=[]
+ async with async_playwright() as pw:
+  b=await pw.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox'])
+  pg=await b.new_page();pg.on('pageerror',lambda e:errors.append(str(e)))
+  js=(BASE/'public/game.js').read_text().replace("location.assign('proof.php?session=","window.__captureNavigation('proof.php?session=")
+  mock=MOCK+"\nwindow.__captureNavigation=path=>{window.__proofNav=path;};window.__offerStatus='pending';"
+  await pg.set_content(html_page('game.php',js,mock),wait_until='domcontentloaded')
+  await pg.wait_for_function('document.querySelector("#spin-game").disabled===false')
+  await pg.evaluate("""() => { const orig=Lucky.api;Lucky.api=async(a,o)=>{
+   if(a==='spin')return {result:{event:{type:'award',claim:{id:'dddddddddddddddddddddddddddddddd',name:'Camera Prize',cents:1250,tier:'tier1'},animation:{index:0,slices:[]}}}};
+   if(a==='prize_offer')return {offer:{claimId:'dddddddddddddddddddddddddddddddd',session:'cccccccccccccccccccccccccccccccc',name:'Camera Prize',cents:1250,status:__offerStatus,decidedAt:__offerStatus==='accepted'?new Date().toISOString().replace('T',' ').replace('Z',''):null}};
+   if(a==='prize_decide'){__offerStatus=o.body.choice;return {offer:{status:__offerStatus}};}return orig(a,o);
+  }}""")
+  await pg.locator('#spin-game').click()
+  await pg.wait_for_function('document.querySelector("#prize-offer-stage").hidden===false',timeout=9000)
+  tests.append(('winner waits for acceptance',await pg.locator('#prize-offer-stage').is_visible()))
+  tests.append(('no proof before acceptance',await pg.evaluate('!window.__proofNav')))
+  await pg.locator('#prize-offer-accept').click()
+  await pg.wait_for_function('window.__proofNav',timeout=5000)
+  tests.append(('accept opens correct claim',await pg.evaluate('window.__proofNav.includes("claim=dddddddddddddddddddddddddddddddd")')))
+  await pg.close()
+  sent=[]
+  async def api(route):
+   a=parse_qs(urlparse(route.request.url).query).get('action',[''])[0];q=route.request.post_data_json or {};sent.append((a,q))
+   if a=='claim':data={'ok':True,'id':'a'*32,'controllerToken':'b'*64}
+   elif a=='status':data={'ok':True,'status':'paired','proof':{'active':False},'game':{'status':'active','canSpin':False,'offer':{'status':'pending','name':'Camera Prize','cents':1250}}}
+   elif a=='command':data={'ok':True,'applied':True,'effect':'prize_accepted','game':{'status':'active','canSpin':True}}
+   else:data={'ok':True}
+   await route.fulfill(content_type='application/json',body=json.dumps(data))
+  phone=await b.new_page();phone.on('pageerror',lambda e:errors.append(str(e)))
+  await phone.route('**/api/controller.php?action=*',api)
+  html=(BASE/'controller.php').read_text().split('?>',1)[1]
+  html=html.replace('<head>','<head><base href="https://example.test/controller.php?invite='+('a'*32)+'&key='+('b'*64)+'">',1)
+  html=re.sub(r'<script src="public/voice-commands.js[^>]*></script>','',html)
+  html=re.sub(r'<script src="public/phone-controller.js[^>]*></script>',lambda _: '<script>'+(BASE/'public/phone-controller.js').read_text()+'</script>',html)
+  await phone.set_content(html,wait_until='domcontentloaded');await phone.locator('#phone-name').fill('Prize phone');await phone.locator('#phone-join-form button').click()
+  await phone.wait_for_function('document.querySelector("#phone-prize-offer").hidden===false')
+  tests.append(('phone presents accept screen',await phone.locator('#phone-prize-offer').is_visible()))
+  tests.append(('phone hides gameplay controls',await phone.locator('#phone-gameplay-shell').is_hidden()))
+  await phone.locator('[data-phone="prize-accept"]').click()
+  await phone.wait_for_function('document.querySelector("#phone-status").textContent.includes("Game")',timeout=4000)
+  tests.append(('paired phone sends acceptance',any(a=='command' and q.get('command')=='prize-accept' for a,q in sent)))
+  await phone.close();await b.close()
+ tests.append(('browser has no errors',not errors))
+ for name,ok in tests:print(('PASS' if ok else 'FAIL'),name,flush=True)
+ print('V5Q15B',sum(x for _,x in tests),'/',len(tests))
+ if not all(x for _,x in tests):raise SystemExit(1)
+if __name__=='__main__':asyncio.run(main())

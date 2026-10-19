@@ -32,6 +32,7 @@ async def run():
    raise
   ck('proof session selected from clicked prize',await pg.locator('#proof-prize-title').inner_text()=='Camera Prize')
   ck('proof returns to exact originating game session',await pg.locator('#proof-return').get_attribute('href')=='game.php?session='+SID)
+  await pg.locator('#proof-camera-settings summary').click()
   await pg.locator('#camera-enable').click()
   ck('two connected USB camera names shown',await pg.locator('.camera-source').count()==2)
   ck('live previews opened by Enable action',await pg.locator('.camera-source video:not([hidden])').count()==2)
