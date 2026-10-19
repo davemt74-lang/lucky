@@ -2,7 +2,7 @@
 declare(strict_types=1);
 /** Capability-scoped, short-lived phone controller pairing. No controller token can call the game engine. */
 final class ControllerPairing {
- public const ALLOWED=['spin','select','back','menu','start','pause','resume','end','left','right','up','down','music-on','music-off','music-next','volume-up','volume-down','mute','unmute','done','music-play','music-pause','music-previous','effects-on','effects-off','speech-on','speech-off','home','proof-record','proof-stop','proof-play','proof-approve','proof-rerecord','proof-delete'];
+ public const ALLOWED=['spin','select','back','menu','start','pause','resume','end','left','right','up','down','music-on','music-off','music-next','volume-up','volume-down','mute','unmute','done','music-play','music-pause','music-previous','effects-on','effects-off','speech-on','speech-off','home','proof-record','proof-stop','proof-play','proof-approve','proof-rerecord','proof-delete','prize-accept','prize-decline'];
  public static function checkId(string $id):void {
   if(!preg_match('/^[a-f0-9]{32}$/D',$id))throw new DomainException('Invalid pairing identifier.',400);
  }

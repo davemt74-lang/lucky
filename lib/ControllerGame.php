@@ -3,7 +3,7 @@ declare(strict_types=1);
 /** Phone actions are applied to the same persisted game session as the host/TV.
  * No phone can select a prize, set odds, or bypass the game engine. */
 final class ControllerGame {
- public const DIRECT=['start','spin','pause','resume','end'];
+ public const DIRECT=['start','spin','pause','resume','end','prize-accept','prize-decline'];
  public static function current(PDO $db,bool $locked=false):?array {
   $suffix=$locked?' FOR UPDATE':'';
   $q=$db->query("SELECT * FROM game_sessions WHERE game_id='spin-wheel' AND status IN ('active','paused') ORDER BY created_at DESC,id DESC LIMIT 1".$suffix);
@@ -14,7 +14,7 @@ final class ControllerGame {
  }
  public static function snapshot(PDO $db):array {
   $row=self::latest($db);
-  if(!$row)return ['id'=>null,'game'=>'spin-wheel','status'=>'ready','version'=>0,'spinCount'=>0,'claimedCount'=>0,'claimedCents'=>0,'remaining'=>0,'pendingBonus'=>false,'lastPrize'=>null,'spinning'=>false,'canStart'=>true,'canSpin'=>false];
+  if(!$row)return ['offer'=>null,'id'=>null,'game'=>'spin-wheel','status'=>'ready','version'=>0,'spinCount'=>0,'claimedCount'=>0,'claimedCents'=>0,'remaining'=>0,'pendingBonus'=>false,'lastPrize'=>null,'spinning'=>false,'canStart'=>true,'canSpin'=>false];
   $state=stateFromRow($row);$view=GameRegistry::module($state['game'])->publicView($state);
   $last=$state['lastSpin']??null;$spinning=!!$last&&((time()-strtotime($last['at']??'1970-01-01'))<4);
   $claimed=$view['claims']??[];
@@ -23,8 +23,8 @@ final class ControllerGame {
    'spinCount'=>$view['spinCount'],'claimedCount'=>count($claimed),'claimedCents'=>array_sum(array_column($claimed,'cents')),
    'remaining'=>count(array_filter($view['slots'],fn($s)=>!empty($s['tier']))),
    'pendingBonus'=>$view['pendingBonus'],'lastPrize'=>$claimed?end($claimed)['name']:null,
-   'spinning'=>$spinning,'canStart'=>in_array($view['status'],['ended'],true),
-   'canSpin'=>$view['status']==='active'&&!$spinning&&(count(array_filter($view['slots'],fn($s)=>!empty($s['tier'])))>0||$view['pendingBonus']||($state['odds']['bonusChance']>0&&self::hasBonus($state))),
+   'spinning'=>$spinning,'offer'=>PrizeDecision::latest($db,$state['id']),'canStart'=>in_array($view['status'],['ended'],true),
+   'canSpin'=>$view['status']==='active'&&!$spinning&&!PrizeDecision::pending($db,$state['id'])&&(count(array_filter($view['slots'],fn($s)=>!empty($s['tier'])))>0||$view['pendingBonus']||($state['odds']['bonusChance']>0&&self::hasBonus($state))),
   ];
  }
  private static function hasBonus(array $state):bool {
@@ -58,15 +58,22 @@ final class ControllerGame {
   }
   if(!$row)throw new DomainException('Start a game first.',409);
   $state=stateFromRow($row);
+  if(in_array($command,['prize-accept','prize-decline'],true)){
+   $offer=PrizeDecision::pending($db,$state['id'],true);
+   if(!$offer)throw new DomainException('There is no prize awaiting acceptance.',409);
+   PrizeDecision::choose($db,$state['id'],$offer['claim_id'],$command==='prize-accept'?'accepted':'declined');
+   return ['applied'=>true,'effect'=>$command==='prize-accept'?'prize_accepted':'prize_declined','sessionId'=>$state['id']];
+  }
   if($command==='spin'||$command==='select'){
    if($state['status']!=='active')throw new DomainException('The game is paused. Resume before spinning.',409);
-   self::spinReady($state);
+   self::spinReady($state);PrizeDecision::assertReady($db,$state['id']);
    $key='phone_'.hash('sha256',$pairId.'_'.$nonce);
    $module=GameRegistry::module($state['game']);$result=$module->action($state,'spin');
    saveState($db,$state);
    if($result['type']==='award'){
     $c=$result['claim'];$q=$db->prepare('INSERT INTO game_claims(id,session_id,prize_id,tier,prize_name,cents,created_at) VALUES (?,?,?,?,?,?,UTC_TIMESTAMP())');
     $q->execute([$c['id'],$state['id'],$c['prizeId'],$c['tier'],$c['name'],$c['cents']]);
+    PrizeDecision::create($db,$state['id'],$c['id']);
    }
    $out=['event'=>$result,'view'=>$module->publicView($state)];
    $q=$db->prepare('INSERT INTO game_events(session_id,idempotency_key,event_type,payload_json) VALUES (?,?,?,?)');
