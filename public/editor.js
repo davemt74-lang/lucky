@@ -168,8 +168,8 @@
   const lane=$('editor-timeline');if(lane){lane.ondragover=e=>e.preventDefault();lane.addEventListener('drop',e=>{if(e.target.closest('.editor-clip'))return;e.preventDefault();const id=e.dataTransfer.getData('application/x-lucky-media-id');if(id)addFromBin(id);});}
   try{const sessions=await L.api('sessions');const s=$('editor-session');for(const item of sessions.sessions||[])s.add(new Option(`${item.game_id} · ${new Date(item.created_at).toLocaleString()} · ${item.status}`,item.id));
    const requested=new URL(location.href).searchParams.get('session');session=(sessions.sessions||[]).some(x=>x.id===requested)?requested:(sessions.sessions||[])[0]?.id||'';s.value=session;
-   document.querySelector('.studio-exit a[href^="game.php"]')?.setAttribute('href','game.php?session='+encodeURIComponent(session));
-   s.onchange=()=>{if(dirty&&!confirm('Discard unsaved changes?')){s.value=session;return;}session=s.value;document.querySelector('.studio-exit a[href^="game.php"]')?.setAttribute('href','game.php?session='+encodeURIComponent(session));load();};
+   document.querySelector('.studio-exit a[href^="game.php"]:not(#editor-session-claims)')?.setAttribute('href','game.php?session='+encodeURIComponent(session));document.querySelector('#editor-session-claims')?.setAttribute('href',session?'claims.php?session='+encodeURIComponent(session):'game.php');
+   s.onchange=()=>{if(dirty&&!confirm('Discard unsaved changes?')){s.value=session;return;}session=s.value;document.querySelector('.studio-exit a[href^="game.php"]:not(#editor-session-claims)')?.setAttribute('href','game.php?session='+encodeURIComponent(session));document.querySelector('#editor-session-claims')?.setAttribute('href',session?'claims.php?session='+encodeURIComponent(session):'game.php');load();};
    const tracks=await L.loadTracks();for(const track of tracks.filter(x=>x.kind==='upload'))$('render-track').add(new Option(track.title,track.id));
    await load();
   }catch(e){inform(e.message,true);}

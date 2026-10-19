@@ -119,3 +119,7 @@ When a session ends, the host screen shows **Review highlights** linking directl
 
 ## V5Q.9 Host Full-Width View
 The Host Game page now fills the browser, including its header; the four quick links above the game were removed. Tools remain in the console menu (accessible by Escape or paired phone Menu). The claim ledger shows number awarded, total awarded, and summed value of remaining configured, unclaimed prizes across all tiers. Unspent budget not attached to a prize is excluded.
+
+## V5Q.10 game-first navigation
+
+Host Game now uses just Game and Music tabs; phone pairing and approvals live prominently on Devices. The global navigation no longer repeats Host Game or Claims. Prize history must be opened within a specific session (`claims.php?session=<32-hex-id>`). Read `docs/V5Q10_NAVIGATION.md`.

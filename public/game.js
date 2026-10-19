@@ -30,6 +30,8 @@
   const available=['tier1','tier2','bonus'].reduce((total,tier)=>total+(pools[tier]?.prizes||[])
     .reduce((sum,p)=>sum+(p.cents>0&&!claimedKeys.has(`${tier}:${p.id}`)?p.cents:0),0),0);
   const awarded=items.reduce((n,p)=>n+p.cents,0);
+  $('claims-page-link').href=view?.id?'claims.php?session='+encodeURIComponent(view.id):'game.php';
+  $('claims-page-link').hidden=!view?.id;
   $('session-totals').textContent=`${items.length} claimed · ${L.money(awarded)} awarded · ${L.money(available)} available to win`;
   const root=$('claim-list');root.replaceChildren();if(!items.length){const empty=document.createElement('p');empty.textContent='No prizes claimed yet. Spin the wheel to begin.';root.append(empty);}
   for(const c of items){const row=document.createElement('div');row.className='platform-claim claim-proof-row';const info=document.createElement('div');info.className='claim-proof-info';const name=document.createElement('strong');name.textContent=c.name;
@@ -198,7 +200,7 @@
      default:return false;
    }
  }
- const hostTabs=['game','music','phones'];
+ const hostTabs=['game','music'];
  function setHostTab(which,{focus=false}={}){
    if(!hostTabs.includes(which))return false;
    for(const option of hostTabs){const active=option===which,tab=$('host-tab-'+option),panel=$('host-panel-'+option);
@@ -216,7 +218,7 @@
    };
  }
  window.LuckyHostTabs=Object.freeze({activate:setHostTab,items:hostTabs});
- window.addEventListener('lucky:paired-phones',e=>{$('connected-phone-count').textContent=e.detail?.count?`(${e.detail.count})`:'';});
+ 
  window.LuckyHostRemote=remoteCommand;
  $('start-game').onclick=start;$('spin-game').onclick=spin;$('pause-game').onclick=pause;$('end-game').onclick=end;
  $('copy-viewer').onclick=()=>{navigator.clipboard?.writeText(viewerUrl).then(()=>msg('Display link copied.')).catch(()=>{$('viewer-link').select();});};
