@@ -38,11 +38,11 @@ async def main():
   b=await pw.chromium.launch(headless=True,executable_path='/usr/bin/chromium',args=['--no-sandbox'])
   ctx=await b.new_context(viewport={'width':1440,'height':900},reduced_motion='reduce')
   pg=await ctx.new_page();pg.on('pageerror',lambda e:errs.append(str(e)))
-  html=make_html('game').replace('</head>',MOCK+'</head>',1)
+  html=make_html('proof').replace('</head>',MOCK+'</head>',1)
   await pg.set_content(html,wait_until='domcontentloaded');await pg.wait_for_timeout(300)
   await pg.evaluate('''() => {LuckyProofSequence.wait=(ms,signal)=>new Promise((resolve,reject)=>setTimeout(()=>signal?.aborted?reject(Error('Capture stopped.')):resolve(),20));const oldRun=LuckyProofSequence.run;LuckyProofSequence.run=(plan,opts)=>oldRun(plan,{...opts,sleep:LuckyProofSequence.wait});
     new MutationObserver(()=>__countdowns.push(document.getElementById('proof-countdown').textContent)).observe(document.getElementById('proof-countdown'),{childList:true,characterData:true,subtree:true});
-    document.getElementById('win-dialog').showModal();
+    document.getElementById('camera-enable').disabled=false;
     LuckyCapture.show('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa','bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb','Mystery Prize',[{label:'Hero front',seconds:3},{label:'Audience reaction',seconds:3}]);
     document.getElementById('capture-consent').checked=true;
   }''')

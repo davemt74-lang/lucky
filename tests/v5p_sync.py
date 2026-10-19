@@ -46,15 +46,18 @@ async def main():
   browser=await pw.chromium.launch(headless=True,executable_path='/usr/bin/chromium',args=['--no-sandbox'])
   ctx=await browser.new_context(viewport={'width':1280,'height':800},reduced_motion='reduce')
   page=await ctx.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
-  await page.set_content(html('game',HOST_OVERRIDE),wait_until='domcontentloaded')
+  # Stub only the document navigation to inspect the win proof route in an isolated about:blank fixture.
+  host_html=html('game',HOST_OVERRIDE).replace("location.assign('proof.php?session='","window.__captureProof('proof.php?session='")
+  host_html=host_html.replace('</head>','<script>window.__captureProof=u=>window.__proofRoute=u;</script></head>',1)
+  await page.set_content(host_html,wait_until='domcontentloaded')
   await page.wait_for_timeout(200)
   ok('late desktop join sees active game', 'ACTIVE GAME' in (await page.locator('#game-state').inner_text()))
   await page.evaluate('''() => {mockView.version=2;mockView.spinCount=1;
     mockView.lastSpin={type:'award',spinCount:1,index:0,slices:[{name:'Test Gift',cents:1000,tier:'tier1',kind:'prize'}],at:new Date().toISOString()};
-    mockView.claims=[{name:'Test Gift',tier:'tier1',cents:1000}];}
+    mockView.claims=[{id:'b'.repeat(32),name:'Test Gift',tier:'tier1',cents:1000}];}
   ''')
   await page.wait_for_timeout(1900)
-  ok('remote phone spin triggers host result popup',await page.locator('#win-name').inner_text()=='Test Gift')
+  ok('remote phone spin opens unified claim proof route',await page.evaluate("window.__proofRoute?.includes('proof.php?session=')&&window.__proofRoute?.includes('claim='+ 'b'.repeat(32))"))
   ok('host shows claimed prize after phone spin', 'Test Gift' in await page.locator('#claim-list').inner_text())
   ok('host remains active and spin-again is available',await page.locator('#spin-game').is_enabled())
   ok('host sync produced no browser exception',not errors)

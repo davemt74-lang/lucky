@@ -48,7 +48,13 @@
  function updateProof(proof){
   const accordion=$('phone-proof-controls');if(!accordion)return;
   const showing=!!proof?.active;
-  if(accordion.hidden===showing){accordion.hidden=!showing;if(!showing)accordion.open=false;}
+  const gameShell=$('phone-gameplay-shell'),proofMode=$('phone-proof-mode'),audio=$('phone-game-audio');
+  if(gameShell)gameShell.hidden=showing;
+  if(proofMode)proofMode.hidden=!showing;
+  if(audio)audio.hidden=showing;
+  // The proof controls are the only primary controls while the desktop proof page is active.
+  // Keep the accordion closed on first entry; preserve its user-selected state while active.
+  if(accordion.hidden!==!showing){accordion.hidden=!showing;accordion.open=false;}
   const reviewing=showing&&Number(proof.reviewCount)>0;
   if($('phone-proof-recording'))$('phone-proof-recording').hidden=reviewing;
   if($('phone-proof-review'))$('phone-proof-review').hidden=!reviewing;

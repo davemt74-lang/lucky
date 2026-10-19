@@ -5,7 +5,7 @@ if(!isAdmin()){header('Location: login.php');exit;}
 shellStart('Edit Prize Proof','claims');
 ?>
 <dialog id="win-dialog" class="claim-stage proof-editor-page" open aria-label="Edit prize proof and revision history"><div class="claim-stage-shell">
-<header class="claim-stage-head"><div><p class="eyebrow">PRIZE HISTORY · EDIT PROOF</p><h2>Proof for <span id="capture-prize-label">claimed prize</span></h2></div><a class="btn btn-outline" id="proof-return" href="game.php">← Back to game</a></header>
+<header class="claim-stage-head"><div><p class="eyebrow" id="proof-heading-context">PRIZE PROOF</p><h2><span id="capture-prize-label">Claimed prize</span></h2></div><div class="proof-header-actions"><a class="btn btn-primary" id="proof-spin-again" href="game.php" hidden>↻ Spin again</a><a class="btn btn-outline" id="proof-return" href="game.php">✓ Done · Back to game</a></div></header>
 <div class="proof-editor-layout"><section class="claim-stage-award proof-history-panel"><h3 id="proof-prize-title">Loading prize…</h3><p id="proof-prize-context" class="mini-label"></p><p id="proof-state" role="status">Loading proof history…</p>
 <form id="proof-revision-form"><label class="proof-note-label">Revision note<textarea id="proof-note" rows="3" maxlength="250" placeholder="What changed, or what needs to be corrected?"></textarea></label>
 <div class="proof-revision-actions"><button class="btn btn-primary" id="proof-save" type="submit">Save proof revision</button><button class="btn btn-outline" id="proof-request" type="button">Mark needs revision</button></div></form>
@@ -27,5 +27,5 @@ shellStart('Edit Prize Proof','claims');
   <div id="capture-clip-list" class="capture-clip-list"></div><a id="capture-open-editor" class="btn btn-primary" href="editor.php">🎬 Open video timeline</a>
  </section>
 </div></div></dialog>
-<script src="public/client.js" defer></script><script src="public/proof-sequence.js?v=5q2" defer></script><script src="public/claim-capture.js?v=5q13" defer></script><script src="public/proof.js?v=5q13" defer></script><script src="public/ui-receiver.js?v=5q8b" defer></script>
+<script src="public/client.js" defer></script><script src="public/proof-sequence.js?v=5q2" defer></script><script src="public/claim-capture.js?v=5q13" defer></script><script src="public/proof.js?v=5q14" defer></script><script src="public/ui-receiver.js?v=5q8b" defer></script>
 <?php shellEnd(); ?>
