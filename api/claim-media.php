@@ -92,6 +92,9 @@ try {
  }
  if($action==='delete'){
    $r=mediaRow($db,(string)($in['id']??''));if($r['session_id']!==$session)throw new DomainException('Clip does not belong to this game.',403);
+   // Saved proof revisions are immutable evidence. Reject deletion of a referenced original.
+   $q=$db->prepare('SELECT 1 FROM claim_proof_revision_clips WHERE clip_id=? LIMIT 1');$q->execute([$r['id']]);
+   if($q->fetchColumn())throw new DomainException('This original recording belongs to a saved proof revision and cannot be deleted.',409);
    $q=$db->prepare('DELETE FROM claim_media WHERE session_id=? AND id=?');$q->execute([$session,$r['id']]);
    audit($db,'claim.media-delete',$session,['clip'=>$r['id']]);@unlink(LUCKY_ROOT.'/storage/claim-media/'.$r['id'].'.bin');success();
  }

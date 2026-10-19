@@ -20,7 +20,7 @@
  async function change(id,action){try{await request(action,{id});text(action==='approve'?'Phone approved. You can use its controls.':'Phone disconnected.');await list();}catch(e){text(e.message,true);}}
  async function list(){if(state.loading&&state.connected)return;
   try{const data=await request('list'),parent=$('pair-devices');parent.replaceChildren();
-   const active=data.pairs.filter(p=>['pending','paired'].includes(p.status));
+   const active=data.pairs.filter(p=>['pending','paired'].includes(p.status));window.dispatchEvent(new CustomEvent('lucky:paired-phones',{detail:{count:active.filter(p=>p.status==='paired').length}}));
    if(!active.length){const p=document.createElement('p');p.className='console-footnote';p.textContent='No pending or connected phones.';parent.append(p);return;}
    active.forEach(p=>{
     const row=document.createElement('div');row.className='phone-pair-device';
