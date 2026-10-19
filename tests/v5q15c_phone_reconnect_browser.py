@@ -25,8 +25,8 @@ async def main():
  results=[]; errors=[]
  def test(name,good):results.append((name,bool(good)))
  raw=(ROOT/'controller.php').read_text().split('?>',1)[1]
- raw=re.sub(r'<link rel="stylesheet" href="public/style.css"><link rel="stylesheet" href="public/platform.css\\?v=[^"]+">',
-    lambda _: '<style>'+(ROOT/'public/style.css').read_text()+'\\n'+(ROOT/'public/platform.css').read_text()+'</style>',raw)
+ raw=re.sub(r'<link rel="stylesheet" href="public/style.css"><link rel="stylesheet" href="public/platform.css\?v=[^"]+">',
+    lambda _: '<style>'+(ROOT/'public/style.css').read_text()+'\n'+(ROOT/'public/platform.css').read_text()+'</style>',raw)
  raw=raw.replace('</head>','<base href="https://example.test/controller.php?invite='+ID+'&key='+SECRET+'">'+MOCK+'</head>',1)
  raw=re.sub(r'<script src="public/voice-commands.js[^"]*" defer></script>','',raw)
  raw=re.sub(r'<script src="public/phone-controller.js[^"]*" defer></script>',
