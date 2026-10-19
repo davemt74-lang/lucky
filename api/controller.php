@@ -74,9 +74,13 @@ try {
     if(!SchemaGuard::missing($db,['controller_proof_state'])){
     $q=$db->prepare("SELECT s.session_id,s.claim_id,s.is_open,s.review_count FROM controller_proof_state s WHERE s.host_admin_id=? AND s.is_open=1 AND s.updated_at>UTC_TIMESTAMP()-INTERVAL 12 SECOND ORDER BY s.updated_at DESC LIMIT 1");
     $current=ControllerGame::snapshot($db);$q->execute([(int)$p['host_admin_id']]);$proof=$q->fetch()?:null;
+    if($proof && !SchemaGuard::missing($db,['claim_media'])){
+     $media=$db->prepare('SELECT COUNT(*) FROM claim_media WHERE claim_id=? AND session_id=?');
+     $media->execute([$proof['claim_id'],$proof['session_id']]);$proof['saved_count']=(int)$media->fetchColumn();
+    }
     }
    }
-   success(['status'=>$status,'deviceName'=>$p['device_name'],'expiresAt'=>$p['paired_expires_at'],'game'=>$status==='paired'?($current??ControllerGame::snapshot($db)):null,'proof'=>$proof?['active'=>true,'claimId'=>$proof['claim_id'],'reviewCount'=>(int)$proof['review_count']]:['active'=>false],'delivery'=>$delivery,'reason'=>$reason??null]);
+   success(['status'=>$status,'deviceName'=>$p['device_name'],'expiresAt'=>$p['paired_expires_at'],'game'=>$status==='paired'?($current??ControllerGame::snapshot($db)):null,'proof'=>$proof?['active'=>true,'claimId'=>$proof['claim_id'],'reviewCount'=>(int)$proof['review_count'],'savedCount'=>(int)($proof['saved_count']??0)]:['active'=>false],'delivery'=>$delivery,'reason'=>$reason??null]);
   }
   if($action==='disconnect'){
    $db->beginTransaction();try{

@@ -58,6 +58,8 @@
   const reviewing=showing&&Number(proof.reviewCount)>0;
   if($('phone-proof-recording'))$('phone-proof-recording').hidden=reviewing;
   if($('phone-proof-review'))$('phone-proof-review').hidden=!reviewing;
+  const approved=showing&&Number(proof.savedCount)>0;
+  if($('phone-proof-rerecord-saved'))$('phone-proof-rerecord-saved').hidden=reviewing||!approved;
  }
  async function send(action){if(!active)return;
   if(busy||pendingCommand){if(commandQueue.length>=16){message('Too many pending controls. Wait for the screen to respond.',true);return;}commandQueue.push(action);message(`Waiting… (${commandQueue.length} queued)`);return;}

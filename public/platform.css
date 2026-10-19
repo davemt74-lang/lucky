@@ -352,3 +352,16 @@ body.game-fullwidth #win-dialog{display:none!important}
 .phone-proof-context{margin:12px 0;color:#ffd58c;font-weight:800;text-align:center;font-size:17px}
 .phone-controller #phone-proof-mode{margin:12px 0;padding:12px;border:1px solid #415c78;border-radius:14px;background:#0f1c2f}
 .phone-controller #phone-proof-controls{margin:0}
+
+/* V5Q.15A: camera-first proof, compact revision sidebar. */
+.proof-editor-layout{display:grid;grid-template-columns:minmax(0,1.8fr) minmax(245px,.65fr);gap:12px;align-items:start}
+.proof-editor-layout>.claim-capture{min-width:0;grid-column:1;grid-row:1}
+.proof-editor-layout>.proof-history-panel{min-width:0;grid-column:2;grid-row:1;padding:10px 12px;border:1px solid var(--border);border-radius:14px}
+.proof-history-panel #proof-state{font-size:.8rem;overflow-wrap:anywhere}
+.proof-history-disclosure summary{cursor:pointer;padding:8px 0;font-weight:700}
+.proof-revision-list{max-height:38vh;overflow:auto}
+.proof-revision-form{display:grid;gap:10px;padding-top:12px}
+.proof-editor-page .claim-stage-head{padding:8px 12px;min-height:48px}
+.proof-editor-page .claim-stage-head h2{margin:0;font-size:1rem}
+.proof-editor-page .claim-stage-head .eyebrow{display:none}
+@media(max-width:900px){.proof-editor-layout{grid-template-columns:minmax(0,1fr)}.proof-editor-layout>.proof-history-panel{grid-column:1;grid-row:2}}
