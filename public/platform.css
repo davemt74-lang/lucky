@@ -206,3 +206,69 @@ body.game-show-mode .platform-sidebar,body.game-show-mode .page-intro,body.game-
 .proof-revision-clip{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;border-top:1px solid #ffffff1c;padding:8px 0;font-size:.82rem}
 @media(max-width:980px){.proof-editor-layout{grid-template-columns:1fr}.game-claims-top{padding:14px}}
 @media(max-width:620px){.game-claimed-grid{grid-template-columns:1fr}.game-section-head .btn{width:100%;text-align:center}.claim-proof-row{flex-wrap:wrap}.claim-proof-actions{width:100%;justify-content:flex-start}.proof-editor-page .claim-stage-shell{padding:12px}}
+
+/* V5Q.7 — game-first tabbed host workspace and always-visible prize history. */
+.host-workspace{display:grid;grid-template-columns:minmax(0,1.75fr) minmax(315px,.85fr);gap:18px;align-items:start;min-width:0;margin-bottom:22px}
+.host-workspace-main,.host-claims-column,.host-workspace-panels{min-width:0}
+.host-main-tabs{display:flex;align-items:stretch;gap:7px;padding:8px;background:#151f34;border:1px solid #354761;border-radius:18px 18px 0 0;overflow-x:auto}
+.host-main-tabs button{flex:1 0 auto;min-width:105px;min-height:45px;padding:10px 15px;border:1px solid transparent;border-radius:11px;color:#b7c8df;background:transparent;font-weight:800;font:inherit;cursor:pointer}
+.host-main-tabs button[aria-selected="true"]{color:#1b2a3c;background:linear-gradient(115deg,#ffe099,#f0ad64);font-weight:850;box-shadow:0 3px 15px #0004}
+.host-main-tabs button:focus-visible{outline:3px solid #a0f4e4;outline-offset:-3px}
+.host-workspace-panels{background:#141f32;border:1px solid #354761;border-top:0;border-radius:0 0 18px 18px;padding:14px;min-height:340px}
+.host-workspace-panels>div[role="tabpanel"]{min-width:0}
+.host-workspace-panels .platform-wheel-card{border:0;background:transparent;box-shadow:none;padding:12px;text-align:center}
+.host-workspace-panels .platform-wheel-wrap{width:min(560px,100%)}
+.host-tools-panel{min-height:440px;padding:20px;border:0;box-shadow:none;background:transparent}
+.host-tools-panel .platform-widget{border:0;box-shadow:none;background:transparent;padding:4px;max-width:680px;margin:auto}
+.host-tools-panel .phone-pair-panel{max-width:700px;margin:auto}
+.game-claims-side{padding:18px;min-width:0;position:sticky;top:12px}
+.game-claims-side .game-section-head{align-items:flex-start}
+.game-claims-side .game-section-head .btn{font-size:11px;padding:9px 12px}
+.game-claimed-column{grid-template-columns:minmax(0,1fr);max-height:min(72vh,850px);overflow:auto;gap:9px}
+.game-claims-side .claim-proof-row{padding:12px;min-height:68px}
+.game-claims-side .claim-proof-row .btn{flex-shrink:0}
+.game-claims-side #session-totals{font-size:13px}
+@media(max-width:980px){.host-workspace{grid-template-columns:1fr}.game-claims-side{position:static}.game-claimed-column{grid-template-columns:repeat(2,minmax(0,1fr));max-height:330px}}
+@media(max-width:600px){.host-main-tabs button{font-size:12px;min-width:0;white-space:normal;padding:10px 6px}.host-workspace-panels{padding:8px}.host-workspace-panels .platform-wheel-card{padding:8px}.game-claimed-column{grid-template-columns:1fr;max-height:400px}.game-claims-side .game-section-head .btn{width:auto}.game-claims-side .claim-proof-row{flex-wrap:nowrap}.game-claims-side .claim-proof-row .btn{width:auto}}
+body.game-show-mode .host-claims-column{display:none!important}body.game-show-mode .host-workspace{grid-template-columns:1fr}body.game-show-mode .host-main-tabs{display:none}body.game-show-mode #host-panel-game{display:block!important}body.game-show-mode #host-panel-music,body.game-show-mode #host-panel-phones{display:none!important}
+
+/* V5Q.7 — immersive, chrome-free timeline editor. */
+body.editor-workspace{background:#080d17;overflow:hidden}
+body.editor-workspace .shell{max-width:none;padding:0;margin:0;width:100%}
+body.editor-workspace .header,body.editor-workspace .footer{display:none}
+body.editor-workspace main{padding:0;margin:0;min-height:100dvh}
+body.editor-workspace .media-editor-studio{width:100%;height:100dvh;display:grid;grid-template-rows:auto minmax(0,1fr) auto auto;gap:10px;padding:10px 14px;max-width:none;border:0;border-radius:0;box-shadow:none;background:#0a1220;overflow:hidden}
+body.editor-workspace .media-editor-top{margin:0;align-items:center;display:flex;gap:12px;min-height:61px;padding:9px 13px;background:#131f33;border:1px solid #354660;border-radius:13px}
+.editor-brand{display:grid;gap:2px;white-space:nowrap}.editor-brand strong{color:#ffd48c;letter-spacing:.12em;font-size:12px}.editor-brand span{font-size:11px;color:#a6bbd4}
+body.editor-workspace .media-editor-top label{font-size:11px;color:#adbed6;min-width:180px;max-width:260px}
+body.editor-workspace .media-editor-top select{font-size:12px;padding:9px;border:1px solid #405672;color:#e9f3ff;background:#0e1b2e;border-radius:9px}
+body.editor-workspace .media-editor-top .platform-control-row{margin:0;gap:7px;justify-content:flex-start;flex:1}
+body.editor-workspace .media-editor-top .btn{min-width:auto;padding:10px 12px;font-size:11px}
+.editor-exit{display:flex;gap:6px}
+body.editor-workspace .media-editor-layout{min-height:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(265px,.32fr);gap:10px}
+body.editor-workspace .media-editor-stage{min-height:0;display:grid;grid-template-rows:auto minmax(150px,1fr) auto auto minmax(110px,.48fr);gap:8px;overflow:hidden;padding:12px;background:#111c2f;border:1px solid #32445e;border-radius:14px}
+.editor-stage-title,.editor-inspector-title,.editor-track-heading,.editor-render-heading{display:flex;align-items:baseline;justify-content:space-between;gap:9px;flex-wrap:wrap}
+.editor-stage-title strong{font-size:12px;color:#f7d18d}.editor-stage-title span,.editor-inspector-title span,.editor-track-heading span,.editor-render-heading span{font-size:11px;color:#9cb0c9}
+body.editor-workspace .media-preview{min-height:0;height:100%;max-height:none;border-radius:10px;background:#030711}
+body.editor-workspace .media-preview video,body.editor-workspace .media-preview img{height:100%;width:100%;max-height:100%;object-fit:contain}
+body.editor-workspace #editor-caption{margin:0;min-height:28px;padding:5px 9px;font-size:11px}
+body.editor-workspace .editor-track-heading h2{font-size:14px}
+body.editor-workspace .editor-track{min-height:0;max-height:none;overflow-y:auto;display:grid;align-content:start;gap:6px;background:#0b1425;border:1px solid #293a52;border-radius:10px;padding:9px}
+body.editor-workspace .editor-clip{padding:8px 10px;border-radius:9px;font-size:11px}
+body.editor-workspace .editor-clip .btn{padding:7px 9px}
+body.editor-workspace .media-editor-settings{padding:16px;overflow-y:auto;background:#142036;border:1px solid #354a65;border-radius:14px}
+body.editor-workspace .media-editor-settings h2{font-size:16px}
+body.editor-workspace .media-editor-settings label{font-size:12px;color:#b7c6da}
+body.editor-workspace .media-editor-settings input,body.editor-workspace .media-editor-settings select{background:#0e192b;color:#f6f7fa;border:1px solid #445874;border-radius:8px;padding:9px;min-width:0}
+body.editor-workspace .media-editor-settings #editor-selected{font-size:12px;color:#bcc9de;overflow-wrap:anywhere}
+body.editor-workspace .media-editor-settings .btn{white-space:normal;width:100%;min-height:38px}
+body.editor-workspace .render-studio{margin:0;background:#132037;border:1px solid #354b67;border-radius:13px;padding:10px 15px}
+body.editor-workspace .editor-render-heading h2{font-size:15px}
+body.editor-workspace .render-options{margin:7px 0;gap:10px;align-items:end}
+body.editor-workspace .render-options label{font-size:11px;min-width:135px}
+body.editor-workspace .render-options select{max-width:230px}
+body.editor-workspace .render-studio .voice-status{min-height:0;margin:6px 0;padding:6px 10px}
+body.editor-workspace #editor-feedback{margin:0;min-height:27px;padding:6px 10px;font-size:11px}
+body.editor-workspace .render-jobs{max-height:76px;overflow-y:auto}
+@media(max-width:990px){body.editor-workspace{overflow:auto}body.editor-workspace .media-editor-studio{height:auto;min-height:100dvh;overflow:visible;display:flex;flex-direction:column}body.editor-workspace .media-editor-layout{grid-template-columns:minmax(0,1fr)}body.editor-workspace .media-editor-stage{min-height:600px;grid-template-rows:auto minmax(230px,1fr) auto auto minmax(180px,.4fr)}body.editor-workspace .media-editor-settings{max-height:none;overflow:visible}body.editor-workspace .media-editor-top{flex-wrap:wrap}body.editor-workspace .editor-track{max-height:360px}}
+@media(max-width:600px){body.editor-workspace .media-editor-studio{padding:7px}body.editor-workspace .media-editor-top{padding:10px}body.editor-workspace .media-editor-top label{max-width:none;min-width:0;flex:1 1 160px}body.editor-workspace .media-editor-top .platform-control-row{flex:1 1 100%;grid-template-columns:repeat(2,minmax(0,1fr))}body.editor-workspace .media-editor-top .btn{white-space:normal}body.editor-workspace .editor-exit{flex:1 1 100%}body.editor-workspace .editor-exit .btn{flex:1}}
