@@ -2,6 +2,13 @@
 declare(strict_types=1);
 /** Keep award and Accept/Decline as separate immutable audit facts. */
 final class PrizeDecision {
+ public static function available(PDO $db):bool {
+  $q=$db->query("SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='prize_decisions' LIMIT 1");
+  return $q->fetchColumn()!==false;
+ }
+ public static function requireReady(PDO $db):void {
+  if(!self::available($db))throw new DomainException('Prize acceptance needs the V5Q.15B database upgrade. Sign in as host and run upgrade.php.',409);
+ }
  public static function create(PDO $db,string $session,string $claim):void {
   $q=$db->prepare("INSERT INTO prize_decisions(claim_id,session_id,status) VALUES (?,?,'pending')");
   $q->execute([$claim,$session]);
@@ -16,6 +23,7 @@ final class PrizeDecision {
   $q->execute([$session]);return $q->fetch()?:null;
  }
  public static function assertReady(PDO $db,string $session):void {
+  self::requireReady($db);
   if(self::pending($db,$session))throw new DomainException('Accept or decline the previous prize before spinning again.',409);
  }
  public static function choose(PDO $db,string $session,string $claim,string $choice):array {
