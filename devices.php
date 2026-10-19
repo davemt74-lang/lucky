@@ -1,0 +1,9 @@
+<?php
+declare(strict_types=1);
+require __DIR__.'/lib/Layout.php';if(!installed()){header('Location: install.php');exit;}
+require_once __DIR__.'/lib/PairingWidget.php';
+shellStart('Controllers & Devices','devices');
+?><section class="page-intro"><div><p class="eyebrow">YOUR LIVING ROOM SETUP</p><h1>Controllers & <span class="accent">Devices.</span></h1><p>Use a keyboard, mouse, spoken commands, or a compatible browser gamepad. More hardware integrations can be added as modules.</p></div><a href="index.php" class="btn btn-outline">← Games</a></section>
+<div class="console-grid"><section class="surface console-section"><span class="mini-label">INPUTS</span><h2>Detected game controllers</h2><p id="controller-status" role="status">Checking for connected gamepads…</p><div id="controller-list" class="console-device-list"></div><button class="btn btn-outline" id="controller-refresh" type="button">Refresh devices</button></section><section class="surface console-section"><span class="mini-label">SUPPORTED NOW</span><h2>Home console controls</h2><p><strong>Keyboard:</strong> Tab / Enter to select, Space to spin, Escape for the in-game menu.</p><p><strong>Controller:</strong> Direction pad to move, A to select or spin, B to go back, Start for menu.</p><p><strong>Voice:</strong> Microphone controls remain available inside Spin the Wheel.</p><p class="console-footnote">Controller detection uses the browser Gamepad API and needs a supported browser and connected controller. Direct USB/Bluetooth pairing and custom device firmware integrations are not included yet.</p></section></div>
+<?php if(isAdmin()){pairingWidget();?><script src="public/qr.js" defer></script><script src="public/pairing-host.js" defer></script><?php }else{?><p class="console-footnote">Sign in as host to pair a mobile phone controller.</p><?php } ?>
+<script src="public/device-page.js" defer></script><?php shellEnd(); ?>
