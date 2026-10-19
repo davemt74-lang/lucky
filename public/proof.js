@@ -13,6 +13,7 @@
  // Explicitly clear remote proof mode before the host leaves. A slight delay gives
  // the UI receiver time to acknowledge the phone's Done/Back command first.
  async function clearProofState(){
+  leaving=true;
   if(!/^[a-f0-9]{32}$/.test(session))return;
   try{const me=await L.getMe();await fetch('api/controller.php?action=proof_state',{
     method:'POST',credentials:'same-origin',keepalive:true,
@@ -25,11 +26,11 @@
   clearProofState().finally(()=>{if(fromPhone)setTimeout(()=>location.assign(url),380);else location.assign(url);});
  }
 
- let busy=false,proofBusy=false;
- async function publishProof(){if(proofBusy||!/^[a-f0-9]{32}$/.test(session)||!/^[a-f0-9]{32}$/.test(claim))return;
+ let busy=false,proofBusy=false,leaving=false;
+ async function publishProof(){if(leaving||proofBusy||!/^[a-f0-9]{32}$/.test(session)||!/^[a-f0-9]{32}$/.test(claim))return;
   proofBusy=true;try{const me=await L.getMe();await fetch('api/controller.php?action=proof_state',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF-Token':me.csrf},body:JSON.stringify({session,claim,open:true,reviewCount:window.LuckyCapture?.reviewCount?.()||0})});}catch(_){/* Basic editing still available without the pairing upgrade. */}finally{proofBusy=false;}}
  window.addEventListener('lucky:proof-review',publishProof);
- setInterval(()=>{if(!$('win-dialog')?.hidden&&document.visibilityState==='visible')publishProof();},3500);
+ setInterval(()=>{if(!leaving&&document.visibilityState==='visible'&&window.LuckyCapture?.hasClaim?.())publishProof();},2500);
  window.addEventListener('pagehide',()=>{const data=JSON.stringify({session,claim,open:false});L.getMe().then(me=>fetch('api/controller.php?action=proof_state',{method:'POST',credentials:'same-origin',keepalive:true,headers:{'Content-Type':'application/json','X-CSRF-Token':me.csrf},body:data})).catch(()=>{});});
 
  function feedback(message,bad=false){const e=$('proof-errors');e.hidden=!bad;e.textContent=bad?message:'';$('proof-state').textContent=message;}
@@ -69,9 +70,13 @@
    // Initialize the verified claim first so camera discovery never loses its context.
    window.LuckyCapture?.show(session,claim,p.name,profile?.proofAngles||[]);
    $('camera-enable').disabled=false;
+   // Announce active proof NOW; a slow/failed revision-history request must not
+   // leave the paired phone showing gameplay controls during camera capture.
+   await publishProof();
    // Baseline snapshots are idempotent, and older proof clips stay protected.
-   await call('baseline',{});
-   await load();publishProof();
+   try{await call('baseline',{});await load();}
+   catch(e){feedback('Proof history: '+e.message,true);}
+
    $('proof-revision-form').onsubmit=e=>{e.preventDefault();save('save');};
    $('proof-request').onclick=()=>save('request');
   }catch(e){feedback(e.message,true);$('proof-revision-form').hidden=true;}

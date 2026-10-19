@@ -147,4 +147,10 @@ On the desktop, select **Start Game** to grant camera permission before the firs
 Prize wins and Edit Proof now both open the same two-column `proof.php` view, preserving exact session and claim IDs. Desktop owns live USB camera feeds, review, approval and revision history. Paired phones automatically switch from gameplay controls to a default-closed proof-control accordion while the proof page publishes an active heartbeat. Done returns to the originating game; Spin Again resumes there. No extra desktop prize-proof popup is rendered.
 
 
-**Release V5Q.14 acceptance:** New wins and existing claimed-prize edits use `proof.php` exclusively; the main game no longer embeds an independent capture dialog. The desktop owns the two-column claim + live-camera + history station. The paired phone switches to an accordion-only proof control surface during the active claim and returns to game controls after Done. Videos stay local until approved. No database changes; upgrade from V5Q.13 in place while preserving `storage/config.php` and prior media.
+## V5Q.14B — Live proof camera and phone UI synchronization
+
+The one two-column proof page (`proof.php`) automatically attempts live camera previews once an exact claim is validated, including when the game was started by an approved phone (which does not set browser-local camera permission state). The browser may still show its normal permission prompt; HTTPS and host-side camera permission are required. Footage is **not** uploaded until the host or approved phone explicitly approves it.
+
+Publishing the active proof claim to paired phones no longer waits on proof revision history. While proof is open the phone switches from gameplay to a default-closed proof-control accordion, including Play, Approve, Re-record, and Delete after capturing footage. Closing the proof page returns the phone to gameplay.
+
+Regression: `python tests/v5q14b_live_phone_handoff.py` uses separate browser pages and a shared mock server to verify a real proof-state POST is consumed by the paired phone, plus browser-native camera preview auto-start. Real USB cameras and hosted MySQL/HTTPS remain field gates.

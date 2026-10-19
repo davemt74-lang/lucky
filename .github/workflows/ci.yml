@@ -64,6 +64,7 @@ jobs:
           python tests/v5q13_camera_review_browser.py
           python tests/v5q13_phone_proof_browser.py
           python tests/v5q14_single_proof_flow.py
+          python tests/v5q14b_live_phone_handoff.py
       - name: Phone controller regressions
         run: |
           python tests/v5p2_navigation_voice.py

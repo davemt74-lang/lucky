@@ -227,12 +227,16 @@
  }catch(e){status(e.message,true);}}
  function show(s,c,n,angles=[]){clearDrafts();closing=false;session=s||'';claim=c||'';prize=n||'Prize';proofProfile=Array.isArray(angles)?angles:[];drawProofPlan();$('capture-prize-label').textContent=prize;$('capture-open-editor').href='editor.php?session='+encodeURIComponent(session);
   $('capture-consent').checked=false;status(session&&claim?'Live preview ready. Recording requires consent.':'Choose a prize first.');refreshClips();
-  if(session&&claim&&navigator.mediaDevices?.enumerateDevices)refresh(false).then(async()=>{
-   let wasAuthorized=cameraAuthorized;try{wasAuthorized=wasAuthorized||sessionStorage.getItem('lucky-cameras-authorized')==='1';}catch(_){}
-   if(wasAuthorized){
-    for(const id of selected().slice(0,MAX_CAMERAS)){const card=[...document.querySelectorAll('.camera-source')].find(c=>c.dataset.cameraId===id);if(card)try{await openCamera(id,getCameraName(id),card.querySelector('video'),card.querySelector('.mini-label'));}catch(e){status(e.message,true);}}
-   }
-  }).catch(e=>status(e.message,true));}
+  // The claim page is the one camera station. Start live previews immediately after the
+  // verified claim loads, including games initiated on a paired phone (no browser-local
+  // Start Game flag). getUserMedia may show the browser's permission prompt; consent to
+  // RECORD remains a separate, explicit action. Never pretend a camera is live if denied.
+  if(session&&claim&&navigator.mediaDevices?.enumerateDevices){
+   refresh(true).then(()=>{cameraAuthorized=feeds.size>0;
+    if(cameraAuthorized)try{sessionStorage.setItem('lucky-cameras-authorized','1');}catch(_){}
+   }).catch(e=>{status('Camera preview unavailable: '+e.message+' · Choose Enable cameras to retry.',true);});
+  }
+ }
  function setup(){const dialog=$('win-dialog');if(!dialog)return;
   $('camera-enable').onclick=()=>refresh(true).catch(e=>status(e.message,true));$('camera-refresh').onclick=()=>refresh().catch(e=>status(e.message,true));
   $('camera-off').onclick=()=>stopAll().catch(e=>status(e.message,true));$('capture-photo').onclick=photos;$('capture-video').onclick=()=>record();
