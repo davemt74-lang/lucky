@@ -164,3 +164,9 @@ body.game-show-mode .platform-sidebar,body.game-show-mode .page-intro,body.game-
 .editor-clip{cursor:grab}.editor-clip:active{cursor:grabbing}
 @media(max-width:600px){.render-options{display:grid;grid-template-columns:minmax(0,1fr)}.render-options>label{min-width:0}}
 @media(max-width:600px){.media-editor-top .platform-control-row{width:100%;max-width:100%;margin:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.media-editor-top .platform-control-row .btn{min-width:0;width:100%;white-space:normal;overflow-wrap:anywhere;padding:10px 5px}}
+
+/* V5Q.5: contextual highlight review, shown only for completed games. */
+.postgame-review{margin-top:1rem;padding:1rem;border:1px solid var(--line,rgba(255,255,255,.16));border-radius:1rem;background:rgba(150,110,235,.09)}
+.postgame-review[hidden]{display:none!important}
+.postgame-review strong{display:block;margin-bottom:.3rem}
+.postgame-review p{font-size:.9rem;margin:.3rem 0 .9rem}

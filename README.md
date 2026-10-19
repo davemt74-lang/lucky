@@ -1,4 +1,4 @@
-# Lucky Game Hub V5Q.3 — Complete Video Studio
+# Lucky Game Hub V5Q.5 — Post-game Highlights & Draft Limits
 
 This full deployment includes the previous private PHP/MySQL home gaming platform, wireless phone controls, and the **per-prize proof camera capture/timeline upgrade**. Each prize can define up to four proof camera angles; the number actually recorded matches the checked active cameras at the game host. Automatic recording rotates through camera views with a five-second countdown before each, per-angle duration, next camera announcement, and independently labeled timeline clips. Cameras can be named locally and clips can be reordered/trimmed in the private editor.
 
@@ -6,7 +6,7 @@ This full deployment includes the previous private PHP/MySQL home gaming platfor
 
 **Upgrade required:** Back up your existing MySQL DB and `storage`, upload the full archive preserving `storage/config.php` and clips, run `upgrade.php` signed in, refresh host and phone browsers, and enable browser camera permissions on HTTPS. Fresh installs now create the claim-media schema automatically.
 
-**Release gate:** This is a locally tested staging build, **not a merged PR or fully certified physical-camera release**. Real USB hardware and server MySQL verification are still pending. The editor exports an editable JSON cut list and provides playback preview; it does not yet render a combined final MP4.
+**Release gate:** Live USB cameras, production MySQL transactions, and hosting FFmpeg execution require on-site validation. The Video Studio can export a final MP4 through the configured CLI FFmpeg render worker, subject to server support. The post-game review link appears after a session ends and allows manual edits before export.
 
 ---
 
@@ -88,3 +88,7 @@ The claim-linked montage editor now supports dragging/reordering media, trimming
 ## V5Q.4 — End-of-game automatic highlight drafts
 
 When a game ends, the platform creates a non-destructive, video-first montage **draft** from that session's already-uploaded claim footage. Any previously saved manual timeline is preserved. You can open the Media Timeline, adjust the draft, select music and explicitly queue MP4 export; completing a game **never launches a render job**. See `docs/V5Q4_AUTO_DRAFT.md`.
+
+## V5Q.5 — Post-game review and long-session draft handling
+
+When a session ends, the host screen shows **Review highlights** linking directly to that game’s editor. Existing manual timelines are never overwritten. For long game nights, auto-draft prefers video from each prize claim, trims overly long individual recordings to two minutes without altering source files, and stays within 80 clips/20 minutes. Nothing renders until you press **Export MP4**. See `docs/V5Q5_POSTGAME_REVIEW.md`.
