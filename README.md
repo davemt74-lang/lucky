@@ -140,3 +140,11 @@ V5Q.12 restores the in-game Phones tab and places the version in the footer. The
 ### V5Q.13 camera-first proof and paired proof controls
 
 On the desktop, select **Start Game** to grant camera permission before the first prize reveal; HTTPS and a direct browser gesture are required. Cameras appear at the top of the winner modal. Recordings stay local until **Approve** is selected; **Play**, **Re-record**, and **Delete** do not upload the recording. Connect a phone and expand its closed **Prize proof controls** accordion during an active winner popup. Run `upgrade.php` to install `controller_proof_state` before using paired proof controls. If a phone starts a game remotely, the desktop may need one click to authorize its camera because browsers do not permit remote permission prompts.
+
+
+### V5Q.14 · Single desktop proof station and phone remote
+
+Prize wins and Edit Proof now both open the same two-column `proof.php` view, preserving exact session and claim IDs. Desktop owns live USB camera feeds, review, approval and revision history. Paired phones automatically switch from gameplay controls to a default-closed proof-control accordion while the proof page publishes an active heartbeat. Done returns to the originating game; Spin Again resumes there. No extra desktop prize-proof popup is rendered.
+
+
+**Release V5Q.14 acceptance:** New wins and existing claimed-prize edits use `proof.php` exclusively; the main game no longer embeds an independent capture dialog. The desktop owns the two-column claim + live-camera + history station. The paired phone switches to an accordion-only proof control surface during the active claim and returns to game controls after Done. Videos stay local until approved. No database changes; upgrade from V5Q.13 in place while preserving `storage/config.php` and prior media.

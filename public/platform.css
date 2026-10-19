@@ -343,3 +343,12 @@ body.game-fullwidth .host-claims-column{min-height:0}
 .phone-proof-controls summary{font-weight:800;cursor:pointer;padding:6px 0;color:#ffdc9d}
 .phone-proof-controls .phone-actions{margin:12px 0 2px}
 .phone-proof-controls [hidden]{display:none!important}
+
+/* V5Q.14: single two-column desktop proof workspace; no embedded game capture popup. */
+body.game-fullwidth #win-dialog{display:none!important}
+.proof-header-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.phone-controller #phone-gameplay-shell[hidden],.phone-controller #phone-game-audio[hidden],
+.phone-controller #phone-proof-mode[hidden],.phone-controller #phone-proof-controls[hidden]{display:none!important}
+.phone-proof-context{margin:12px 0;color:#ffd58c;font-weight:800;text-align:center;font-size:17px}
+.phone-controller #phone-proof-mode{margin:12px 0;padding:12px;border:1px solid #415c78;border-radius:14px;background:#0f1c2f}
+.phone-controller #phone-proof-controls{margin:0}

@@ -7,8 +7,24 @@
  let cached=null;try{const value=JSON.parse(sessionStorage.getItem('lucky-proof-origin')||'null');if(value&&Date.now()-value.at<5*60*1000)cached=value;}catch(_){}
  const useCached=!params.has('session')&&!params.has('claim');
  const session=params.get('session')||(useCached?cached?.session:'')||'',claim=params.get('claim')||(useCached?cached?.claim:'')||'';
+ const winMode=params.get('mode')==='win';
  const from=params.get('from')==='claims'?'claims':params.get('from')==='game'?'game':useCached&&cached?.from==='claims'?'claims':'game';
  const returnUrl=()=>!session?'game.php':from==='claims'?'claims.php?session='+encodeURIComponent(session):'game.php?session='+encodeURIComponent(session);
+ // Explicitly clear remote proof mode before the host leaves. A slight delay gives
+ // the UI receiver time to acknowledge the phone's Done/Back command first.
+ async function clearProofState(){
+  if(!/^[a-f0-9]{32}$/.test(session))return;
+  try{const me=await L.getMe();await fetch('api/controller.php?action=proof_state',{
+    method:'POST',credentials:'same-origin',keepalive:true,
+    headers:{'Content-Type':'application/json','X-CSRF-Token':me.csrf},
+    body:JSON.stringify({session,claim,open:false})
+  });}catch(_){}
+ }
+ function leaveProof(url,fromPhone=false){
+  // Keep the claim station visible until its controls acknowledge a phone request.
+  clearProofState().finally(()=>{if(fromPhone)setTimeout(()=>location.assign(url),380);else location.assign(url);});
+ }
+
  let busy=false,proofBusy=false;
  async function publishProof(){if(proofBusy||!/^[a-f0-9]{32}$/.test(session)||!/^[a-f0-9]{32}$/.test(claim))return;
   proofBusy=true;try{const me=await L.getMe();await fetch('api/controller.php?action=proof_state',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF-Token':me.csrf},body:JSON.stringify({session,claim,open:true,reviewCount:window.LuckyCapture?.reviewCount?.()||0})});}catch(_){/* Basic editing still available without the pairing upgrade. */}finally{proofBusy=false;}}
@@ -37,6 +53,12 @@
  }
  async function init(){try{
    $('proof-return').href=returnUrl();
+   $('proof-return').addEventListener('click',e=>{e.preventDefault();leaveProof(returnUrl());},{once:true});
+   const spinAgain=$('proof-spin-again');
+   if(spinAgain){spinAgain.hidden=!winMode;spinAgain.href='game.php?session='+encodeURIComponent(session)+'&spin=1';
+    spinAgain.addEventListener('click',e=>{e.preventDefault();leaveProof(spinAgain.href);},{once:true});}
+
+   if($('proof-heading-context'))$('proof-heading-context').textContent=winMode?'YOU WON · RECORD PRIZE PROOF':'PRIZE PROOF · EDIT HISTORY';
    if(!/^[a-f0-9]{32}$/.test(session)||!/^[a-f0-9]{32}$/.test(claim))throw Error('Open proof editing from a claimed-prize entry.');
    const r=await L.api('session',{query:{id:session}});
    const p=(r.session?.claims||[]).find(c=>c.id===claim);if(!p)throw Error('Claim not found in selected game.');
@@ -54,6 +76,16 @@
    $('proof-request').onclick=()=>save('request');
   }catch(e){feedback(e.message,true);$('proof-revision-form').hidden=true;}
  }
- window.LuckyHostRemote=async command=>command.startsWith('proof-')?(await window.LuckyCapture?.phoneAction(command)??false):['up','down','left','right','select','back','done','menu'].includes(command)?(window.LuckyConsole?.emit(command==='done'?'back':command)??false):false;
+ window.LuckyHostRemote=async command=>{
+  if(command.startsWith('proof-'))return await window.LuckyCapture?.phoneAction(command)??false;
+  if(command==='back'||command==='done'||command==='menu'){
+   leaveProof(returnUrl(),true);return true;
+  }
+  if(command==='spin'){
+   if(!winMode)return false;
+   leaveProof('game.php?session='+encodeURIComponent(session)+'&spin=1',true);return true;
+  }
+  return ['up','down','left','right','select'].includes(command)?(window.LuckyConsole?.emit(command)??false):false;
+ };
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();
