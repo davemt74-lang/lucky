@@ -1,3 +1,15 @@
+# V5Q.8B — Verified Prize Proof Navigation and Live Cameras
+
+The individual prize proof editor now restores the **exact originating game session** when you exit (and Claims when the entry came from Claims). Pressing Back from the approved phone controller or Escape on desktop follows that return destination.
+
+Both the proof editor and the Video Studio show live, named USB/built-in camera previews after **Enable & find cameras**. The Video Studio lets you select a real claimed prize, capture clips against its claim ID, and append those clips to the current timeline without replacing a saved or unsaved edit. Consent remains mandatory for recording and upload, but not for an already-authorized, local preview.
+
+**Important:** Camera permission is granted by the browser over HTTPS. Selecting camera sources does not start a recording. All uploads remain claim-scoped and protected by admin + CSRF server checks. Previewed streams stop on page exit. Existing proof history is preserved.
+
+For existing installations back up database and `storage/`, upload the full deployment package while preserving `storage/config.php` and uploaded clips, then run `upgrade.php` if any earlier migration is pending. Refresh the host, proof and editor pages to clear old JS assets.
+
+**Open field tests:** Physical USB-camera bandwidth, hosted MySQL and FFmpeg have not been tested. End-to-end footage capture on your actual host remains required.
+
 ## V5Q.7 — Tabbed Host Workspace and Full-Screen Editor
 
 The host screen now has Game (default), Music and Connected Phones tabs on the left, with the claimed-prize/proof-history list permanently on the right. The video editor has a full-screen timeline workspace with an integrated inspector and MP4 export dock. Phone arrow navigation shares keyboard/gamepad focus behavior. See `docs/V5Q7_WORKSPACE.md`.

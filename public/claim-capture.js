@@ -8,7 +8,8 @@
  const MAX_CAMERAS=4;
  const status=(message,bad=false)=>{const p=$('capture-feedback');if(p){p.textContent=message;p.classList.toggle('is-error',bad);}};
  const badge=()=>{const n=$('capture-live-status');if(n)n.textContent=`${feeds.size} camera${feeds.size===1?'':'s'} connected${recordings.size||audioRecorder?' · recording':''}`;};
- const permitted=()=>{if(!session||!claim)throw Error('No prize claim selected.');if(!$('capture-consent')?.checked)throw Error('Check recording consent first.');};
+ const contextReady=()=>{if(!/^[a-f0-9]{32}$/.test(session)||!/^[a-f0-9]{32}$/.test(claim))throw Error('Select a claimed prize before enabling its cameras.');};
+ const permitted=()=>{contextReady();if(!$('capture-consent')?.checked)throw Error('Check recording consent first.');};
  const capabilities=()=>{if(!navigator.mediaDevices?.getUserMedia)throw Error('Camera requires a supported browser and HTTPS. You can still upload files.');};
  const selected=()=>[...document.querySelectorAll('[data-camera-select]:checked')].map(x=>x.dataset.cameraSelect);
  function getCameraName(id){const card=[...document.querySelectorAll('.camera-source')].find(c=>c.dataset.cameraId===id);return clean(card?.querySelector('[data-camera-name]')?.value||card?.querySelector('strong')?.textContent||'Camera');}
@@ -31,9 +32,9 @@
  const extension=type=>type.includes('mp4')?'.mp4':'.webm';
  function stopFeed(id){const f=feeds.get(id);if(!f)return;f.stream.getTracks().forEach(t=>t.stop());f.video.srcObject=null;feeds.delete(id);badge();}
  async function stopAll(){if(sequenceAbort){sequenceAbort.abort();try{await sequencePromise;}catch(_){}}if(recordings.size||audioRecorder)await stopRecording();for(const id of [...feeds.keys()])stopFeed(id);$('camera-grid')?.replaceChildren();badge();}
- function checkLive(){if(closing)throw Error('Close and reopen the prize popup to capture.');}
+ function checkLive(){if(closing)throw Error('Reopen the capture studio to continue.');}
  async function refresh(grant=false){
-  checkLive();capabilities();permitted();
+  checkLive();capabilities();contextReady();
   // Browsers often hide camera names until permission is granted through a user gesture.
   if(grant){const probe=await navigator.mediaDevices.getUserMedia({video:true,audio:false});probe.getTracks().forEach(t=>t.stop());}
   const items=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='videoinput');
@@ -60,10 +61,19 @@
    actions.append(preview,photo);card.append(top,cameraName,video,info,actions);grid.append(card);
    if(feeds.has(id)){const f=feeds.get(id);f.video=video;f.info=info;video.srcObject=f.stream;video.hidden=false;info.textContent='Live · '+label;video.play().catch(()=>{});}
   });
-  status(`${items.length} camera input${items.length===1?'':'s'} found. Rename and select up to ${MAX_CAMERAS} active views.`);badge();drawProofPlan();
+  badge();drawProofPlan();
+  // Enable is an explicit user gesture. Open checked feeds immediately to show live video,
+  // rather than forcing another tap on every camera tile. Consent is required for capture,
+  // not for viewing locally after the browser grants camera permission.
+  const errors=[];if(grant){for(const id of selected().slice(0,MAX_CAMERAS)){
+    const card=[...grid.querySelectorAll('.camera-source')].find(c=>c.dataset.cameraId===id);
+    if(card)try{await openCamera(id,getCameraName(id),card.querySelector('video'),card.querySelector('.mini-label'));}catch(e){errors.push(`${getCameraName(id)}: ${e.message}`);}
+  }}
+  const hint=$('camera-ready-message');if(hint)hint.textContent=feeds.size?`${feeds.size} live camera preview${feeds.size===1?'':'s'} · select a view to capture`:'Cameras detected; click Preview to show live feeds.';
+  status(errors.length?`Some cameras could not open: ${errors.join('; ')}`:`${items.length} camera input${items.length===1?'':'s'} found · ${feeds.size} live.`,!!errors.length);
  }
  async function openCamera(id,label,video,info){
-  checkLive();capabilities();permitted();if(feeds.has(id))return feeds.get(id);
+  checkLive();capabilities();contextReady();if(feeds.has(id))return feeds.get(id);
   if(feeds.size>=MAX_CAMERAS)throw Error(`Maximum ${MAX_CAMERAS} simultaneous preview feeds. Turn off another camera first.`);
   const stream=await navigator.mediaDevices.getUserMedia({video:{deviceId:{exact:id},width:{ideal:1280},height:{ideal:720}},audio:false});
   const feed={id,label,stream,video,info};feeds.set(id,feed);video.srcObject=stream;video.hidden=false;
@@ -85,7 +95,7 @@
    form.append('durationMs',String(Math.max(0,Math.round(durationMs||0))));form.append('sourceLabel',clean(sourceLabel));form.append('angleLabel',clean(angleLabel).slice(0,80));form.append('angleIndex',String(angleIndex));form.append('title',`${prize} · ${angleLabel||sourceLabel||kind} reaction`.slice(0,120));
    const r=await fetch('api/claim-media.php?action=upload',{method:'POST',credentials:'same-origin',headers:{'X-CSRF-Token':me.csrf},body:form});
    const data=await r.json();if(!r.ok||!data.ok)throw Error(data.error||'Upload failed');
-   status(`Saved ${sourceLabel||kind} to the game timeline.`);await refreshClips();return data.clip;
+   status(`Saved ${sourceLabel||kind} to the game timeline.`);await refreshClips();window.dispatchEvent(new CustomEvent('lucky:media-uploaded',{detail:{session,claim,clip:data.clip}}));return data.clip;
   }finally{uploading--;}
  }
  async function snap(id){const f=feeds.get(id);if(!f)throw Error('Preview the camera first.');const v=f.video,c=$('capture-photo-canvas');
@@ -167,7 +177,7 @@
   for(const clip of clips){const row=document.createElement('div');row.className='claim-captured';row.textContent=`✓ ${clip.title} (${clip.kind})${clip.sourceLabel?' · '+clip.sourceLabel:''}`;list.append(row);}
  }catch(e){status(e.message,true);}}
  function show(s,c,n,angles=[]){closing=false;session=s||'';claim=c||'';prize=n||'Prize';proofProfile=Array.isArray(angles)?angles:[];drawProofPlan();$('capture-prize-label').textContent=prize;$('capture-open-editor').href='editor.php?session='+encodeURIComponent(session);
-  $('capture-consent').checked=false;status('Media capture is optional. To use cameras, check consent and select Enable & find cameras.');refreshClips();}
+  $('capture-consent').checked=false;status(session&&claim?'Select Enable & find cameras for live previews. Check consent before recording.':'Choose the prize claim before capturing footage.');refreshClips();}
  function setup(){const dialog=$('win-dialog');if(!dialog)return;
   $('camera-enable').onclick=()=>refresh(true).catch(e=>status(e.message,true));$('camera-refresh').onclick=()=>refresh().catch(e=>status(e.message,true));
   $('camera-off').onclick=()=>stopAll().catch(e=>status(e.message,true));$('capture-photo').onclick=photos;$('capture-video').onclick=record;
@@ -176,9 +186,10 @@
     const kind=file.type.startsWith('image/')?'photo':file.type.startsWith('video/')?'video':file.type.startsWith('audio/')?'audio':null;
     if(!kind){status(`Unsupported file ${file.name}`,true);continue;}try{await upload(file,file.name,kind,0,'Imported file');}catch(err){status(err.message,true);}
   }}catch(err){status(err.message,true);}finally{e.target.value='';}};
-  dialog.addEventListener('close',()=>{closing=true;stopAll().catch(()=>{});});
-  navigator.mediaDevices?.addEventListener?.('devicechange',()=>{if(dialog.open&&!recordings.size&&!sequencePromise)refresh().catch(()=>{});});
+  if(dialog.tagName==='DIALOG')dialog.addEventListener('close',()=>{closing=true;stopAll().catch(()=>{});});
+  window.addEventListener('pagehide',()=>{closing=true;stopAll().catch(()=>{});});
+  navigator.mediaDevices?.addEventListener?.('devicechange',()=>{if((dialog.open||dialog.dataset.inlineCapture==='true')&&!recordings.size&&!sequencePromise)refresh().catch(()=>{});});
  }
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',setup);else setup();
- window.LuckyCapture={show,release:stopAll};
+ window.LuckyCapture={show,release:stopAll,isBusy:()=>!!sequencePromise||recordings.size>0||!!audioRecorder||uploading>0};
 })();

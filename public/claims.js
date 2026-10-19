@@ -8,7 +8,8 @@
    const detail=document.createElement('span');detail.textContent=`${c.tier.toUpperCase()} · ${L.money(c.cents)} · ${new Date(c.at).toLocaleString()}`;info.append(title,detail);
    const status=states[c.id];if(status?.needsRevision){const badge=document.createElement('span');badge.className='proof-revision-needed';badge.textContent='Needs revision';info.append(badge);}
    else if(status?.latestRevision){const label=document.createElement('span');label.textContent=`Proof revision ${status.latestRevision}`;info.append(label);}
-   const actions=document.createElement('div');actions.className='claim-proof-actions';const edit=document.createElement('a');edit.className='btn btn-primary';edit.textContent=status?.needsRevision?'Revise proof':'Edit proof';edit.href=`proof.php?session=${encodeURIComponent(sessionId)}&claim=${encodeURIComponent(c.id)}`;actions.append(edit);
+   const actions=document.createElement('div');actions.className='claim-proof-actions';const edit=document.createElement('a');edit.className='btn btn-primary';edit.textContent=status?.needsRevision?'Revise proof':'Edit proof';edit.href=`proof.php?session=${encodeURIComponent(sessionId)}&claim=${encodeURIComponent(c.id)}&from=claims`;
+   edit.addEventListener('click',()=>{try{sessionStorage.setItem('lucky-proof-origin',JSON.stringify({session:sessionId,claim:c.id,from:'claims',at:Date.now()}));}catch(_){}});actions.append(edit);
    if(c.url){const a=document.createElement('a');a.href=c.url;a.target='_blank';a.rel='noopener noreferrer';a.className='small-link';a.textContent='Prize URL ↗';actions.append(a);}
    row.append(info,actions);root.append(row);
   });

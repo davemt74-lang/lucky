@@ -3,6 +3,8 @@ declare(strict_types=1);
 require __DIR__.'/../lib/Bootstrap.php';
 require __DIR__.'/../lib/ControllerPairing.php';
 require __DIR__.'/../lib/ControllerGame.php';
+require_once __DIR__.'/../lib/SchemaGuard.php';
+require_once __DIR__.'/../lib/ControllerRate.php';
 headerSecurity();
 header('Referrer-Policy: no-referrer');
 header('X-Robots-Tag: noindex, nofollow');
@@ -62,6 +64,7 @@ try {
   if($action==='status'){
    $commandId=(int)($in['commandId']??0);$delivery=null;
    if($commandId>0){
+    SchemaGuard::require($db,['controller_ui_events'],'Phone controller acknowledgements');
     $q=$db->prepare('SELECT u.acknowledged_at,u.failure_message,c.created_at FROM controller_commands c JOIN controller_ui_events u ON u.command_id=c.id WHERE c.id=? AND c.pair_id=?');
     $q->execute([$commandId,$id]);if($r=$q->fetch())$delivery=$r['acknowledged_at']?'executed':($r['failure_message']?'failed':(strtotime($r['created_at'].' UTC')<time()-15?'expired':'pending'));
     $reason=$r['failure_message']??null;
@@ -78,15 +81,15 @@ try {
   }
   if($action==='command'){
    $command=ControllerPairing::command($in['command']??null);$nonce=ControllerPairing::nonce($in['nonce']??null);
+   if(!in_array($command,ControllerGame::DIRECT,true))SchemaGuard::require($db,['controller_ui_events'],'Phone navigation');
    $db->beginTransaction();try{
     $q=$db->prepare('SELECT * FROM controller_pairs WHERE id=? FOR UPDATE');$q->execute([$id]);$locked=$q->fetch();
     if(!$locked||!hash_equals($locked['controller_hash']??'',ControllerPairing::tokenHash($token))||ControllerPairing::status($locked)!=='paired')throw new DomainException('Controller connection is no longer active.',403);
     $q=$db->prepare('SELECT id,delivered_at FROM controller_commands WHERE pair_id=? AND client_nonce=?');$q->execute([$id,$nonce]);
     if($row=$q->fetch()){$db->commit();success(['accepted'=>true,'repeat'=>true,'applied'=>$row['delivered_at']!==null,'commandId'=>(int)$row['id'],'game'=>ControllerGame::snapshot($db)]);}
-    $q=$db->prepare('SELECT COUNT(*) FROM controller_commands WHERE pair_id=? AND created_at>=UTC_TIMESTAMP()-INTERVAL 1 SECOND');$q->execute([$id]);
-    if((int)$q->fetchColumn()>=5)throw new DomainException('Too many controller inputs. Slow down.',429);
-    $q=$db->prepare('SELECT COUNT(*) FROM controller_commands WHERE pair_id=? AND created_at>=UTC_TIMESTAMP()-INTERVAL 1 MINUTE');$q->execute([$id]);
-    if((int)$q->fetchColumn()>=90)throw new DomainException('Controller input rate limit reached.',429);
+    $q=$db->prepare('SELECT COUNT(*) FROM controller_commands WHERE pair_id=? AND created_at>=UTC_TIMESTAMP()-INTERVAL 1 SECOND');$q->execute([$id]);$second=(int)$q->fetchColumn();
+    $q=$db->prepare('SELECT COUNT(*) FROM controller_commands WHERE pair_id=? AND created_at>=UTC_TIMESTAMP()-INTERVAL 1 MINUTE');$q->execute([$id]);$minute=(int)$q->fetchColumn();
+    ControllerRate::check($second,$minute,$command);
     if(in_array($command,['spin','start','end'],true)){
      $q=$db->prepare('SELECT COUNT(*) FROM controller_commands WHERE pair_id=? AND command=? AND delivered_at IS NULL AND created_at>UTC_TIMESTAMP()-INTERVAL 12 SECOND');
      $q->execute([$id,$command]);if((int)$q->fetchColumn()>0)throw new DomainException('This button press is already queued.',409);
@@ -113,6 +116,7 @@ try {
  // Read-only audience screens can receive limited UI/audio controls for their own game session.
  // Every command must be acknowledged AFTER the browser handles it; no destructive queue polling.
  if(in_array($action,['ui_events','ui_ack'],true)){
+  SchemaGuard::require($db,['controller_ui_events'],'Phone navigation receiver');
   $viewer=(string)($in['viewer']??'');$session=(string)($in['session']??'');
   $isDisplay=$viewer!=='';
   if($isDisplay){$r=sessionRow($db,$session);if(!hash_equals((string)$r['viewer_token'],$viewer))throw new DomainException('Invalid TV display authorization.',403);}
