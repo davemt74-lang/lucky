@@ -58,6 +58,7 @@ jobs:
           python tests/v5q7_workspace_browser.py
           python tests/v5q8_studio_browser.py
           python tests/v5q8b_claim_camera_return_browser.py
+          python tests/v5q9_fullwidth_browser.py
       - name: Phone controller regressions
         run: |
           python tests/v5p2_navigation_voice.py
