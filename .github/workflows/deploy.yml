@@ -1,0 +1,57 @@
+name: Full Deployment ZIP
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Build complete PHP/MySQL deployment package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist/work
+          while IFS= read -r -d '' file; do
+            case "$file" in
+              .github/*|tests/*) continue ;;
+            esac
+            mkdir -p "dist/work/$(dirname "$file")"
+            cp -- "$file" "dist/work/$file"
+          done < <(git ls-files -z)
+          for required in install.php upgrade.php proof.php controller.php api/index.php public/phone-controller.js public/proof.js storage/.htaccess; do
+            if [[ ! -f "dist/work/$required" ]]; then
+              echo "Required deployment file missing: $required"
+              exit 1
+            fi
+          done
+          (cd dist/work && zip -qr ../Lucky_Game_Hub_V5Q15B_Full_Deploy.zip .)
+          unzip -t dist/Lucky_Game_Hub_V5Q15B_Full_Deploy.zip | tail -n 1
+          (cd dist && sha256sum Lucky_Game_Hub_V5Q15B_Full_Deploy.zip > SHA256SUMS.txt)
+          {
+            echo "Lucky Game Hub V5Q.15B — Full Deployment"
+            echo "Source: davemt74-lang/lucky"
+            echo "Branch: main"
+            echo "Commit: $GITHUB_SHA"
+            echo "Files: $(find dist/work -type f | wc -l)"
+            echo "Contents: PHP/MySQL app, public assets, installer, upgrade migrations, docs."
+            echo "Excluded: GitHub automation and development tests."
+          } > dist/BUILD_INFO.txt
+          cat dist/BUILD_INFO.txt
+          cat dist/SHA256SUMS.txt
+      - name: Upload verified deployment ZIP and checksum
+        uses: actions/upload-artifact@v4
+        with:
+          name: lucky-v5q15b-complete-deployment
+          path: |
+            dist/Lucky_Game_Hub_V5Q15B_Full_Deploy.zip
+            dist/SHA256SUMS.txt
+            dist/BUILD_INFO.txt
+          if-no-files-found: error
+          retention-days: 30
