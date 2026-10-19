@@ -18,12 +18,12 @@
  $('claims-filter').onchange=render;
  $('claims-export').onclick=()=>{const rows=[['Game ID','Prize','Tier','Amount USD','Slot','Time','URL','Proof revision','Needs revision'],...claims.map(c=>[sessionId,c.name,c.tier,L.dollars(c.cents),c.slot||'',c.at,c.url||'',states[c.id]?.latestRevision||0,states[c.id]?.needsRevision?'yes':'no'])];
   const csv=rows.map(row=>row.map(csvField).join(',')).join('\r\n');const a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));a.download='lucky-game-claims.csv';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);};
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));a.download='lucky-game-'+sessionId.slice(0,8)+'-claims.csv';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);};
  async function init(){try{const requested=new URL(location.href).searchParams.get('session');let data;
   if(requested&&/^[a-f0-9]{32}$/.test(requested))data=(await L.api('session',{query:{id:requested}}));
-  else data=(await L.api('last')).data;
-  if(!data){$('claims-summary').textContent='No game session found.';return;}
-  sessionId=data.session.id;claims=data.session.claims||[];
+  else throw Error('Open claimed prizes from a game session.');
+  if(!data?.session||data.session.id!==requested){$('claims-summary').textContent='This game session could not be found.';return;}
+  sessionId=requested;claims=data.session.claims||[];
   try{const r=await fetch('api/claim-proof.php?action=summary&session='+encodeURIComponent(sessionId),{credentials:'same-origin'});const result=await r.json();if(result.ok)states=result.states||{};else L.note('claims-error',result.error||'Could not retrieve proof history.',true);}catch(e){L.note('claims-error',e.message,true);}
   render();}catch(e){L.note('claims-error',e.message,true);}
  }

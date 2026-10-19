@@ -284,3 +284,21 @@ body.game-fullwidth .host-main-tabs{border-radius:16px 16px 0 0}
 body.game-fullwidth #session-totals{font-size:clamp(13px,1vw,16px);color:#e5d7b8;line-height:1.6;font-variant-numeric:tabular-nums}
 @media(max-width:1050px){body.game-fullwidth .host-workspace{grid-template-columns:minmax(0,1fr)}body.game-fullwidth .game-claims-side{position:static}body.game-fullwidth .header{flex-wrap:wrap}body.game-fullwidth .nav{max-width:100%;overflow-x:auto;flex-wrap:wrap;margin-left:auto}}
 @media(max-width:580px){body.game-fullwidth .shell{padding:0 10px}body.game-fullwidth main{padding:10px 0}body.game-fullwidth .header{gap:9px}body.game-fullwidth .nav{margin-left:0;flex:1 1 100%}body.game-fullwidth .nav>a{padding:9px 11px}}
+
+/* V5Q.10 — keep the game canvas uncluttered and phone pairing on Devices. */
+body.game-fullwidth .host-main-tabs button{min-width:116px}
+body.game-fullwidth .game-claims-side{max-height:calc(100dvh - 112px);display:flex;flex-direction:column}
+body.game-fullwidth .game-claimed-column{min-height:0;max-height:none;overflow:auto}
+body.game-fullwidth .platform-control-row{justify-content:center}
+body.game-fullwidth .host-workspace{align-items:stretch}
+body.game-fullwidth .host-claims-column{min-height:0}
+.device-phone-primary{margin:8px 0 22px}
+.device-phone-primary .phone-pair-panel{padding:clamp(18px,2.5vw,35px);margin:0;display:grid;gap:12px}
+.device-phone-primary .phone-pair-heading{gap:20px}
+.device-phone-primary .phone-pair-heading h2{font-size:clamp(22px,2vw,34px)}
+.device-phone-primary .phone-pair-invite{grid-template-columns:minmax(160px,240px) minmax(0,1fr);max-width:1050px}
+.device-phone-primary .phone-pair-qr{max-width:240px}
+.device-phone-primary .phone-pair-devices{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(250px,100%),1fr));gap:12px}
+.device-secondary{margin-top:10px}
+@media(max-width:1050px){body.game-fullwidth .game-claims-side{max-height:none}}
+@media(max-width:600px){.device-phone-primary .phone-pair-invite{grid-template-columns:minmax(0,1fr)}.device-phone-primary .phone-pair-qr{width:210px}body.game-fullwidth .game-claims-side{max-height:none}}
