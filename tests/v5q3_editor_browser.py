@@ -4,7 +4,7 @@ from pathlib import Path
 from playwright.async_api import async_playwright
 BASE=Path(__file__).resolve().parents[1]
 section=(BASE/'editor.php').read_text().split('?>',1)[1].split('<?php shellEnd()',1)[0]
-CSS=(BASE/'public/style.css').read_text()+(BASE/'public/platform.css').read_text()
+CSS=(BASE/'public/style.css').read_text()+(BASE/'public/platform.css').read_text()+(BASE/'public/editor-workspace.css').read_text()
 SCRIPT=(BASE/'public/editor.js').read_text()
 ID1='a'*32;ID2='b'*32
 mock=f'''<script>
@@ -20,7 +20,7 @@ if(action==='queue'){{demo.queued=JSON.parse(opt.body);out={{ok:true,render:{{id
 if(action==='cancel')out={{ok:true}};
 return new Response(JSON.stringify(out),{{status:200,headers:{{'Content-Type':'application/json'}}}});}};
 </script>'''
-html='<html><head><base href="https://example.test/"><style>'+CSS+'</style>'+mock+'</head><body>'+section.replace('<script src="public/client.js" defer></script>','').replace('<script src="public/editor.js?v=5q7" defer></script>','').replace('<script src="public/ui-receiver.js?v=5q7" defer></script>','')+'<script>'+SCRIPT+'</script></body></html>'
+html='<html><head><base href="https://example.test/"><style>'+CSS+'</style>'+mock+'</head><body class="editor-workspace">'+re.sub(r'<link\b[^>]*rel="stylesheet"[^>]*>|<script\b[^>]*src=[^>]*></script>', '', section, flags=re.I)+'<script>'+SCRIPT+'</script></body></html>'
 async def main():
  tests=[];errors=[]
  def check(name,ok):tests.append((name,bool(ok)))
@@ -28,6 +28,7 @@ async def main():
   browser=await pw.chromium.launch(headless=True,executable_path='/usr/bin/chromium',args=['--no-sandbox'])
   for width in (375,1280):
    page=await browser.new_page(viewport={'width':width,'height':850})
+   page.set_default_timeout(5000)
    page.on('pageerror',lambda e:errors.append(str(e)))
    await page.set_content(html,wait_until='domcontentloaded');await page.wait_for_timeout(260)
    check(f'{width}px editor loads source footage',await page.locator('.editor-clip').count()==2)
@@ -42,7 +43,7 @@ async def main():
    check('split makes two non-destructive video segments',await page.locator('.editor-clip').count()==3)
    await page.locator('#editor-save-project').click()
    check('save edit project includes split segments',await page.evaluate('demo.saved?.length===3 && demo.saved[0].id===demo.saved[1].id'))
-   await page.locator('#render-track').select_option('d'*32)
+   await page.wait_for_function('demo.saved !== null');await page.locator('#render-track').select_option('d'*32)
    await page.locator('#render-volume').fill('24')
    await page.locator('#render-queue').click();await page.wait_for_timeout(80)
    check('render includes saved editing decisions',await page.evaluate('demo.queued?.edits?.length===3'))

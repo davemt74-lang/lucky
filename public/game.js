@@ -26,7 +26,8 @@
   for(const c of items){const row=document.createElement('div');row.className='platform-claim claim-proof-row';const info=document.createElement('div');info.className='claim-proof-info';const name=document.createElement('strong');name.textContent=c.name;
    const amount=document.createElement('span');amount.textContent=`${c.tier.toUpperCase()} · ${L.money(c.cents)}`;info.append(name,amount);
    const state=proofStates[c.id];if(state?.needsRevision){const flag=document.createElement('span');flag.className='proof-revision-needed';flag.textContent='Needs revision';info.append(flag);}else if(state?.latestRevision){const flag=document.createElement('span');flag.textContent=`Proof v${state.latestRevision}`;info.append(flag);}
-   const edit=document.createElement('a');edit.href=`proof.php?session=${encodeURIComponent(view.id)}&claim=${encodeURIComponent(c.id)}`;edit.textContent=state?.needsRevision?'Revise proof':'Edit proof';edit.className='btn btn-outline';row.append(info,edit);root.append(row);}
+   const edit=document.createElement('a');edit.href=`proof.php?session=${encodeURIComponent(view.id)}&claim=${encodeURIComponent(c.id)}&from=game`;
+   edit.addEventListener('click',()=>{try{sessionStorage.setItem('lucky-proof-origin',JSON.stringify({session:view.id,claim:c.id,from:'game',at:Date.now()}));}catch(_){}});edit.textContent=state?.needsRevision?'Revise proof':'Edit proof';edit.className='btn btn-outline';row.append(info,edit);root.append(row);}
   if(!busy)wheel.setSlices(toSlices(view));
   if(data?.view?.id){$('open-game-editor').href='editor.php?session='+encodeURIComponent(data.view.id);}else $('open-game-editor').href='editor.php';
   const finished=view?.status==='ended';
@@ -39,7 +40,7 @@
  }
  async function updateProofStates(){const session=data?.view?.id;if(!session){proofStates={};proofSessionId='';return;}
   if(proofPending)return;proofPending=true;try{const r=await fetch('api/claim-proof.php?action=summary&session='+encodeURIComponent(session),{credentials:'same-origin'});const out=await r.json();if(out.ok&&data?.view?.id===session){proofStates=out.states||{};proofSessionId=session;render();}}catch(_){/* Optional proof status recovers on next refresh. */}finally{proofPending=false;}}
- async function refresh(){const r=await L.api('last');
+ async function refresh(){const requested=new URL(location.href).searchParams.get('session');const r=requested&&/^[a-f0-9]{32}$/.test(requested)?{data:await L.api('session',{query:{id:requested}})}:await L.api('last');
   data=r.data||null;lastVersion=data?.view?.version||0;activeId=data?.view?.id||'';
   syncedSpin=data?.view?.lastSpin?.spinCount||0;initialSync=false;render();updateProofStates();
  }
@@ -47,7 +48,7 @@
  // result instead of trying to replay the command and awarding the prize twice.
  async function syncGame(){if(busy||syncPending||initialSync)return;syncPending=true;
   try{
-   const result=await L.api('last'),fresh=result.data||null,view=fresh?.view;
+   const requested=new URL(location.href).searchParams.get('session');const result=requested&&/^[a-f0-9]{32}$/.test(requested)?{data:await L.api('session',{query:{id:requested}})}:await L.api('last'),fresh=result.data||null,view=fresh?.view;
    if(!view){if(data){data=null;activeId='';syncedSpin=0;lastVersion=0;render();}return;}
    const changedId=view.id!==activeId;
    if(!changedId&&view.version===lastVersion)return;
@@ -72,7 +73,7 @@
   }catch(e){msg('Game sync retrying: '+e.message,true);}finally{syncPending=false;}
  }
  async function start(){if(busy||data?.view?.status==='active')return;busy=true;render();
-  try{const r=await L.api('start',{body:{game:'spin-wheel'}});data=r.data;activeId=data.view.id;lastVersion=data.view.version;syncedSpin=0;proofStates={};updateProofStates();msg('Game started! Spin whenever you are ready.');L.beep('bonus');L.speak('Welcome to Spin the Wheel. Start spinning!');}
+  try{const r=await L.api('start',{body:{game:'spin-wheel'}});data=r.data;if(new URL(location.href).searchParams.has('session'))history.replaceState(null,'','game.php?session='+encodeURIComponent(data.view.id));activeId=data.view.id;lastVersion=data.view.version;syncedSpin=0;proofStates={};updateProofStates();msg('Game started! Spin whenever you are ready.');L.beep('bonus');L.speak('Welcome to Spin the Wheel. Start spinning!');}
   catch(e){msg(e.message,true);}finally{busy=false;render();}}
  function openPrize(c){const dialog=$('win-dialog');$('win-name').textContent=c.name;$('win-value').textContent=L.money(c.cents);
   $('win-tier').textContent=c.tier==='bonus'?'BONUS PRIZE':c.tier==='tier2'?'TIER 2':'TIER 1';

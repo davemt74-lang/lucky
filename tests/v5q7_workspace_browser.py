@@ -39,7 +39,7 @@ async def main():
    page.on('pageerror',lambda e:errors.append(str(e)))
    await page.set_content(editor.html.replace('</body>','<script>'+CONSOLE_JS+'</script></body>'),wait_until='domcontentloaded')
    await page.wait_for_timeout(280)
-   ok(f'{width}: editor has compact brand toolbar',await page.locator('.editor-brand').is_visible())
+   ok(f'{width}: editor has compact session toolbar',await page.locator('.studio-session').is_visible())
    ok(f'{width}: editor omits page-intro',await page.locator('.page-intro').count()==0)
    ok(f'{width}: timeline and inspector usable',await page.locator('#editor-timeline').is_visible() and await page.locator('#editor-form').is_visible())
    ok(f'{width}: editor full width',await page.evaluate("document.querySelector('.media-editor-studio').getBoundingClientRect().width >= innerWidth-30"))

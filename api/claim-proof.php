@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require __DIR__.'/../lib/Bootstrap.php';
 require_once __DIR__.'/../lib/ClaimProof.php';
+require_once __DIR__.'/../lib/SchemaGuard.php';
 headerSecurity();
 function proofIds(string $session,string $claim):void {
  if(!ClaimMedia::validId($session)||!ClaimMedia::validId($claim))throw new DomainException('Invalid game or prize claim.',400);
@@ -30,7 +31,7 @@ function proofInsertRevision(PDO $db,string $session,string $claim,string $note)
 }
 try {
  if(!installed())throw new DomainException('Platform not installed.',503);
- requireAdmin();$db=db();$method=$_SERVER['REQUEST_METHOD']??'GET';
+ requireAdmin();$db=db();SchemaGuard::require($db,SchemaGuard::PROOF,'Prize proof and revision history');$method=$_SERVER['REQUEST_METHOD']??'GET';
  if($method==='GET'){
   $session=(string)($_GET['session']??'');$claim=(string)($_GET['claim']??'');
   if(($_GET['action']??'')==='summary'){
