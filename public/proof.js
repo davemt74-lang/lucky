@@ -9,7 +9,13 @@
  const session=params.get('session')||(useCached?cached?.session:'')||'',claim=params.get('claim')||(useCached?cached?.claim:'')||'';
  const from=params.get('from')==='claims'?'claims':params.get('from')==='game'?'game':useCached&&cached?.from==='claims'?'claims':'game';
  const returnUrl=()=>!session?'game.php':from==='claims'?'claims.php?session='+encodeURIComponent(session):'game.php?session='+encodeURIComponent(session);
- let busy=false;
+ let busy=false,proofBusy=false;
+ async function publishProof(){if(proofBusy||!/^[a-f0-9]{32}$/.test(session)||!/^[a-f0-9]{32}$/.test(claim))return;
+  proofBusy=true;try{const me=await L.getMe();await fetch('api/controller.php?action=proof_state',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF-Token':me.csrf},body:JSON.stringify({session,claim,open:true,reviewCount:window.LuckyCapture?.reviewCount?.()||0})});}catch(_){/* Basic editing still available without the pairing upgrade. */}finally{proofBusy=false;}}
+ window.addEventListener('lucky:proof-review',publishProof);
+ setInterval(()=>{if(!$('win-dialog')?.hidden&&document.visibilityState==='visible')publishProof();},3500);
+ window.addEventListener('pagehide',()=>{const data=JSON.stringify({session,claim,open:false});L.getMe().then(me=>fetch('api/controller.php?action=proof_state',{method:'POST',credentials:'same-origin',keepalive:true,headers:{'Content-Type':'application/json','X-CSRF-Token':me.csrf},body:data})).catch(()=>{});});
+
  function feedback(message,bad=false){const e=$('proof-errors');e.hidden=!bad;e.textContent=bad?message:'';$('proof-state').textContent=message;}
  async function call(action,body){const me=await L.getMe();const r=await fetch('api/claim-proof.php?action='+encodeURIComponent(action),{
   method:'POST',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json','X-CSRF-Token':me.csrf},body:JSON.stringify({session,claim,...body})
@@ -43,11 +49,11 @@
    $('camera-enable').disabled=false;
    // Baseline snapshots are idempotent, and older proof clips stay protected.
    await call('baseline',{});
-   await load();
+   await load();publishProof();
    $('proof-revision-form').onsubmit=e=>{e.preventDefault();save('save');};
    $('proof-request').onclick=()=>save('request');
   }catch(e){feedback(e.message,true);$('proof-revision-form').hidden=true;}
  }
- window.LuckyHostRemote=async command=>['up','down','left','right','select','back','done','menu'].includes(command)?(window.LuckyConsole?.emit(command==='done'?'back':command)??false):false;
+ window.LuckyHostRemote=async command=>command.startsWith('proof-')?(await window.LuckyCapture?.phoneAction(command)??false):['up','down','left','right','select','back','done','menu'].includes(command)?(window.LuckyConsole?.emit(command==='done'?'back':command)??false):false;
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();
