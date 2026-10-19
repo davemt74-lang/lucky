@@ -62,6 +62,7 @@ async def main():
   ok('baseline created idempotently',await page.evaluate("window.__post?.claim==='"+CID+"'"))
   ok('capture controls receive exact claim',await page.evaluate("window.__captureArgs?.[1]==='"+CID+"'"))
   ok('revision history shown',await page.locator('.proof-revision-item').count()==1)
+  await page.locator('#proof-history-disclosure > summary').click()
   await page.locator('#proof-note').fill('Reshot front angle')
   await page.locator('#proof-save').click()
   await page.wait_for_timeout(100)

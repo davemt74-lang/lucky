@@ -17,7 +17,7 @@ Object.defineProperty(navigator, 'mediaDevices', {configurable:true,value:{
 HTMLMediaElement.prototype.play=function(){return Promise.resolve();};
 '''
 async def main():
-  found=[]; errors=[]; state={'active':False,'claim':None,'count':0,'posts':[]}
+  found=[]; errors=[]; state={'active':False,'claim':None,'count':0,'posts':[],'commands':[]}
   def check(label,condition): found.append((label,bool(condition)))
   async with async_playwright() as pw:
     browser=await pw.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox'])
@@ -33,8 +33,9 @@ async def main():
       elif action=='claim':
         result={'ok':True,'id':'a'*32,'controllerToken':'b'*64}
       elif action=='status':
-        result={'ok':True,'status':'paired','proof':{'active':state['active'],'claimId':state['claim'],'reviewCount':state['count']},'game':{'status':'active','spinCount':1,'claimedCount':1,'remaining':2,'canSpin':True}}
+        result={'ok':True,'status':'paired','proof':{'active':state['active'],'claimId':state['claim'],'reviewCount':state['count'],'savedCount':(1 if state['active'] else 0)},'game':{'status':'active','spinCount':1,'claimedCount':1,'remaining':2,'canSpin':True}}
       elif action=='ui_events': result={'ok':True,'events':[]}
+      elif action=='command': state['commands'].append(dict(body)); result={'ok':True,'accepted':True,'applied':False,'commandId':123}
       else: result={'ok':True}
       await route.fulfill(status=200,content_type='application/json',headers={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'*','Access-Control-Allow-Methods':'POST, OPTIONS'},body=json.dumps(result))
     await context.route('**/*',lambda route:server(route) if 'controller.php?action=' in route.request.url else route.fulfill(status=200,body='',content_type='text/plain'))
@@ -72,6 +73,11 @@ async def main():
     await phone.wait_for_function('document.querySelector("#phone-proof-mode").hidden===false',timeout=5000)
     check('paired phone switches to proof control UI',await phone.locator('#phone-proof-mode').is_visible() and await phone.locator('#phone-gameplay-shell').is_hidden())
     check('phone proof accordion starts closed',not await phone.locator('#phone-proof-controls').evaluate('(e)=>e.open'))
+    await phone.locator('#phone-proof-controls > summary').click()
+    check('approved proof has phone Re-record',await phone.locator('#phone-proof-rerecord-saved').is_visible())
+    await phone.locator('#phone-proof-rerecord-saved').click()
+    await phone.wait_for_function('document.getElementById("phone-status").textContent.includes("Waiting")',timeout=3000)
+    check('phone sends re-record command for approved footage',any(c.get('command')=='proof-rerecord' for c in state['commands']))
     # A deliberately failing revision history must not suppress remote proof mode.
     check('proof state published before revision history fetch returns',state['posts'][0]['claim']==CID)
     await page.close()
