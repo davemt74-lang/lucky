@@ -1,0 +1,27 @@
+'use strict';
+const assert=require('node:assert/strict');
+const {build,run}=require('../public/proof-sequence.js');
+(async()=>{
+ let count=0;const pass=(label,fn)=>{fn();console.log('PASS',label);count++;};
+ const cams=[{id:'usb-A',label:'USB Front'},{id:'usb-B',label:'USB Side'}];
+ const configured=[{label:'Prize hero angle',seconds:3},{label:'Winner reaction',seconds:9},{label:'Extra camera',seconds:4}];
+ const p=build(cams,configured);
+ pass('active camera count determines proof angles',()=>assert.equal(p.length,2));
+ pass('prize names map by view index',()=>assert.deepEqual(p.map(x=>x.angleLabel),['Prize hero angle','Winner reaction']));
+ pass('camera names remain separate',()=>assert.deepEqual(p.map(x=>x.cameraName),['USB Front','USB Side']));
+ pass('time per view honors prize settings',()=>assert.deepEqual(p.map(x=>x.seconds),[3,9]));
+ pass('default new camera is named automatically',()=>assert.equal(build(cams,[])[1].angleLabel,'USB Side'));
+ pass('invalid timing falls back to 8 seconds',()=>assert.equal(build(cams,[{label:'ok',seconds:900}])[0].seconds,8));
+ pass('no cameras cannot start',()=>assert.throws(()=>build([],[])));
+ pass('more than 4 cameras rejected',()=>assert.throws(()=>build([...cams,...cams,...cams],[])));
+ const events=[],recorded=[];
+ await run(p,{announce:e=>events.push(e),record:async a=>recorded.push(a),sleep:async()=>{}});
+ pass('exactly five countdown numbers per angle',()=>assert.deepEqual(events.filter(e=>e.phase==='countdown').map(e=>e.remaining),[5,4,3,2,1,5,4,3,2,1]));
+ pass('record only one view at a time in the right order',()=>assert.deepEqual(recorded.map(e=>e.id),['usb-A','usb-B']));
+ pass('next camera announced for first view',()=>assert.equal(events.find(e=>e.phase==='countdown').next.cameraName,'USB Side'));
+ pass('last angle announces no next camera',()=>assert.equal(events.filter(e=>e.phase==='recording')[1].next,null));
+ const controller=new AbortController();let aborted=[];
+ await assert.rejects(run(p,{signal:controller.signal,announce:e=>{aborted.push(e);if(e.phase==='countdown'&&e.remaining===4)controller.abort();},record:async()=>{throw Error('Should not record');},sleep:async(ms,signal)=>{if(signal?.aborted)throw Error('Capture stopped.');}}),/Capture stopped/);
+ pass('cancellation prevents recording after stop',()=>assert.equal(aborted.at(-1).remaining,4));
+ console.log('Proof plans:',count,'/ ',count,'PASS');
+})().catch(e=>{console.error(e);process.exit(1);});
