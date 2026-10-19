@@ -55,9 +55,6 @@
  async function init(){try{
    $('proof-return').href=returnUrl();
    $('proof-return').addEventListener('click',e=>{e.preventDefault();leaveProof(returnUrl());},{once:true});
-   const spinAgain=$('proof-spin-again');
-   if(spinAgain){spinAgain.hidden=!winMode;spinAgain.href='game.php?session='+encodeURIComponent(session)+'&spin=1';
-    spinAgain.addEventListener('click',e=>{e.preventDefault();leaveProof(spinAgain.href);},{once:true});}
 
    if($('proof-heading-context'))$('proof-heading-context').textContent=winMode?'YOU WON · RECORD PRIZE PROOF':'PRIZE PROOF · EDIT HISTORY';
    if(!/^[a-f0-9]{32}$/.test(session)||!/^[a-f0-9]{32}$/.test(claim))throw Error('Open proof editing from a claimed-prize entry.');
