@@ -51,6 +51,7 @@ async def main():
   markup=html_page('proof.php',script,MOCK)
   await page.set_content(markup,wait_until='domcontentloaded')
   await page.wait_for_function('window.LuckyCapture?.hasClaim()===true')
+  await page.locator('#proof-camera-settings summary').click()
   await page.locator('#camera-enable').click()
   await page.wait_for_function('document.querySelectorAll(".camera-source video:not([hidden])").length===1')
   test('live camera display is first in popup',await page.evaluate("document.querySelector('.proof-editor-layout').children.length===2"))
