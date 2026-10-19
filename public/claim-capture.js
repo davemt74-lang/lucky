@@ -244,6 +244,10 @@
   $('camera-enable').onclick=()=>refresh(true).catch(e=>status(e.message,true));$('camera-refresh').onclick=()=>refresh().catch(e=>status(e.message,true));
   $('camera-off').onclick=()=>stopAll().catch(e=>status(e.message,true));$('capture-photo').onclick=photos;$('capture-video').onclick=()=>record();const retake=$('capture-rerecord-saved');if(retake)retake.onclick=()=>record();
   $('capture-audio').onclick=captureAudio;$('proof-rotate').onclick=captureRotation;$('capture-stop').onclick=stopRecording;
+  const mediaFile=$('capture-file');if(mediaFile)mediaFile.onchange=async e=>{try{permitted();for(const file of [...e.target.files]){
+    const kind=file.type.startsWith('image/')?'photo':file.type.startsWith('video/')?'video':file.type.startsWith('audio/')?'audio':null;
+    if(!kind){status(`Unsupported file ${file.name}`,true);continue;}try{await upload(file,file.name,kind,0,'Imported file');}catch(err){status(err.message,true);}
+  }}catch(err){status(err.message,true);}finally{e.target.value='';}};
   if(dialog.tagName==='DIALOG')dialog.addEventListener('close',()=>{closing=true;stopAll().catch(()=>{});});
   window.addEventListener('pagehide',()=>{closing=true;stopAll().catch(()=>{});});
   navigator.mediaDevices?.addEventListener?.('devicechange',()=>{if((dialog.open||dialog.dataset.inlineCapture==='true')&&!recordings.size&&!sequencePromise)refresh().catch(()=>{});});
