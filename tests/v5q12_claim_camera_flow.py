@@ -57,6 +57,7 @@ async def run():
   ck('clicked claim is loaded',await page2.locator('#proof-prize-title').inner_text()=='Camera Prize')
   ck('camera enable is actionable',await page2.locator('#camera-enable').is_enabled())
   ck('return targets originating game',await page2.locator('#proof-return').get_attribute('href')=='game.php?session='+SID)
+  await page2.locator('#proof-camera-settings summary').click()
   await page2.locator('#camera-enable').click()
   await page2.wait_for_function("document.querySelectorAll('.camera-source video:not([hidden])').length===2")
   ck('two camera preview tiles show live',await page2.locator('.camera-source video:not([hidden])').count()==2)
