@@ -28,6 +28,7 @@ jobs:
           php tests/pairing.php
           php tests/proof_config.php
           php tests/montage.php
+          php tests/auto_draft.php
           node tests/proof_plan.js
   browsers:
     runs-on: ubuntu-latest
@@ -71,3 +72,4 @@ jobs:
           ffmpeg -hide_banner -v error -y -f lavfi -i color=c=blue:s=320x180:r=30 -f lavfi -i anullsrc -t 1 -c:v libx264 -c:a aac -shortest /tmp/lucky-smoke.mp4
           ffprobe -hide_banner -v error /tmp/lucky-smoke.mp4
           php tests/montage.php
+          php tests/auto_draft.php

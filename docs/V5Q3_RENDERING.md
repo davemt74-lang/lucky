@@ -4,7 +4,7 @@
 
 The Prize Proof Studio remains private to logged-in administrators. Winner photos, videos, and audio recordings are saved under claim IDs, and a game session's Montage Editor now keeps a separate, non-destructive edit project. Recording files stay in `storage/claim-media/`. A rendered MP4 is stored in `storage/renders/`; both locations must remain inaccessible to direct HTTP access.
 
-A saved project can split a source recording into multiple timeline segments, change titles and start/end timings, reorder by drag-and-drop or arrows, mix one uploaded soundtrack, and preview clips. **Auto assemble** starts with a video-first order within each winning claim, followed by photos and recorded audio. It never changes prize results or records a new claim.
+If a game ends with captured footage, an automatic video-first highlight draft is saved unless a manual project already exists. No MP4 is rendered automatically. A saved project can split a source recording into multiple timeline segments, change titles and start/end timings, reorder by drag-and-drop or arrows, mix one uploaded soundtrack, and preview clips. **Auto assemble** starts with a video-first order within each winning claim, followed by photos and recorded audio. It never changes prize results or records a new claim.
 
 ## Install / upgrade
 

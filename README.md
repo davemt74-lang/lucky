@@ -84,3 +84,7 @@ See `docs/V5P2_NAVIGATION_VOICE.md` for detailed limitations and acceptance gate
 The claim-linked montage editor now supports dragging/reordering media, trimming, splitting a recording non-destructively, saving projects to MySQL, one-click automatic story sequencing, uploaded Music Library soundtrack mixing with speech ducking, a private MP4 render queue and final video playback/download. Export jobs need the CLI FFmpeg worker; see [rendering instructions](docs/V5Q3_RENDERING.md).
 
 **Existing data is retained** during upgrades. Run `upgrade.php` after uploading. This release is a local staging candidate; GitHub PR/merge and production video worker certification remain incomplete.
+
+## V5Q.4 — End-of-game automatic highlight drafts
+
+When a game ends, the platform creates a non-destructive, video-first montage **draft** from that session's already-uploaded claim footage. Any previously saved manual timeline is preserved. You can open the Media Timeline, adjust the draft, select music and explicitly queue MP4 export; completing a game **never launches a render job**. See `docs/V5Q4_AUTO_DRAFT.md`.
