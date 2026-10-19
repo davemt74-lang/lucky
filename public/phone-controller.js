@@ -1,7 +1,7 @@
 (() => {
  'use strict';const $=id=>document.getElementById(id),storageKey='lucky-phone-controller-v5p';
  const params=new URLSearchParams(location.search||(location.protocol==='about:'?new URL(document.baseURI).search:''));let state=null,busy=false,active=false,game=null,gameVersion=-1,pendingCommand=null,feedback=null;let speech=null,listening=false,statusBusy=false,commandQueue=[];
- let noticeTimer=null,failures=0,proofState={active:false};
+ let noticeTimer=null,failures=0,proofState={active:false},hadUpgradeWarning=false,lastConnectionError='';
  const message=(m,warning=false)=>{const e=$('phone-status');if(!e)return;clearTimeout(noticeTimer);e.textContent=m;e.classList.toggle('platform-error',warning);
   if(active)noticeTimer=setTimeout(()=>{e.textContent='';e.classList.remove('platform-error');},warning?6500:2300);
  };
@@ -11,11 +11,11 @@
  async function request(action,body={},authenticated=true){const headers={'Content-Type':'application/json'};
   if(authenticated){if(!state)throw Error('Phone not paired.');headers['X-Controller-Token']=state.token;body={id:state.id,...body};}
   const response=await fetch('api/controller.php?action='+encodeURIComponent(action),{method:'POST',headers,credentials:'omit',cache:'no-store',body:JSON.stringify(body)});
-  let data;try{data=await response.json();}catch(_){throw Error('Could not reach the game server.');}
-  if(!response.ok||!data.ok)throw Error(data.error||'Connection failed.');return data;
+  let data;try{data=await response.json();}catch(_){throw Error(`Game server returned HTTP ${response.status}. Check the hosting error log.`);}
+  if(!response.ok||!data.ok)throw Error((data.error||'Connection failed.')+` (HTTP ${response.status})`);return data;
  }
  async function status(){if(!state||busy||statusBusy)return;statusBusy=true;
-  try{const data=await request('status',pendingCommand?{commandId:pendingCommand.id}:{});if(data.status==='paired'){const wasActive=active,wasFailing=failures>=3;failures=0;active=true;show('phone-controls');updateGame(data.game);updateProof(data.proof);if(!wasActive||wasFailing)message(wasFailing?'Connected again.':'Phone connected.');if(pendingCommand){
+  try{const data=await request('status',pendingCommand?{commandId:pendingCommand.id}:{});if(data.status==='paired'){const wasActive=active,wasFailing=failures>=3;failures=0;active=true;show('phone-controls');updateGame(data.game);updateProof(data.proof);if((!wasActive||wasFailing)&&!data.game?.upgradeRequired)message(wasFailing?'Connected again.':'Phone connected.');if(pendingCommand){
     if(data.delivery==='executed'){feedback={text:`${pendingCommand.label} completed on game screen.`,until:Date.now()+6500};message(feedback.text);appendChat(feedback.text);pendingCommand=null;}
     else if(data.delivery==='failed'){const err=`${pendingCommand.label} failed: ${data.reason||'The screen could not perform this action.'}`;message(err,true);appendChat(err);pendingCommand=null;}
     else if(data.delivery==='expired'){const err=`${pendingCommand.label} was not executed. Open the game/TV screen and try again.`;message(err,true);appendChat(err);pendingCommand=null;}
@@ -23,7 +23,7 @@
    }}
    else if(data.status==='pending'){active=false;show('phone-wait');message('Waiting for host approval…');}
    else {forget();}}
-  catch(e){if(/invalid|disconnected|expired|authorization/i.test(e.message))forget();else {failures++;if(failures===3)message('Connection interrupted. Retrying…',true);}}
+  catch(e){if(/invalid|disconnected|expired|authorization/i.test(e.message))forget();else {failures++;if(failures>=3&&(failures===3||e.message!==lastConnectionError)){lastConnectionError=e.message;message('Connection interrupted: '+e.message+' Retrying…',true);}}}
   finally{statusBusy=false;if(!pendingCommand&&commandQueue.length&&active&&!busy){const next=commandQueue.shift();setTimeout(()=>send(next),0);}}
  }
  async function join(ev){ev.preventDefault();const name=safeName();if(!name){message('Please enter a phone name.',true);return;}
@@ -46,6 +46,14 @@
  function updateGame(current){
   if(!current)return;game=current;applyMode();
   const panel=$('phone-game-state');if(!panel)return;
+  if(current.upgradeRequired){
+   panel.textContent='HOST DATABASE UPDATE REQUIRED · On desktop, sign in and run upgrade.php. Your phone is still paired.';
+   const start=document.querySelector('[data-phone="start"]'),spin=document.querySelector('[data-phone="spin"]');
+   if(start)start.disabled=true;if(spin)spin.disabled=true;
+   if(!hadUpgradeWarning){message('Phone paired, but the host must run upgrade.php before gameplay.',true);hadUpgradeWarning=true;}
+   return;
+  }
+  if(hadUpgradeWarning){hadUpgradeWarning=false;message('Database upgrade detected. Phone ready.');}
   const status=current.status==='active'?'PLAYING':current.status==='paused'?'PAUSED':current.status==='ended'?'GAME ENDED':'READY';
   const phase=current.pendingBonus?' · BONUS ROUND':'';
   panel.textContent=`${status}${phase} · ${current.spinCount||0} spins · ${current.claimedCount||0} claimed · ${current.remaining||0} live prizes`+(current.lastPrize?` · Latest: ${current.lastPrize}`:'')+(current.spinning?' · Spinning…':'');
