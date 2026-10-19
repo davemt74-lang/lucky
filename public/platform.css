@@ -391,3 +391,6 @@ body.game-fullwidth #win-dialog{display:none!important}
 .proof-editor-page .proof-video-stage:has(#proof-camera-settings[open]) .camera-source-actions{display:flex}
 .proof-editor-page .proof-video-stage:has(#proof-camera-settings[open]) .camera-source>input[data-camera-name]{display:block;width:100%;box-sizing:border-box}
 .proof-editor-page .proof-video-stage:has(#proof-camera-settings[open]) .camera-source-title{position:static;max-width:none;background:transparent;padding:5px 2px}
+
+/* Keep explicit recording consent visible without covering settings or buttons. */
+.proof-editor-page .proof-consent-overlay{position:static;display:flex;align-items:center;margin:8px 5px;max-width:100%;width:fit-content}
