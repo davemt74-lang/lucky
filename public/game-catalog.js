@@ -89,6 +89,12 @@
  async function loadPackages(){
   const result=await api('game_packages');
   const rows=Array.isArray(result.packages)?result.packages:[];
+  const issues=Array.isArray(result.issues)?result.issues:[];
+  const warning=$('game-package-health');
+  warning.hidden=issues.length===0;
+  warning.textContent=issues.length?
+    'Some game packages need attention: '+issues.map(i=>i.game).join(', ')+
+    '. The affected game is disabled until you repair its installation. Other games remain available.':'';
   const area=$('game-package-list');area.replaceChildren();
   if(!rows.length){area.append(text('p','No game packages uploaded yet. Spin the Wheel is already bundled.'));return;}
   const active=result.active||{};
