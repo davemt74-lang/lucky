@@ -49,18 +49,18 @@ final class PackageGameSandbox {
   // Local JS/CSS references are expanded in document order; remote sources
   // stay forbidden. Unreferenced legacy assets still load at the end.
   $used=[];
-  $raw=preg_replace_callback('~<script\\s+src=["\\']([^"\\']+)["\\']\\s*>\\s*</script\\s*>~i',
+  $raw=preg_replace_callback('~<script\s+src=["\x27]([^"\x27]+)["\x27]\s*>\s*</script\s*>~i',
     static function(array $m)use(&$used,$localScripts):string {
      if(!isset($localScripts[$m[1]]))return '';
      $used[$m[1]]=true;return $localScripts[$m[1]];
     },$raw);
-  $raw=preg_replace_callback('~<link\\s+rel=["\\']stylesheet["\\']\\s+href=["\\']([^"\\']+)["\\']\\s*/?>~i',
+  $raw=preg_replace_callback('~<link\s+rel=["\x27]stylesheet["\x27]\s+href=["\x27]([^"\x27]+)["\x27]\s*/?>~i',
     static function(array $m)use(&$used,$localStyles):string {
      if(!isset($localStyles[$m[1]]))return '';
      $used[$m[1]]=true;return $localStyles[$m[1]];
     },$raw);
   $raw=preg_replace('~<script\\b(?=[^>]*\\bsrc\\s*=)[^>]*>\\s*</script\\s*>~is','',$raw);
-  $raw=preg_replace('~<link\\b(?=[^>]*\\brel\\s*=\\s*["\\']?stylesheet)[^>]*>~is','',$raw);
+  $raw=preg_replace('~<link\b(?=[^>]*\brel\s*=\s*["\x27]?stylesheet)[^>]*>~is','',$raw);
   foreach($localStyles as $asset=>$style)if(!isset($used[$asset]))$assets.=$style;
   foreach($localScripts as $asset=>$script)if(!isset($used[$asset]))$assets.=$script;
   $bridge='<script>document.addEventListener("click",function(e){const b=e.target.closest("[data-game-input]");if(!b)return;parent.postMessage({type:"lucky:input",name:b.dataset.gameInput,value:b.dataset.gameValue||null},"*");});</script>';
