@@ -18,7 +18,7 @@ reject22f(fn()=>CloudGamePackageDownload::release($feed,'../admin','1.2.3'),'Inv
 reject22f(fn()=>CloudGamePackageDownload::release($feed,'table-trivia','bad-version'),'Invalid semantic version');
 reject22f(fn()=>CloudGamePackageDownload::release(['releases'=>[
  ['game'=>'table-trivia','version'=>'1.2.3','sha256'=>$release['sha256'],
-  'bytes'=>40*1024*1024+1]],'table-trivia','1.2.3'),'Oversized release');
+  'bytes'=>40*1024*1024+1]]],'table-trivia','1.2.3'),'Oversized release');
 reject22f(fn()=>CloudGamePackageDownload::verifyDownload($archive.'x',$choice),'Appended bytes');
 reject22f(fn()=>CloudGamePackageDownload::verifyDownload(str_repeat('x',strlen($archive)),$choice),'Tampered same-length bytes');
 reject22f(fn()=>PublisherTransport::fetch('http://publisher.example/trivia.zip','',1000),'HTTP downgrade');
