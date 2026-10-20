@@ -7,9 +7,10 @@ CREATE TABLE IF NOT EXISTS prize_packages (
  enabled TINYINT(1) NOT NULL DEFAULT 1,
  player_selectable TINYINT(1) NOT NULL DEFAULT 1,
  version INT UNSIGNED NOT NULL DEFAULT 1,
+ sort_order INT UNSIGNED NOT NULL DEFAULT 0,
  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
- INDEX idx_packages_game (game_id,enabled,created_at),
+ INDEX idx_packages_game (game_id,sort_order),
  UNIQUE KEY uq_package_name (game_id,name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 CREATE TABLE IF NOT EXISTS prize_package_selection (
