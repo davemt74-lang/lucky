@@ -54,7 +54,7 @@ async def main():
   import re
   root=Path(__file__).resolve().parents[1]
   fragment=(root/'game.php').read_text().split('?>',1)[1].split('<?php shellEnd()',1)[0]
-  fragment=re.sub(r'<script\\b[^>]*></script>','',fragment,flags=re.I)
+  fragment=re.sub(r'<script[^>]*></script>','',fragment,flags=re.I)
   style=(root/'public/platform.css').read_text()
   host=await browser.new_page(viewport={'width':1280,'height':900})
   await host.set_content('<html><head><style>'+style+'</style></head><body class="game-fullwidth">'+fragment+'</body></html>')
