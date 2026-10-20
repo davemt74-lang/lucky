@@ -185,7 +185,7 @@ try {
   $db->beginTransaction();
   try{
    if($action==='package_create'){
-    $out=PrizePackages::create($db,$in['name']??'');
+    $out=PrizePackages::create($db,$in['name']??'',isset($in['cloneFrom'])?(string)$in['cloneFrom']:null);
     audit($db,'package.created',null,['packageId'=>$out['id']]);
    }elseif($action==='package_save'){
     $out=PrizePackages::save($db,(string)($in['id']??''),(int)($in['version']??0),
@@ -251,12 +251,17 @@ try {
   $theme=['accent'=>preg_match('/^#[0-9a-fA-F]{6}$/D',strval($theme['accent']??''))?$theme['accent']:'#f6cb74',
     'background'=>preg_match('/^#[0-9a-fA-F]{6}$/D',strval($theme['background']??''))?$theme['background']:'#0d1423'];
   $intro=['title'=>trim(strval($intro['title'])),'subtitle'=>trim(strval($intro['subtitle']??'')),'trackId'=>strval($intro['trackId']??''),'volume'=>max(0,min(100,(int)$intro['volume'])),'announcement'=>($intro['announcement']??true)!==false];
+  $changesConfig=array_key_exists('config',$in);
+  if($game==='spin-wheel'&&$changesConfig){
+   $q=$db->query("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='prize_packages'");
+   if((int)$q->fetchColumn()===1)throw new DomainException('Edit prize values within their package tab instead.',409);
+  }
   $config=$module?$module->validateSettings($in['config']??$old['config']):$old['config'];
   $db->beginTransaction();try{
     $lock=$db->prepare('SELECT game_id FROM game_settings WHERE game_id=? FOR UPDATE');$lock->execute([$game]);$lock->fetch();
     $activeQuery=$db->prepare("SELECT * FROM game_sessions WHERE game_id=? AND status IN ('active','paused') ORDER BY created_at DESC,id DESC LIMIT 1 FOR UPDATE");
     $activeQuery->execute([$game]);$active=$activeQuery->fetch();
-    if($active && $module){
+    if($active && $module && $changesConfig){
       $state=stateFromRow($active);$module->applySettings($state,$config);saveState($db,$state);
     }
     $q=$db->prepare('UPDATE game_settings SET config_json=?,intro_json=?,theme_json=? WHERE game_id=?');
