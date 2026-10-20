@@ -659,3 +659,28 @@ body.admin-studio-page .admin-mobile-nav{display:none}
 body.admin-studio-page .admin-console{margin-top:12px}
 body.admin-studio-page .admin-console-workspace>.platform-admin-layout{margin:0}
 @media(max-width:960px){body.admin-studio-page .admin-mobile-nav{display:flex;justify-content:flex-end;margin:0 0 10px}body.admin-studio-page .admin-mobile-nav #admin-nav-toggle{display:inline-flex}}
+
+/* V5Q.20 — tabbed prize package layers, not a nested dropdown. */
+body.admin-studio-page .prize-package-header{display:flex;align-items:center;gap:9px;max-width:100%;margin:18px 0 0;border-bottom:1px solid #3a4e67}
+body.admin-studio-page .prize-package-tabs{display:flex;flex:1 1 auto;gap:5px;min-width:0;overflow-x:auto;scrollbar-width:thin;scroll-snap-type:x proximity;padding-bottom:7px}
+body.admin-studio-page .prize-package-tabs button{position:relative;white-space:nowrap;flex:0 0 auto;max-width:220px;overflow:hidden;text-overflow:ellipsis;padding:10px 16px;scroll-snap-align:start;min-height:42px;border-radius:9px 9px 0 0;font-size:12px}
+body.admin-studio-page .prize-package-tabs button.selected{background:#293d59;border-color:#f3ca79;color:#ffdfa1}
+body.admin-studio-page .prize-package-tabs .package-live-choice:after{content:"●";display:inline;margin-left:7px;color:#88e2ab;font-size:9px}
+body.admin-studio-page .prize-package-tabs .package-disabled{opacity:.55}
+body.admin-studio-page .prize-package-add{flex:0 0 42px;height:42px;margin-bottom:7px;padding:0;font-size:24px;line-height:1}
+body.admin-studio-page .prize-package-config{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;background:#101c2e;border:1px solid #3e526c;border-top:0;padding:13px 15px;border-radius:0 0 12px 12px;margin-bottom:17px}
+body.admin-studio-page .prize-package-config>label:first-child{flex:1 1 170px;max-width:260px}
+body.admin-studio-page .prize-package-config .platform-checkbox{display:flex;align-items:center;min-height:38px;font-size:12px}
+body.admin-studio-page .prize-package-config button{font-size:11px;white-space:nowrap}
+body.admin-studio-page #package-selection-status{flex:1 1 100%;margin:0}
+body.admin-studio-page #package-remove{border-color:#9c6571;color:#ffccd0}
+.game-package-picker{display:grid;gap:7px;margin:13px 0;font-size:12px;color:#d1dfef}
+.game-package-picker select{min-height:42px;width:100%}
+.game-package-picker[hidden],.phone-package-picker[hidden]{display:none!important}
+.phone-package-picker{display:grid;gap:5px;margin:10px 0;padding:12px 13px;background:#142237;border:1px solid #405775;border-radius:12px;font-size:12px;color:#d7e5f6}
+.phone-package-picker select{min-height:44px;width:100%;font-size:15px}
+@media(max-width:650px){
+ body.admin-studio-page .prize-package-config{align-items:stretch}
+ body.admin-studio-page .prize-package-config>label:first-child{max-width:none;flex:1 1 100%}
+ body.admin-studio-page .prize-package-config button{flex:1 1 115px}
+}
