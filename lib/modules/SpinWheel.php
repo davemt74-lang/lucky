@@ -8,7 +8,7 @@ final class SpinWheel implements GameModule {
  public function validateSettings(array $settings):array{return GameEngine::validateConfig($settings);}
  public function createSession(array $settings,string $id):array{return GameEngine::newSession($settings,$id);}
  public function applySettings(array &$s,array $settings):void{GameEngine::applyConfig($s,$settings);}
- public function action(array &$s,string $verb):array {
+ public function action(array &$s,string $verb,array $payload=[]):array {
   switch($verb){
    case 'spin':return GameEngine::spin($s);
    case 'pause':GameEngine::pause($s);return ['type'=>'paused','version'=>$s['version']];
