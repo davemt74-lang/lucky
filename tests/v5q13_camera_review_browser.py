@@ -83,6 +83,7 @@ async def main():
   await page.locator('#capture-clip-list .proof-saved-clip').click()
   test('right clip loads into single main video player',await page.locator('#capture-review-list video').is_visible() and await page.locator('#camera-grid').is_hidden())
   await page.locator('#proof-history-disclosure > summary').click()
+  await page.locator('.proof-revision-item > summary').first.click()
   await page.locator('.proof-load-clip').first.click()
   test('revision clip loads into main playback instead of new tab',await page.locator('#capture-review-list video').is_visible() and await page.evaluate("document.querySelector('#capture-review-list video').getAttribute('src').includes('id=eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee')"))
 
