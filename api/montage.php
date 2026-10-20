@@ -3,6 +3,8 @@ declare(strict_types=1);
 require __DIR__.'/../lib/Bootstrap.php';
 require_once __DIR__.'/../lib/ClaimMedia.php';
 require_once __DIR__.'/../lib/MontagePlan.php';
+require_once __DIR__.'/../lib/MontageLayers.php';
+require_once __DIR__.'/../lib/SchemaGuard.php';
 headerSecurity();
 function renderRow(PDO $db,string $id):array {
  if(!ClaimMedia::validId($id))throw new DomainException('Invalid render identifier.',400);
@@ -43,7 +45,9 @@ try {
  if($method==='GET'&&$action==='project'){
   $session=(string)($_GET['session']??'');sessionRow($db,$session);
   $q=$db->prepare('SELECT edit_json FROM montage_projects WHERE session_id=?');$q->execute([$session]);$raw=$q->fetchColumn();
-  success(['project'=>$raw?json_decode($raw,true,512,JSON_THROW_ON_ERROR):null]);
+  SchemaGuard::require($db,['montage_timeline_layers'],'Text/audio timeline tracks');
+  $q=$db->prepare('SELECT layers_json FROM montage_timeline_layers WHERE session_id=?');$q->execute([$session]);$layers=$q->fetchColumn();
+  success(['project'=>$raw?json_decode($raw,true,512,JSON_THROW_ON_ERROR):null,'layers'=>$layers?json_decode($layers,true,512,JSON_THROW_ON_ERROR):['titles'=>[],'background'=>null]]);
  }
  if($method==='GET'&&$action==='auto'){
   $session=(string)($_GET['session']??'');sessionRow($db,$session);
@@ -58,8 +62,17 @@ try {
   $db->beginTransaction();try{
    sessionRow($db,$session,true);
    $q=$db->prepare('SELECT * FROM claim_media WHERE session_id=?');$q->execute([$session]);$map=[];foreach($q->fetchAll() as $row)$map[$row['id']]=$row;
-   if($edits)MontagePlan::materialize($map,$edits);
+   $clips=$edits?MontagePlan::materialize($map,$edits):[];
    $json=json_encode($edits,JSON_THROW_ON_ERROR);
+   if(array_key_exists('layers',$data)){
+    SchemaGuard::require($db,['montage_timeline_layers'],'Text/audio timeline tracks');
+    if(!is_array($data['layers']))throw new DomainException('Invalid extra timeline tracks.',422);
+    $songs=$db->query("SELECT id FROM media_tracks WHERE kind='upload'")->fetchAll(PDO::FETCH_COLUMN);
+    $layerData=MontageLayers::normalize($data['layers'],$clips?MontagePlan::validate($clips)['estimatedMs']:0,array_fill_keys($songs,true));
+    $trackSql=json_encode($layerData,JSON_THROW_ON_ERROR);
+    $saveLayers=$db->prepare('INSERT INTO montage_timeline_layers(session_id,layers_json) VALUES (?,?) ON DUPLICATE KEY UPDATE layers_json=VALUES(layers_json)');
+    $saveLayers->execute([$session,$trackSql]);
+   }
    $q=$db->prepare('INSERT INTO montage_projects(session_id,edit_json) VALUES (?,?) ON DUPLICATE KEY UPDATE edit_json=VALUES(edit_json)');$q->execute([$session,$json]);
    $db->commit();
   }catch(Throwable $e){$db->rollBack();throw $e;}
@@ -81,6 +94,15 @@ try {
    foreach($q->fetchAll() as $row)$available[$row['id']]=$row;
    $clips=MontagePlan::materialize($available,$edits);
    $metrics=MontagePlan::validate($clips);
+   if(array_key_exists('layers',$data)){
+    SchemaGuard::require($db,['montage_timeline_layers'],'Text/audio timeline tracks');
+    if(!is_array($data['layers']))throw new DomainException('Invalid timeline tracks.',422);
+    $songs=$db->query("SELECT id FROM media_tracks WHERE kind='upload'")->fetchAll(PDO::FETCH_COLUMN);
+    $extra=MontageLayers::normalize($data['layers'],$metrics['estimatedMs'],array_fill_keys($songs,true));
+    $clips=MontageLayers::apply($clips,$extra);
+    if($extra['background']!==null){$music=$extra['background']['trackId'];$volume=$extra['background']['volume'];}
+    else{$music='';$volume=0;}
+   }
    $q=$db->prepare("SELECT COUNT(*) FROM montage_renders WHERE session_id=? AND status IN ('queued','running')");$q->execute([$session]);
    if((int)$q->fetchColumn()>=2)throw new DomainException('Wait for a pending render to finish before queuing another.',409);
    $id=bin2hex(random_bytes(16));
