@@ -24,7 +24,7 @@
   selected=id;$('catalog-editor').hidden=false;
   $('catalog-id').value=id;$('catalog-editor-heading').textContent=game.title;
   $('catalog-execution-status').textContent=game.status==='ready'
-   ?'Installed playable game · '+game.source
+   ?'Built-in game · protected from deletion · updates supported · '+game.source
    :'Draft listing · Game module not installed; cannot be launched';
   for(const [key,control] of Object.entries(fields))$(control).value=game[key]??'';
   $('catalog-min').value=game.playersMin;
@@ -42,7 +42,7 @@
    const image=g.images?.cover;
    if(image){const img=document.createElement('img');img.src=artURL(g.id,image);img.alt='';img.loading='lazy';button.append(img);}
    const body=text('span','','game-catalog-card-info');
-   body.append(text('strong',g.title),text('small',g.publisherName||'Publisher not set'),text('small',g.status==='ready'?'Installed':'Draft — not playable'));
+   body.append(text('strong',g.title),text('small',g.publisherName||'Publisher not set'),text('small',g.builtIn?'Built-in · protected':g.status==='ready'?'Installed':'Draft — not playable'));
    button.append(body);button.onclick=()=>edit(g.id);area.append(button);
   }
   if(!games.length)area.append(text('p','No games in the library yet.'));
