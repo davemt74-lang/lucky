@@ -129,7 +129,8 @@ final class GamePackageInstaller {
   * Locally uploaded bundles may be staged unsigned, but no staged game runs.
   * Signed bundles must verify against the owner's explicitly pinned publisher.
   */
- public static function install(string $upload,?string $root=null,?string $publisherKey=null):array {
+ public static function install(string $upload,?string $root=null,?string $publisherKey=null,
+  ?string $expectedGame=null,?string $expectedVersion=null):array {
   $zip=self::archive($upload);
   try{
    $entries=self::entries($zip);
@@ -137,6 +138,9 @@ final class GamePackageInstaller {
    $data=json_decode($raw,true,16,JSON_THROW_ON_ERROR);
    $manifest=self::validateManifest($data);
    $id=$manifest['id'];$version=$manifest['version'];
+   // Reject a substituted archive before any private version folder is created.
+   if(($expectedGame!==null&&$id!==$expectedGame)||($expectedVersion!==null&&$version!==$expectedVersion))
+    throw new DomainException('Game package identity does not match the selected release.',403);
    $builtIn=isset(GameRegistry::modules()[$id]);
    $expected=['manifest.json'=>true];
    if(isset($entries['manifest.sig']))$expected['manifest.sig']=true;
