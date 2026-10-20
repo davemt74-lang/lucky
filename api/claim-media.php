@@ -46,8 +46,8 @@ try {
    $file=$_FILES['media']??null;if(!is_array($file)||($file['error']??-1)!==UPLOAD_ERR_OK||!isset($file['tmp_name'])||!is_uploaded_file($file['tmp_name']))throw new DomainException('Choose a valid file, or check your server upload size limit.',422);
    $mime=(new finfo(FILEINFO_MIME_TYPE))->file($file['tmp_name']);
    $dim=str_starts_with($mime,'image/')?@getimagesize($file['tmp_name']):null;
-   $kind=ClaimMedia::validateUpload($mime,(int)$file['size'],$dim?:null);
-   $claimedKind=(string)($_POST['kind']??'');if($claimedKind!==''&&$claimedKind!==$kind)throw new DomainException('Recorded media type does not match the file.',422);
+   $claimedKind=(string)($_POST['kind']??'');
+   $kind=ClaimMedia::captureKind($mime,(int)$file['size'],$dim?:null,$claimedKind,$file['tmp_name']);
    $title=trim((string)($_POST['title']??''));if($title===''||mbSafeLen($title)>120)$title=ucfirst($kind).' reaction';
    $sourceLabel=trim((string)($_POST['sourceLabel']??''));
    if(mbSafeLen($sourceLabel)>120)throw new DomainException('Camera name must be 120 characters or less.',422);
