@@ -71,14 +71,16 @@
   if(accordion.hidden!==!showing){accordion.hidden=!showing;accordion.open=showing;}
   const phase=proofState.phase||(Number(proofState.reviewCount)>0?'review':'live');
   const reviewing=showing&&(phase==='review'||Number(proofState.reviewCount)>0&&phase==='live');
+  const opening=phase==='opening',upgrade=phase==='upgrade';
   const recording=phase==='recording',processing=phase==='processing',saving=phase==='saving',saved=phase==='saved';
-  const consent=$('phone-proof-consent');if(consent){consent.checked=!!proofState.consent;consent.disabled=recording||processing||saving;}
+  const consent=$('phone-proof-consent');if(consent){consent.checked=!!proofState.consent;consent.disabled=opening||upgrade||recording||processing||saving;}
   const label=$('phone-proof-phase');
-  if(label)label.textContent=recording?'● Recording…':processing?'Processing video…':reviewing?'Review recorded video · Save when ready':saving?'Saving video to the timeline…':saved?'✓ Video saved to the editor timeline':phase==='upgrade'?'Host upgrade required: run upgrade.php before recording.':'Live camera ready · Recording consent required';
-  const record=$('phone-proof-recording');if(record)record.hidden=reviewing||processing||saving||saved;
+  if(label)label.textContent=recording?'● Recording…':processing?'Processing video…':reviewing?'Review recorded video · Save when ready':saving?'Saving video to the timeline…':saved?'✓ Video saved to the editor timeline':phase==='upgrade'?'Host upgrade required: run upgrade.php before recording.':opening?'Opening the desktop proof editor…': 'Live camera ready · Consent is controlled on this phone';
+  const context=$('phone-proof-context');if(context)context.textContent=opening?'Opening prize proof editor on the computer…':'Prize proof · Computer camera';
+  const record=$('phone-proof-recording');if(record)record.hidden=opening||upgrade||reviewing||processing||saving||saved;
   const review=$('phone-proof-review');if(review)review.hidden=!reviewing;
   const recordButton=document.querySelector('[data-phone="proof-record"]');
-  if(recordButton){recordButton.textContent=recording?'● Recording…':'● Record';recordButton.disabled=recording||!proofState.consent;}
+  if(recordButton){recordButton.textContent=recording?'● Recording…':'● Record';recordButton.disabled=opening||upgrade||recording||!proofState.consent;}
   const stopButton=document.querySelector('[data-phone="proof-stop"]');if(stopButton){stopButton.hidden=!recording;stopButton.disabled=!recording;}
   const saveButton=document.querySelector('[data-phone="proof-save"]');if(saveButton)saveButton.disabled=!reviewing;
   const approved=showing&&Number(proofState.savedCount)>0;
@@ -92,6 +94,7 @@
   try{const nonce=(crypto.randomUUID?.()||`${Date.now()}_${Math.random().toString(36).slice(2)}`).replaceAll('.','_');
    const result=await request('command',{command:action,nonce,confirm:action==='end'});
    if(result.game)updateGame(result.game);
+    if(result.applied&&result.effect==='prize_accepted')updateProof({active:true,phase:'opening',claimId:result.game?.offer?.claimId||''});
    if(navigator.vibrate)navigator.vibrate(20);
    if(result.applied){pendingCommand=null;feedback=null;const notice=result.effect==='started'?'Game started — press Spin to play.':result.effect==='award'?'Wheel spinning… Watch the desktop for the result.':result.effect==='bonus_trigger'?'Bonus round activated on screen.':`Game ${result.effect||'updated'}.`;message(notice);appendChat(notice);}
    else if(result.commandId){pendingCommand={id:result.commandId,label:action.replaceAll('-',' ')};message(`Waiting for game screen to execute ${pendingCommand.label}…`);appendChat(`Waiting for game screen to execute ${pendingCommand.label}…`);}
