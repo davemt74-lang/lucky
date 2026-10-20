@@ -153,9 +153,16 @@
   const detail=e.detail;if(!detail||detail.session!==session)return;
   try{const response=await media('list');const current=response.clips||[],known=new Set(source.map(c=>c.id));
    const additions=current.filter(c=>!known.has(c.id));source=current;renderBin();
-   // Only append new recordings to the manual edit; never reset existing unsaved changes.
-   for(const c of additions)if(clips.length<80)clips.push(cloneSource(c));
-   if(additions.length){dirty=true;render();inform(`${additions.length} new camera clip${additions.length===1?'':'s'} added to your timeline. Save the edit to keep them.`);}
+   // The server already committed a claim-aware timeline update atomically with the upload.
+   // Load the persisted positions and replacements; never duplicate a clip on the client.
+   if(additions.length){
+    if(dirty)inform('New proof footage saved in the server timeline. Save or discard your unsaved edits before reloading.',true);
+    else{
+     const project=await api('project');const map=new Map(source.map(c=>[c.id,c]));
+     clips=Array.isArray(project.project)?project.project.filter(c=>map.has(c.id)).map(c=>({...map.get(c.id),...c})):source.map(cloneSource);
+     render();inform(`${additions.length} proof clip${additions.length===1?'':'s'} synchronized in its claimed-prize timeline position.`);
+    }
+   }
   }catch(err){inform('Clip saved; refresh media bin to import it: '+err.message,true);}
  }
  async function init(){
