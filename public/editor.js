@@ -120,60 +120,108 @@
   menu.style.top=Math.max(6,Math.min(y,innerHeight-height-8))+'px';
   menu.querySelector('button')?.focus();
  }
- function beginTrim(event,clip,side,row,info){
-  if(event.button!==0)return;
-  event.preventDefault();event.stopPropagation();closeContextMenu();
-  const handle=event.currentTarget,photo=clip.kind==='photo',full=photo?20000:Number(clip.durationMs||0);
-  if(full<=0)return;
-  const origStart=Number(clip.trimStartMs||0),origEnd=photo?Number(clip.photoDurationMs||4000):Number(clip.trimEndMs||0)||full;
-  const origLength=Math.max(500,origEnd-origStart),span=Math.max(40,row.getBoundingClientRect().width);
-  const unit=origLength/span,x0=event.clientX;
-  const beforeDrag=row.draggable;row.draggable=false;
-  row.classList.add('is-trimming');
-  handle.setPointerCapture(event.pointerId);
-  let moved=false;
-  const move=e=>{
-   const shift=Math.round((e.clientX-x0)*unit/100)*100;
-   if(Math.abs(e.clientX-x0)>2)moved=true;
-   if(photo){
-    const length=Math.max(1000,Math.min(20000,origEnd+shift));
-    clip.photoDurationMs=length;
-   }else if(side==='start'){
-    clip.trimStartMs=Math.max(0,Math.min(origEnd-500,origStart+shift));
-   }else{
-    const end=Math.max(origStart+500,Math.min(full,origEnd+shift));
-    clip.trimEndMs=end===full?0:end;
-   }
-   const t=lengthMs(clip);
-   row.style.width=Math.max(95,Math.min(360,Math.round(t/1000*16)))+'px';
-   info.textContent='TRIM · '+clock(t)+' · In '+secs(clip.trimStartMs)+'s · Out '+secs(clip.trimEndMs||full)+'s';
-  };
-  const finish=()=>{
-   handle.removeEventListener('pointermove',move);handle.removeEventListener('pointerup',finish);
-   handle.removeEventListener('pointercancel',cancel);
-   if(handle.hasPointerCapture(event.pointerId))handle.releasePointerCapture(event.pointerId);
-   row.draggable=beforeDrag;row.classList.remove('is-trimming');
-   if(moved){dirty=true;render();inform('Trim updated: '+clip.title+'. Save edit to keep your change.');}
-   else render();
-  };
-  const cancel=()=>{
-   clip.trimStartMs=origStart;clip.trimEndMs=photo?clip.trimEndMs:(origEnd===full?0:origEnd);
-   if(photo)clip.photoDurationMs=origEnd;
-   finish();
-  };
-  handle.addEventListener('pointermove',move);handle.addEventListener('pointerup',finish);handle.addEventListener('pointercancel',cancel);
+ const timelineScale=16; // pixels per second, shared by timeline clips and ruler.
+ const visualWidth=c=>Math.max(95,Math.min(360,Math.round(lengthMs(c)/1000*timelineScale)));
+ // Pointer movement must not trigger HTML5 clip reordering or the page's touch scroll.
+ // Each clip's trim uses a stable pixels-per-second scale, independent of clipped width.
+ function changeTrim(clip,side,deltaMs){
+  const photo=clip.kind==='photo',full=photo?20000:Math.round(Number(clip.durationMs||0));
+  if(!photo&&full<500)return false;
+  const originalStart=Number(clip.trimStartMs||0);
+  const originalEnd=photo?Number(clip.photoDurationMs||4000):(Number(clip.trimEndMs)||full);
+  const snap=Math.round(deltaMs/100)*100;
+  if(photo){
+   if(side==='start')return false;
+   const next=Math.max(1000,Math.min(20000,originalEnd+snap));
+   if(next===originalEnd)return false;
+   clip.photoDurationMs=next;return true;
+  }
+  if(side==='start'){
+   const next=Math.max(0,Math.min(originalEnd-500,originalStart+snap));
+   if(next===originalStart)return false;
+   clip.trimStartMs=next;return true;
+  }
+  const next=Math.max(originalStart+500,Math.min(full,originalEnd+snap));
+  if(next===originalEnd)return false;
+  clip.trimEndMs=next>=full?0:next;return true;
  }
+ function trimFeedback(clip,row,info){
+  const full=clip.kind==='photo'?clip.photoDurationMs:clip.durationMs;
+  row.style.width=visualWidth(clip)+'px';
+  info.textContent='TRIM '+clock(lengthMs(clip))+' · In '+secs(clip.trimStartMs)+'s · Out '+secs(clip.kind==='photo'?clip.photoDurationMs:(clip.trimEndMs||full))+'s';
+  if(chosen?.instanceId===clip.instanceId){
+   $('editor-trim-start').value=secs(clip.trimStartMs);
+   $('editor-trim-end').value=secs(clip.trimEndMs);
+   $('editor-photo-seconds').value=secs(clip.photoDurationMs);
+  }
+ }
+ function commitTrim(clip,message){
+  dirty=true;render();select(clip.instanceId);inform(message||'Trim changed: '+clip.title+'. Save edit to retain it.');
+ }
+ function beginTrim(event,clip,side,row,info){
+  if(event.button!==0||!event.isPrimary)return;
+  event.preventDefault();event.stopPropagation();closeContextMenu();
+  const handle=event.currentTarget,original={
+   start:Number(clip.trimStartMs||0),end:Number(clip.trimEndMs||0),
+   photo:Number(clip.photoDurationMs||4000)
+  };
+  const x0=event.clientX,oldDraggable=row.draggable;row.draggable=false;
+  row.classList.add('is-trimming');
+  let changed=false,finished=false;
+  try{handle.setPointerCapture(event.pointerId);}catch(_){}
+  const move=e=>{
+   if(e.pointerId!==event.pointerId)return;
+   const desired=Math.round((e.clientX-x0)/timelineScale*1000/100)*100;
+   // Derive from original trim each time: no additive drift or jitter.
+   clip.trimStartMs=original.start;clip.trimEndMs=original.end;clip.photoDurationMs=original.photo;
+   changeTrim(clip,side,desired);
+   changed=clip.trimStartMs!==original.start||clip.trimEndMs!==original.end||clip.photoDurationMs!==original.photo;
+   trimFeedback(clip,row,info);
+  };
+  const cleanup=()=>{
+   handle.removeEventListener('pointermove',move);
+   handle.removeEventListener('pointerup',finish);
+   handle.removeEventListener('pointercancel',cancel);
+   handle.removeEventListener('lostpointercapture',finish);
+   if(handle.hasPointerCapture?.(event.pointerId))handle.releasePointerCapture(event.pointerId);
+   row.draggable=oldDraggable;row.classList.remove('is-trimming');
+  };
+  const finish=e=>{
+   if(finished||e?.pointerId!==undefined&&e.pointerId!==event.pointerId)return;
+   finished=true;cleanup();
+   if(changed)commitTrim(clip);else render();
+  };
+  const cancel=e=>{
+   if(finished||e?.pointerId!==undefined&&e.pointerId!==event.pointerId)return;
+   clip.trimStartMs=original.start;clip.trimEndMs=original.end;clip.photoDurationMs=original.photo;
+   changed=false;finish(e);
+  };
+  handle.addEventListener('pointermove',move);
+  handle.addEventListener('pointerup',finish);
+  handle.addEventListener('pointercancel',cancel);
+  handle.addEventListener('lostpointercapture',finish);
+ }
+ function keyboardTrim(e,clip,side){
+  if(!['ArrowLeft','ArrowRight'].includes(e.key))return;
+  e.preventDefault();e.stopPropagation();
+  const delta=(e.key==='ArrowRight'?1:-1)*(e.shiftKey?1000:100);
+  if(changeTrim(clip,side,delta))commitTrim(clip);
+ }
+
  function reorder(from,to){if(from===to||from<0||to<0||from>=clips.length||to>=clips.length)return;const [part]=clips.splice(from,1);clips.splice(to,0,part);dirty=true;render();}
  function render(){const root=$('editor-timeline');root.replaceChildren();$('editor-count').textContent=`${clips.length} segments`;renderRuler();
   if(!clips.length){root.textContent='Timeline empty. Add clips from the media bin.';select(null);return;}
   clips.forEach((c,i)=>{
-   const row=document.createElement('article');row.className='editor-clip'+(c.audioMode==='muted'?' is-muted':'')+(c.audioMode==='detached'?' is-detached':'');row.dataset.instanceId=c.instanceId;row.dataset.kind=c.kind;row.style.width=`${Math.max(95,Math.min(360,Math.round(lengthMs(c)/1000*16)))}px`;row.draggable=true;
-   row.ondragstart=e=>{e.dataTransfer.setData('text/plain',c.instanceId);e.dataTransfer.effectAllowed='move';};
+   const row=document.createElement('article');row.className='editor-clip'+(c.audioMode==='muted'?' is-muted':'')+(c.audioMode==='detached'?' is-detached':'');row.dataset.instanceId=c.instanceId;row.dataset.kind=c.kind;row.style.width=visualWidth(c)+'px';row.draggable=false;
+   row.ondragstart=e=>{if(e.target!==row)e.stopPropagation();else e.preventDefault();};
    row.ondragover=e=>e.preventDefault();row.ondrop=e=>{e.preventDefault();const sourceId=e.dataTransfer.getData('application/x-lucky-media-id');if(sourceId){addFromBin(sourceId);return;}reorder(clips.findIndex(x=>x.instanceId===e.dataTransfer.getData('text/plain')),i);};
    const choose=document.createElement('button');choose.type='button';choose.className='editor-clip-select';choose.onclick=()=>select(c.instanceId,true);
    const info=document.createElement('span');info.className='mini-label';info.textContent=`${i+1} · ${c.kind.toUpperCase()} · ${clock(lengthMs(c))}`;
    const strong=document.createElement('strong');strong.textContent=c.title;choose.append(info,strong);
    const actions=document.createElement('div');actions.className='editor-clip-controls';
+   const dragGrip=document.createElement('button');dragGrip.type='button';dragGrip.draggable=true;dragGrip.className='editor-clip-grip';dragGrip.textContent='⠿';dragGrip.title='Drag to reorder clip';dragGrip.setAttribute('aria-label','Drag to reorder '+c.title);
+   dragGrip.ondragstart=e=>{e.dataTransfer.setData('text/plain',c.instanceId);e.dataTransfer.effectAllowed='move';};
+   actions.append(dragGrip);
    for(const [text,delta] of [['↑',-1],['↓',1]]){const b=document.createElement('button');b.type='button';b.className='btn btn-outline';b.textContent=text;b.title=delta===-1?'Move earlier':'Move later';b.disabled=i+delta<0||i+delta>=clips.length;b.onclick=()=>reorder(i,i+delta);actions.append(b);}
    const view=document.createElement('button');view.type='button';view.className='btn btn-outline';view.textContent='Preview';view.onclick=()=>preview([c]);actions.append(view);
    const more=document.createElement('button');more.type='button';more.className='btn btn-outline editor-clip-more';
@@ -184,9 +232,10 @@
    for(const side of ['start','end']){
     const handle=document.createElement('button');handle.type='button';handle.className='editor-trim-handle '+side;
     handle.setAttribute('aria-label',side==='start'?'Trim start of '+c.title:'Trim end of '+c.title);
-    handle.title=side==='start'?'Drag right to move In point':'Drag left to move Out point';
+    handle.title=side==='start'?'Drag to set In point · Arrow keys ±0.1s':'Drag to set Out point · Arrow keys ±0.1s';
     handle.textContent=side==='start'?'‹':'›';handle.disabled=(c.kind==='photo'&&side==='start')||(c.kind!=='photo'&&!(c.durationMs>0));
     handle.onpointerdown=e=>beginTrim(e,c,side,row,info);
+    handle.onkeydown=e=>keyboardTrim(e,c,side);
     handle.onclick=e=>e.stopPropagation();
     row.append(handle);
    }
