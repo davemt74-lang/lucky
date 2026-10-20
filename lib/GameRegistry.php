@@ -5,6 +5,11 @@ require_once __DIR__.'/PhoneControllerProvider.php';
 final class GameRegistry {
  /** Register gameplay modules here; a module may omit phone support entirely. */
  private static function readyModules():array {require_once __DIR__.'/modules/SpinWheel.php';return [new SpinWheel()];}
+ /** Bundled module identity is immutable; activated ZIP games are not built-ins. */
+ public static function isBuiltIn(string $game):bool {
+  foreach(self::readyModules() as $module)if($module->id()===$game)return true;
+  return false;
+ }
  public static function modules():array {
   $map=[];foreach(self::readyModules() as $m)$map[$m->id()]=$m;
   require_once __DIR__.'/GamePackageActivation.php';
