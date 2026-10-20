@@ -224,9 +224,9 @@
    if(command.startsWith('music-find-')){const slug=command.slice(11),normalize=t=>String(t).toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');const song=L.tracks.find(t=>normalize(t.title)===slug);if(!song)throw Error('Song not found in music library.');await L.playMusic(song.id);return true;}
    switch(command){
      case 'menu':return window.LuckyConsole?.toggleMenu()??false;
-     case 'back':return window.LuckyConsole?.closeMenu()??false;
+     case 'back':window.LuckyConsole?.closeMenu();return true;
      case 'up':case 'down':case 'left':case 'right':case 'select':return window.LuckyConsole?.emit(command)??false;
-     case 'done':return window.LuckyConsole?.closeMenu()??false;
+     case 'done':window.LuckyConsole?.closeMenu();return true;
      case 'music-play':if(!L.pref.musicOn)await L.toggleMusic();return true;
      case 'music-pause':L.stopMusic();return true;
      case 'music-previous':if(!L.tracks.length)throw Error('No songs available.');await L.nextMusic(-1);return true;
