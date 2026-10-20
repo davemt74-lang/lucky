@@ -22,6 +22,31 @@ HTML=HTML.replace(
  "  if(input.verb==='input'&&__dropOnce){__dropOnce=false;throw new TypeError('Wi-Fi interrupted after command commit');}\n"
  "  return new Response(JSON.stringify({ok:true,applied:true,game:__game}));"
 )
+# Mock the independent HomeServer database across a page reload. The phone
+# page may refresh, but the server's session and nonce ledger must not reset.
+HTML=HTML.replace("window.__approved=false;","window.__approved=sessionStorage.getItem('cert-approved')==='yes';")
+HTML=HTML.replace("window.__commands=[];","window.__commands=JSON.parse(sessionStorage.getItem('cert-commands')||'[]');")
+HTML=HTML.replace("window.__dropOnce=true;","window.__dropOnce=sessionStorage.getItem('cert-dropped')!=='yes';")
+HTML=HTML.replace("window.__applied=new Set();","window.__applied=new Set(JSON.parse(sessionStorage.getItem('cert-applied')||'[]'));")
+HTML=HTML.replace(
+ "window.__game={id:'"+SID+"',game:'couch-trivia',status:'active',version:1,packageVersion:'1.0.0'};",
+ "window.__game=JSON.parse(sessionStorage.getItem('cert-game')||JSON.stringify({id:'"+SID+"',game:'couch-trivia',status:'active',version:1,packageVersion:'1.0.0'}));"
+)
+HTML=HTML.replace(
+ "  if(__applied.has(input.nonce))return",
+ "  sessionStorage.setItem('cert-commands',JSON.stringify(__commands));\\n"
+ "  if(__applied.has(input.nonce))return"
+)
+HTML=HTML.replace(
+ "  __applied.add(input.nonce);",
+ "  __applied.add(input.nonce);sessionStorage.setItem('cert-applied',JSON.stringify([...__applied]));"
+)
+HTML=HTML.replace(
+ "  if(input.verb==='input'&&__dropOnce){__dropOnce=false;throw",
+ "  sessionStorage.setItem('cert-game',JSON.stringify(__game));\\n"
+ "  if(input.verb==='input'&&__dropOnce){__dropOnce=false;sessionStorage.setItem('cert-dropped','yes');throw"
+)
+
 async def main():
  checks=[];errors=[]
  def verify(name,passed):checks.append((name,bool(passed)))
@@ -39,7 +64,7 @@ async def main():
   await page.locator('#package-phone-name').fill('Recovery Phone')
   await page.locator('#package-phone-join-form button').click()
   await page.wait_for_function("document.getElementById('package-phone-wait').hidden===false")
-  await page.evaluate('window.__approved=true')
+  await page.evaluate("window.__approved=true;sessionStorage.setItem('cert-approved','yes')")
   await page.wait_for_function("document.getElementById('package-phone-play').hidden===false")
   await page.frame_locator('#package-phone-frame').locator('#buzz').click()
   await page.wait_for_function("document.getElementById('package-phone-retry').hidden===false")
