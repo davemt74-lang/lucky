@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-require __DIR__.'/../lib/Bootstrap.php';require_once __DIR__.'/../lib/ProductCatalog.php';require_once __DIR__.'/../lib/ControllerGame.php';require_once __DIR__.'/../lib/PrizeDecision.php';headerSecurity();
+require __DIR__.'/../lib/Bootstrap.php';require_once __DIR__.'/../lib/ProductCatalog.php';require_once __DIR__.'/../lib/ControllerGame.php';require_once __DIR__.'/../lib/PrizeDecision.php';require_once __DIR__.'/../lib/GameSessionLifecycle.php';headerSecurity();
 $action=strval($_GET['action']??'');$method=$_SERVER['REQUEST_METHOD']??'GET';
 function setting(PDO $db,string $game='spin-wheel'):array {
  $q=$db->prepare('SELECT * FROM game_settings WHERE game_id=?');$q->execute([$game]);$r=$q->fetch();
@@ -76,7 +76,19 @@ try {
    success(['tracks'=>$list]);
   }
   if($action==='sessions'){
-   requireAdmin();$q=$db->query('SELECT id,game_id,status,version,created_at,updated_at,ended_at FROM game_sessions ORDER BY created_at DESC,id DESC LIMIT 100');success(['sessions'=>$q->fetchAll()]);
+   requireAdmin();$filter=strval($_GET['game']??'');
+   if($filter!=='')GameRegistry::module($filter);
+   if($filter!==''){$q=$db->prepare('SELECT id,game_id,status,version,created_at,updated_at,ended_at,state_json FROM game_sessions WHERE game_id=? ORDER BY created_at DESC,id DESC LIMIT 100');$q->execute([$filter]);}
+   else $q=$db->query('SELECT id,game_id,status,version,created_at,updated_at,ended_at,state_json FROM game_sessions ORDER BY created_at DESC,id DESC LIMIT 100');
+   $sessions=[];
+   foreach($q as $row){
+    $state=json_decode($row['state_json'],true,512,JSON_THROW_ON_ERROR);
+    $sessions[]=['id'=>$row['id'],'game'=>$row['game_id'],'status'=>$row['status'],'version'=>(int)$row['version'],
+     'createdAt'=>$row['created_at'],'updatedAt'=>$row['updated_at'],'endedAt'=>$row['ended_at'],
+     'savedAt'=>$state['savedAt']??null,'spins'=>(int)($state['spinCount']??0),
+     'claims'=>count($state['claims']??[]),'awardedCents'=>array_sum(array_column($state['claims']??[],'cents'))];
+   }
+   success(['sessions'=>$sessions]);
   }
   if($action==='prize_offer'){
    requireAdmin();$session=(string)($_GET['session']??'');sessionRow($db,$session);
@@ -91,8 +103,8 @@ try {
    $id=$q->fetchColumn();success(['data'=>$id?getSessionView($db,$id):null]);
   }
   if($action==='history'){
-   requireAdmin();$q=$db->query("SELECT id,created_at,ended_at,state_json FROM game_sessions WHERE status='ended' ORDER BY created_at DESC,id DESC LIMIT 100");$rows=[];
-   foreach($q as $r){$s=json_decode($r['state_json'],true);$rows[]=['id'=>$r['id'],'createdAt'=>$r['created_at'],'endedAt'=>$r['ended_at'],'spins'=>$s['spinCount']??0,'claims'=>count($s['claims']??[]),'awardedCents'=>array_sum(array_column($s['claims']??[],'cents'))];}
+   requireAdmin();$q=$db->query("SELECT id,game_id,created_at,ended_at,state_json FROM game_sessions WHERE status='ended' ORDER BY created_at DESC,id DESC LIMIT 100");$rows=[];
+   foreach($q as $r){$state=json_decode($r['state_json'],true);$rows[]=['id'=>$r['id'],'game'=>$r['game_id'],'createdAt'=>$r['created_at'],'endedAt'=>$r['ended_at'],'spins'=>$state['spinCount']??0,'claims'=>count($state['claims']??[]),'awardedCents'=>array_sum(array_column($state['claims']??[],'cents'))];}
    success(['history'=>$rows]);
   }
   if($action==='events'){
@@ -208,8 +220,9 @@ try {
   $intro=['title'=>trim(strval($intro['title'])),'subtitle'=>trim(strval($intro['subtitle']??'')),'trackId'=>strval($intro['trackId']??''),'volume'=>max(0,min(100,(int)$intro['volume'])),'announcement'=>($intro['announcement']??true)!==false];
   $config=$game==='spin-wheel'?GameRegistry::module($game)->validateSettings($in['config']??$old['config']):$old['config'];
   $db->beginTransaction();try{
-    $db->query("SELECT game_id FROM game_settings WHERE game_id='spin-wheel' FOR UPDATE")->fetch();
-    $active=$db->query("SELECT * FROM game_sessions WHERE game_id='spin-wheel' AND status IN ('active','paused') ORDER BY created_at DESC,id DESC LIMIT 1 FOR UPDATE")->fetch();
+    $lock=$db->prepare('SELECT game_id FROM game_settings WHERE game_id=? FOR UPDATE');$lock->execute([$game]);$lock->fetch();
+    $activeQuery=$db->prepare("SELECT * FROM game_sessions WHERE game_id=? AND status IN ('active','paused') ORDER BY created_at DESC,id DESC LIMIT 1 FOR UPDATE");
+    $activeQuery->execute([$game]);$active=$activeQuery->fetch();
     if($active && $game==='spin-wheel'){
       $s=stateFromRow($active);GameRegistry::module($game)->applySettings($s,$config);saveState($db,$s);
     }
@@ -235,18 +248,41 @@ try {
   success(['sessionId'=>$s['id'],'claims'=>count($s['claims'])],201);
  }
  if($action==='start'){
-  PrizeDecision::requireReady($db);
-  $game=strval($in['game']??'spin-wheel');if($game!=='spin-wheel')throw new DomainException('Game not available.');
+  $game=strval($in['game']??'spin-wheel');
+  if($game==='spin-wheel')PrizeDecision::requireReady($db);
   $db->beginTransaction();try{
-   $db->query("SELECT game_id FROM game_settings WHERE game_id='spin-wheel' FOR UPDATE")->fetch();
-   $q=$db->query("SELECT * FROM game_sessions WHERE game_id='spin-wheel' AND status IN ('active','paused') ORDER BY created_at DESC,id DESC LIMIT 1 FOR UPDATE");
-   if($existing=$q->fetch())throw new DomainException('An active session already exists. End it first.');
-   $settings=setting($db,'spin-wheel');$s=GameRegistry::module($game)->createSession($settings['config'],bin2hex(random_bytes(16)));
+   $config=GameSessionLifecycle::lockGame($db,$game);
+   GameSessionLifecycle::assertVacant($db,$game);
+   $s=GameRegistry::module($game)->createSession($config,bin2hex(random_bytes(16)));
+   if(($s['game']??null)!==$game||($s['status']??null)!=='active'||($s['version']??0)!==1)
+    throw new DomainException('Invalid initial session from game module.',422);
    $viewToken=token();$q=$db->prepare('INSERT INTO game_sessions(id,game_id,status,version,state_json,viewer_token) VALUES (?,?,?,?,?,?)');
    $q->execute([$s['id'],$game,$s['status'],$s['version'],json_encode($s,JSON_THROW_ON_ERROR),$viewToken]);
-   audit($db,'session.start',$s['id']);$db->commit();
+   audit($db,'session.start',$s['id'],['game'=>$game]);$db->commit();
   }catch(Throwable $e){$db->rollBack();throw $e;}
   success(['data'=>['session'=>$s,'viewerToken'=>$viewToken,'view'=>GameRegistry::module($s['game'])->publicView($s)]],201);
+ }
+ if(in_array($action,['save_session','resume_saved','finish_saved'],true)){
+  $id=strval($in['id']??'');$key=strval($in['idempotencyKey']??'');
+  if(!preg_match('/^[A-Za-z0-9_-]{12,80}$/D',$key))throw new DomainException('Missing unique request key.',400);
+  $db->beginTransaction();try{
+   $lookup=sessionRow($db,$id);$game=(string)$lookup['game_id'];
+   GameSessionLifecycle::lockGame($db,$game);
+   $row=sessionRow($db,$id,true);
+   $q=$db->prepare('SELECT payload_json FROM game_events WHERE session_id=? AND idempotency_key=?');$q->execute([$id,$key]);
+   if($previous=$q->fetch()){$out=json_decode($previous['payload_json'],true,512,JSON_THROW_ON_ERROR);$db->commit();success(['result'=>$out,'repeat'=>true]);}
+   $state=stateFromRow($row);
+   if($action==='resume_saved')GameSessionLifecycle::assertVacant($db,$game,$id);
+   if($game==='spin-wheel' && (SpinReveal::pending($state)||PrizeDecision::pending($db,$id)))
+    throw new DomainException('Resolve the current prize reveal or decision before changing the session.',409);
+   $event=GameSessionLifecycle::transition($state,$action==='save_session'?'save':$action);
+   saveState($db,$state);
+   $out=['event'=>$event,'view'=>GameRegistry::module($state['game'])->publicView($state)];
+   $q=$db->prepare('INSERT INTO game_events(session_id,idempotency_key,event_type,payload_json) VALUES (?,?,?,?)');
+   $q->execute([$id,$key,$event['type'],json_encode($out,JSON_THROW_ON_ERROR)]);
+   audit($db,'session.'.$event['type'],$id,['game'=>$game]);$db->commit();
+  }catch(Throwable $e){$db->rollBack();throw $e;}
+  success(['result'=>$out,'repeat'=>false]);
  }
  if(in_array($action,['spin','end','pause','resume'],true)){
   $id=strval($in['id']??'');$key=strval($in['idempotencyKey']??'');

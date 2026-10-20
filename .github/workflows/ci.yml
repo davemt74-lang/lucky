@@ -24,6 +24,7 @@ jobs:
       - name: PHP and browser-independent tests
         run: |
           php tests/engine.php
+          php tests/v5q16_session_lifecycle.php
           php tests/spin_reveal.php
           php tests/montage_claim_timeline.php
           php tests/proof_handoff.php
@@ -90,6 +91,7 @@ jobs:
           python tests/v5q15o_phone_prize_browser.py
           python tests/v5q15p_toolbox_browser.py
           python tests/v5q15q_tool_cards_browser.py
+          python tests/v5q16_admin_browser.py
       - name: Phone controller regressions
         run: |
           python tests/v5p2_navigation_voice.py

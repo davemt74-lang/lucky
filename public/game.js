@@ -46,7 +46,7 @@
   $('pause-game').disabled=busy||!view||!['active','paused'].includes(view.status);
   $('pause-game').textContent=view?.status==='paused'?'▶ Resume':'Ⅱ Pause';
   $('end-game').disabled=busy||!view||!['active','paused'].includes(view.status);
-  $('game-state').textContent=!view?'READY FOR NEW GAME':active?`ACTIVE GAME · ${view.spinCount} SPINS`:view.status==='paused'?'GAME PAUSED':'GAME ENDED';
+  $('game-state').textContent=!view?'READY FOR NEW GAME':active?`ACTIVE GAME · ${view.spinCount} SPINS`:view.status==='paused'?'GAME PAUSED':view.status==='saved'?'GAME SAVED':'GAME ENDED';
   // The public TV view intentionally omits claim IDs. The signed-in session owns
   // the authoritative claim IDs required for proof capture and revision history.
   const actualClaims=data?.session?.claims||[];
@@ -104,7 +104,7 @@
     const url=new URL('display.php',document.baseURI);url.searchParams.set('session',view.id);url.searchParams.set('token',data.viewerToken);
     viewerUrl=url.href;$('share-display').hidden=false;$('viewer-link').value=viewerUrl;$('open-viewer').href=viewerUrl;
   }else {viewerUrl='';$('share-display').hidden=true;}
-  $('display-game-status').textContent=!view?'No game started':view.status==='active'?'Active':view.status==='paused'?'Paused':view.status==='ended'?'Finished':'Waiting';
+  $('display-game-status').textContent=!view?'No game started':view.status==='active'?'Active':view.status==='paused'?'Paused':view.status==='ended'?'Finished':view.status==='saved'?'Saved':'Waiting';
   $('display-spin-count').textContent=String(view?.spinCount||0);
   $('display-screen-status').textContent=viewerUrl?'Link ready':'Awaiting session';
   $('display-help').hidden=!!viewerUrl;
