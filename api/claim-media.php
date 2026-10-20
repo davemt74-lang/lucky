@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require __DIR__.'/../lib/Bootstrap.php';
 require_once __DIR__.'/../lib/ClaimMedia.php';
+require_once __DIR__.'/../lib/MontageClaimTimeline.php';
 headerSecurity();
 $method=$_SERVER['REQUEST_METHOD']??'GET';$action=(string)($_GET['action']??'');
 function mediaSession(PDO $db,string $id):void { if(!ClaimMedia::validId($id))throw new DomainException('Invalid game session.',400);sessionRow($db,$id); }
@@ -56,18 +57,40 @@ try {
    if(mbSafeLen($angleLabel)>80||preg_match('/[\x00-\x1f\x7f]/',$angleLabel)||$angleIndex<0||$angleIndex>4)
      throw new DomainException('Invalid proof angle.',422);
    $duration=max(0,min(3600000,(int)($_POST['durationMs']??0)));
+   $replaceClipId=trim((string)($_POST['replaceClipId']??''));if($replaceClipId!==''&&!ClaimMedia::validId($replaceClipId))throw new DomainException('Invalid re-recording reference.',422);
    $id=bin2hex(random_bytes(16));$path=LUCKY_ROOT.'/storage/claim-media/'.$id.'.bin';
    $db->beginTransaction();try {
      sessionRow($db,$sessionId,true);
      $q=$db->prepare('SELECT id FROM game_claims WHERE session_id=? AND id=?');$q->execute([$sessionId,$claimId]);
      if(!$q->fetch())throw new DomainException('Prize claim was not found in this game.',404);
+     if($replaceClipId!==''){
+      if($kind!=='video')throw new DomainException('Only video recordings can replace a video segment.',422);
+      $q=$db->prepare("SELECT id FROM claim_media WHERE id=? AND session_id=? AND claim_id=? AND kind='video'");
+      $q->execute([$replaceClipId,$sessionId,$claimId]);if(!$q->fetch())throw new DomainException('Original recording does not belong to this prize.',409);
+     }
      $q=$db->prepare('SELECT COUNT(*) AS total,COALESCE(SUM(bytes),0) AS used,COALESCE(MAX(sort_order),0) AS last_order FROM claim_media WHERE session_id=?');$q->execute([$sessionId]);$usage=$q->fetch();
      if((int)$usage['total']>=ClaimMedia::MAX_CLIPS_PER_SESSION||(int)$usage['used']+(int)$file['size']>ClaimMedia::MAX_SESSION_BYTES)throw new DomainException('Game media limit reached. Delete older clips to continue.',413);
      if(!is_dir(dirname($path))&&!mkdir(dirname($path),0700,true))throw new RuntimeException('Could not create private media directory.');
      if(!move_uploaded_file($file['tmp_name'],$path))throw new RuntimeException('Could not store your recording.');@chmod($path,0600);
      $q=$db->prepare('INSERT INTO claim_media (id,session_id,claim_id,kind,mime,title,source_label,angle_label,angle_index,bytes,duration_ms,sort_order) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)');
      $q->execute([$id,$sessionId,$claimId,$kind,$mime,$title,$sourceLabel,$angleLabel,$angleIndex,(int)$file['size'],$duration,(int)$usage['last_order']+1]);
-     audit($db,'claim.media-upload',$sessionId,['claim'=>$claimId,'clip'=>$id,'kind'=>$kind]);$db->commit();
+     if($kind==='video'){
+      $q=$db->prepare('SELECT * FROM claim_media WHERE id=?');$q->execute([$id]);$newRow=$q->fetch();
+      $q=$db->prepare('SELECT * FROM claim_media WHERE session_id=? ORDER BY sort_order,created_at,id');$q->execute([$sessionId]);$allMedia=$q->fetchAll();
+      $q=$db->prepare('SELECT edit_json FROM montage_projects WHERE session_id=? FOR UPDATE');$q->execute([$sessionId]);$previous=$q->fetchColumn();
+      if($previous!==false)$edits=json_decode((string)$previous,true,512,JSON_THROW_ON_ERROR);
+      else{
+       $edits=[];foreach($allMedia as $existing)if($existing['id']!==$id)
+        $edits[]=['id'=>$existing['id'],'instanceId'=>$existing['id'],'title'=>$existing['title'],'trimStartMs'=>(int)$existing['trim_start_ms'],'trimEndMs'=>(int)$existing['trim_end_ms'],'photoDurationMs'=>(int)$existing['photo_duration_ms'],'transition'=>'fade'];
+      }
+      if(!is_array($edits))throw new RuntimeException('Saved timeline needs repair.');
+      $state=stateFromRow(sessionRow($db,$sessionId));
+      $claimOrder=array_column($state['claims']??[],'id');
+      $edits=MontageClaimTimeline::apply($edits,$allMedia,$newRow,$claimOrder,$replaceClipId!==''?$replaceClipId:null);
+      $q=$db->prepare('INSERT INTO montage_projects(session_id,edit_json) VALUES (?,?) ON DUPLICATE KEY UPDATE edit_json=VALUES(edit_json)');
+      $q->execute([$sessionId,json_encode($edits,JSON_THROW_ON_ERROR)]);
+     }
+     audit($db,'claim.media-upload',$sessionId,['claim'=>$claimId,'clip'=>$id,'kind'=>$kind,'replace'=>$replaceClipId?:null]);$db->commit();
    }catch(Throwable $e){$db->rollBack();@unlink($path);throw $e;}
    success(['clip'=>ClaimMedia::asPublic(mediaRow($db,$id))],201);
  }
