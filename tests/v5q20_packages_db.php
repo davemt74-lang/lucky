@@ -60,14 +60,14 @@ try{
  catch(DomainException $e){check20($e->getCode()===409,'cannot switch packages while a game is running');}
  finally{$db->rollBack();}
  $changed=$config;$changed['pools']['tier1']['prizes'][0]['name']='Third Version';
- $db->beginTransaction();PrizePackages::save($db,$new['id'],5,'Holiday Prizes',$changed,true,true);$db->commit();
+ $db->beginTransaction();PrizePackages::save($db,$new['id'],3,'Holiday Prizes',$changed,true,true);$db->commit();
  $q=$db->prepare('SELECT state_json FROM game_sessions WHERE id=?');$q->execute([$game['id']]);
  $stored=json_decode($q->fetchColumn(),true,512,JSON_THROW_ON_ERROR);
  check20($stored['pools']['tier1']['prizes'][0]['name']===$old,'running game keeps immutable package snapshot after edits');
  check20($stored['prizePackage']['id']===$new['id'],'session retains package identity');
  $db->exec("UPDATE game_sessions SET status='ended' WHERE game_id='spin-wheel'");
  $db->beginTransaction();PrizePackages::select($db,$id1);$db->commit();
- $db->beginTransaction();PrizePackages::save($db,$new['id'],3,'Holiday Prizes',$changed,true,false);$db->commit();
+ $db->beginTransaction();PrizePackages::save($db,$new['id'],4,'Holiday Prizes',$changed,true,false);$db->commit();
  $db->beginTransaction();
  try{PrizePackages::select($db,$new['id'],true);throw new RuntimeException('Player selected private package');}
  catch(DomainException $e){check20($e->getCode()===403,'admin-only package hidden from phone selection');}
@@ -75,7 +75,7 @@ try{
  $db->beginTransaction();PrizePackages::select($db,$new['id'],false);$db->commit();
  check20(PrizePackages::chosen($db)===$new['id'],'admin can select enabled private package');
  $db->beginTransaction();
- try{PrizePackages::save($db,$new['id'],4,'Holiday Prizes',$changed,false,false);throw new RuntimeException('Disabled selected package');}
+ try{PrizePackages::save($db,$new['id'],5,'Holiday Prizes',$changed,false,false);throw new RuntimeException('Disabled selected package');}
  catch(DomainException $e){check20($e->getCode()===409,'selected package cannot be disabled without switching');}
  finally{$db->rollBack();}
  $db->beginTransaction();
