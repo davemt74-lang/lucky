@@ -10,7 +10,7 @@ require_once __DIR__.'/GamePackageInstaller.php';
 final class GamePackageActivation {
  public static function active(string $id,?string $root=null):?array {
   $id=GameCatalog::slug($id);
-  if(isset(GameRegistry::modules()[$id]) && $id==='spin-wheel')return null;
+  if($id==='spin-wheel')return null;
   $dir=GamePackageInstaller::base($root).'/'.$id;
   if(is_link($dir))throw new DomainException('Unsafe game installation folder.',403);
   $file=$dir.'/active.json';
