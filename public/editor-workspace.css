@@ -339,3 +339,16 @@ body.editor-workspace #studio-background-section .studio-tool-hint{color:#a9bacb
  body.editor-workspace .studio-sequence{min-height:250px}
  body.editor-workspace .studio-sequence-scroll{max-height:35vh;overflow:auto}
 }
+
+/* V5Q.15N: safe reusable templates live within the existing creative tools. */
+body.editor-workspace .studio-template-manager{
+ display:grid;gap:9px;margin-top:9px;padding:11px 0 3px;
+ border-top:1px solid #48617c
+}
+body.editor-workspace .studio-template-manager label{display:grid;gap:5px;font-size:11px;color:#c9d4e6}
+body.editor-workspace .studio-template-manager input,
+body.editor-workspace .studio-template-manager select{
+ width:100%;box-sizing:border-box;padding:8px;border:1px solid #4c6688;
+ background:#09192e;color:#fff;border-radius:6px;font-size:11px
+}
+body.editor-workspace #editor-delete-template{color:#ffc4b6}

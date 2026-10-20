@@ -5,7 +5,7 @@ if(!installed()){header('Location: install.php');exit;}
 if(!isAdmin()){header('Location: login.php');exit;}
 shellStart('Video Studio','editor','editor-workspace');
 ?>
-<link rel="stylesheet" href="public/editor-workspace.css?v=5q15m">
+<link rel="stylesheet" href="public/editor-workspace.css?v=5q15n">
 <section class="media-editor-studio" aria-label="Video Studio workspace">
  <div class="studio-topbar">
   <a id="editor-back-game" class="btn btn-outline studio-back" href="game.php">← Back to game</a>
@@ -31,7 +31,14 @@ shellStart('Video Studio','editor','editor-workspace');
      <label>Starter template<select id="editor-template"><option value="clean">Clean · original footage</option><option value="highlight">Highlight · vivid</option><option value="classic">Classic · black &amp; white</option><option value="film">Film · cinematic</option><option value="retro">Retro · vintage</option></select></label>
      <button type="button" class="btn btn-outline" id="editor-apply-template">Apply to selected clip</button>
      <button type="button" class="btn btn-outline" id="editor-template-all">Apply to entire timeline</button>
-     <p class="studio-tool-hint">Starter templates adjust the visual look. More reusable templates and effects can be added here.</p>
+     <p class="studio-tool-hint">Starter presets change the visual look. Saved templates also remember titles and background music without copying prize recordings.</p>
+     <div class="studio-template-manager">
+      <label>My reusable templates<select id="editor-saved-template"><option value="">Select a saved template</option></select></label>
+      <button class="btn btn-outline" type="button" id="editor-load-template">Apply selected template to this edit</button>
+      <label>New template name<input id="editor-template-name" maxlength="100" placeholder="Family game highlights"></label>
+      <button class="btn btn-outline" type="button" id="editor-save-template">Save current style as template</button>
+      <button class="btn btn-outline" type="button" id="editor-delete-template">Delete selected template</button>
+     </div>
    </div></details>
    <details class="studio-tool-section" id="studio-timeline-titles-section" open><summary>▤ T1 · Timed text</summary><div class="studio-tool-inner">
      <label>Title text<input id="timeline-title-text" maxlength="120" placeholder="Prize winner, intro, caption"></label>
@@ -74,5 +81,5 @@ shellStart('Video Studio','editor','editor-workspace');
  </dialog>
  <p id="editor-feedback" role="status" class="studio-feedback studio-feedback-overlay" aria-live="polite"></p><span id="editor-caption" class="sr-only" role="status">No clip playing.</span>
 </section>
-<script src="public/client.js" defer></script><script src="public/proof-sequence.js?v=5q8b" defer></script><script src="public/editor.js?v=5q15m" defer></script><script src="public/ui-receiver.js?v=5q8" defer></script>
+<script src="public/client.js" defer></script><script src="public/proof-sequence.js?v=5q8b" defer></script><script src="public/editor.js?v=5q15n" defer></script><script src="public/ui-receiver.js?v=5q8" defer></script>
 <?php shellEnd(); ?>

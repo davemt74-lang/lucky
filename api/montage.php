@@ -4,6 +4,7 @@ require __DIR__.'/../lib/Bootstrap.php';
 require_once __DIR__.'/../lib/ClaimMedia.php';
 require_once __DIR__.'/../lib/MontagePlan.php';
 require_once __DIR__.'/../lib/MontageLayers.php';
+require_once __DIR__.'/../lib/MontageTemplate.php';
 require_once __DIR__.'/../lib/SchemaGuard.php';
 headerSecurity();
 function renderRow(PDO $db,string $id):array {
@@ -49,6 +50,15 @@ try {
   $q=$db->prepare('SELECT layers_json FROM montage_timeline_layers WHERE session_id=?');$q->execute([$session]);$layers=$q->fetchColumn();
   success(['project'=>$raw?json_decode($raw,true,512,JSON_THROW_ON_ERROR):null,'layers'=>$layers?json_decode($layers,true,512,JSON_THROW_ON_ERROR):['titles'=>[],'background'=>null]]);
  }
+ if($method==='GET'&&$action==='templates'){
+  $session=(string)($_GET['session']??'');sessionRow($db,$session);
+  SchemaGuard::require($db,['montage_templates'],'Video template library');
+  $q=$db->prepare('SELECT id,name,template_json,created_at FROM montage_templates WHERE admin_id=? ORDER BY created_at DESC LIMIT 20');
+  $q->execute([(int)$_SESSION['admin_id']]);
+  $items=[];
+  foreach($q->fetchAll() as $row)$items[]=['id'=>$row['id'],'name'=>$row['name'],'template'=>json_decode($row['template_json'],true,512,JSON_THROW_ON_ERROR),'createdAt'=>$row['created_at']];
+  success(['templates'=>$items]);
+ }
  if($method==='GET'&&$action==='auto'){
   $session=(string)($_GET['session']??'');sessionRow($db,$session);
   $q=$db->prepare('SELECT m.* FROM claim_media m WHERE m.session_id=? ORDER BY m.sort_order,m.created_at,m.id');$q->execute([$session]);
@@ -57,6 +67,33 @@ try {
  }
  if($method!=='POST')throw new DomainException('Unsupported operation.',405);
  assertCsrf();$data=jsonInput();$session=(string)($data['session']??'');sessionRow($db,$session);
+ if($action==='save_template'){
+  SchemaGuard::require($db,['montage_templates'],'Video template library');
+  $name=trim((string)($data['name']??''));
+  if($name===''||strlen($name)>100)throw new DomainException('Template name must be 1–100 characters.',422);
+  $raw=$data['template']??null;if(!is_array($raw))throw new DomainException('Invalid template.',422);
+  $songs=$db->query("SELECT id FROM media_tracks WHERE kind='upload'")->fetchAll(PDO::FETCH_COLUMN);
+  $safe=MontageTemplate::validate($raw,array_fill_keys($songs,true));
+  $owner=(int)($_SESSION['admin_id']??0);if($owner<1)throw new DomainException('Host account required.',403);
+  $db->beginTransaction();try{
+   $q=$db->prepare('SELECT COUNT(*) FROM montage_templates WHERE admin_id=? FOR UPDATE');$q->execute([$owner]);
+   if((int)$q->fetchColumn()>=20)throw new DomainException('Delete an older template before adding another (20 maximum).',409);
+   $id=bin2hex(random_bytes(16));
+   $q=$db->prepare('INSERT INTO montage_templates(id,admin_id,name,template_json) VALUES (?,?,?,?)');
+   $q->execute([$id,$owner,$name,json_encode($safe,JSON_THROW_ON_ERROR)]);
+   audit($db,'montage.template-saved',$session,['id'=>$id]);$db->commit();
+  }catch(Throwable $e){$db->rollBack();throw $e;}
+  success(['template'=>['id'=>$id,'name'=>$name,'template'=>$safe]],201);
+ }
+ if($action==='delete_template'){
+  SchemaGuard::require($db,['montage_templates'],'Video template library');
+  $id=(string)($data['id']??'');
+  if(!ClaimMedia::validId($id))throw new DomainException('Invalid template ID.',422);
+  $q=$db->prepare('DELETE FROM montage_templates WHERE id=? AND admin_id=?');
+  $q->execute([$id,(int)$_SESSION['admin_id']]);
+  if($q->rowCount()!==1)throw new DomainException('Template not found.',404);
+  audit($db,'montage.template-deleted',$session,['id'=>$id]);success(['deleted'=>true]);
+ }
  if($action==='save_project'){
   $edits=$data['edits']??[];if(!is_array($edits))throw new DomainException('Invalid edits.',422);
   $db->beginTransaction();try{
