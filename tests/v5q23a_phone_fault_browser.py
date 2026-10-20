@@ -84,6 +84,7 @@ async def main():
   await page.evaluate("window.__offline=true")
   await page.wait_for_function("document.getElementById('package-phone-wait').hidden===false",timeout=5000)
   verify('Offline phone stops presenting active controls',await page.locator('#package-phone-play').is_hidden())
+  verify('Wi-Fi loss must retain host-approved phone credentials',await page.evaluate("sessionStorage.getItem('lucky-package-controller-v1')!==null"))
   await page.evaluate("window.__offline=false")
   await page.wait_for_function("document.getElementById('package-phone-play').hidden===false",timeout=5000)
   verify('Reconnected phone reopens its own game controller',await page.frame_locator('#package-phone-frame').locator('#buzz').count()==1)
