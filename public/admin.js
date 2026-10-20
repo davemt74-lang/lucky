@@ -100,7 +100,7 @@
  $('add-package').onclick=async()=>{
   if(packageDirty&&!confirm('Create from the last saved version? Unsaved changes will be discarded.'))return;
   const name=prompt('Name your new prize package:', 'Prize Package '+(packages.length+1));if(name===null)return;
-  try{const out=await L.api('package_create',{body:{name:name.trim()}});await reloadPackages(out.package.id);
+  try{const out=await L.api('package_create',{body:{name:name.trim(),cloneFrom:packageId}});await reloadPackages(out.package.id);
    status('Prize package created. Configure its tiers and Save.');}catch(e){status(e.message,true);}
  };
  $('package-activate').onclick=async()=>{
