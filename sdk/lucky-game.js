@@ -36,9 +36,6 @@
   scope.LuckyGameSDK=Object.freeze({
     version:'1.0.0',
     onState,sendInput,
-    getState:()=>current,
-    // The packager replaces this literal offline asset URI with an embedded
-    // data: URI during the authorized frame response.
-    asset:(name)=>'lucky-asset:'+name
+    getState:()=>current
   });
 })(window);
