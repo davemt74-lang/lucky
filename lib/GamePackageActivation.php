@@ -8,6 +8,14 @@ require_once __DIR__.'/GamePackageInstaller.php';
  * Active versions remain pinned while any live session exists (API gate).
  */
 final class GamePackageActivation {
+ /** Must run after locking the game settings row in the caller transaction. */
+ public static function assertNoLiveSessions(PDO $db,string $game):void {
+  $game=GameCatalog::slug($game);
+  $q=$db->prepare("SELECT COUNT(*) FROM game_sessions WHERE game_id=? AND status IN ('active','paused')");
+  $q->execute([$game]);
+  if((int)$q->fetchColumn()>0)
+   throw new DomainException('Save or finish the live game before changing its installed version.',409);
+ }
  public static function active(string $id,?string $root=null):?array {
   $id=GameCatalog::slug($id);
   if($id==='spin-wheel')return null;
