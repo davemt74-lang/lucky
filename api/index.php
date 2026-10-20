@@ -66,7 +66,9 @@ try {
 
   if($action==='me')success(['admin'=>isAdmin(),'csrf'=>isAdmin()?csrf():null]);
   if($action==='settings'){
-   $game=strval($_GET['game']??'spin-wheel');$cfg=setting($db,$game);
+   $game=strval($_GET['game']??'spin-wheel');
+   if(isAdmin()&&isset(GameRegistry::modules()[$game]))GameFoundation::settings($db,$game);
+   $cfg=setting($db,$game);
    if(!isAdmin())$cfg=['intro'=>$cfg['intro'],'theme'=>$cfg['theme']];
    success(['settings'=>$cfg]);
   }
@@ -99,8 +101,10 @@ try {
   if($action==='session')success(getSessionView($db,strval($_GET['id']??'')));
   if($action==='watch')success(['view'=>getSessionView($db,strval($_GET['id']??''),true,strval($_GET['token']??''))]);
   if($action==='last'){
-   requireAdmin();$q=$db->query("SELECT id FROM game_sessions WHERE game_id='spin-wheel' ORDER BY created_at DESC,id DESC LIMIT 1");
-   $id=$q->fetchColumn();success(['data'=>$id?getSessionView($db,$id):null]);
+   requireAdmin();
+   $game=strval($_GET['game']??'spin-wheel');GameRegistry::module($game);
+   $q=$db->prepare("SELECT id FROM game_sessions WHERE game_id=? ORDER BY CASE WHEN status IN ('active','paused') THEN 0 WHEN status='saved' THEN 1 ELSE 2 END,created_at DESC,id DESC LIMIT 1");
+   $q->execute([$game]);$id=$q->fetchColumn();success(['data'=>$id?getSessionView($db,$id):null]);
   }
   if($action==='history'){
    requireAdmin();$q=$db->query("SELECT id,game_id,created_at,ended_at,state_json FROM game_sessions WHERE status='ended' ORDER BY created_at DESC,id DESC LIMIT 100");$rows=[];
@@ -210,7 +214,9 @@ try {
   audit($db,'music.remove',null,['id'=>$id]);success();
  }
  if($action==='settings_save'){
-  $game=strval($in['game']??'spin-wheel');if(!in_array($game,['spin-wheel','game-2'],true))throw new DomainException('Unknown game.');
+  $game=strval($in['game']??'spin-wheel');$module=GameRegistry::modules()[$game]??null;
+  if(!$module&&$game!=='game-2')throw new DomainException('Unknown game.');
+  if($module)GameFoundation::settings($db,$game);
   $old=setting($db,$game);$intro=$in['intro']??$old['intro'];$theme=$in['theme']??$old['theme'];
   if(!is_array($intro)||!is_array($theme)||strlen(strval($intro['title']??''))>100||strlen(strval($intro['subtitle']??''))>200||
      !isset($intro['title'])||trim(strval($intro['title']))===''||!is_numeric($intro['volume']??null)||$intro['volume']<0||$intro['volume']>100||
@@ -218,13 +224,13 @@ try {
   $theme=['accent'=>preg_match('/^#[0-9a-fA-F]{6}$/D',strval($theme['accent']??''))?$theme['accent']:'#f6cb74',
     'background'=>preg_match('/^#[0-9a-fA-F]{6}$/D',strval($theme['background']??''))?$theme['background']:'#0d1423'];
   $intro=['title'=>trim(strval($intro['title'])),'subtitle'=>trim(strval($intro['subtitle']??'')),'trackId'=>strval($intro['trackId']??''),'volume'=>max(0,min(100,(int)$intro['volume'])),'announcement'=>($intro['announcement']??true)!==false];
-  $config=$game==='spin-wheel'?GameRegistry::module($game)->validateSettings($in['config']??$old['config']):$old['config'];
+  $config=$module?$module->validateSettings($in['config']??$old['config']):$old['config'];
   $db->beginTransaction();try{
     $lock=$db->prepare('SELECT game_id FROM game_settings WHERE game_id=? FOR UPDATE');$lock->execute([$game]);$lock->fetch();
     $activeQuery=$db->prepare("SELECT * FROM game_sessions WHERE game_id=? AND status IN ('active','paused') ORDER BY created_at DESC,id DESC LIMIT 1 FOR UPDATE");
     $activeQuery->execute([$game]);$active=$activeQuery->fetch();
-    if($active && $game==='spin-wheel'){
-      $s=stateFromRow($active);GameRegistry::module($game)->applySettings($s,$config);saveState($db,$s);
+    if($active && $module){
+      $state=stateFromRow($active);$module->applySettings($state,$config);saveState($db,$state);
     }
     $q=$db->prepare('UPDATE game_settings SET config_json=?,intro_json=?,theme_json=? WHERE game_id=?');
     $q->execute([json_encode($config),json_encode($intro),json_encode($theme),$game]);audit($db,'settings.save');$db->commit();
@@ -254,8 +260,7 @@ try {
    $config=GameSessionLifecycle::lockGame($db,$game);
    GameSessionLifecycle::assertVacant($db,$game);
    $s=GameRegistry::module($game)->createSession($config,bin2hex(random_bytes(16)));
-   if(($s['game']??null)!==$game||($s['status']??null)!=='active'||($s['version']??0)!==1)
-    throw new DomainException('Invalid initial session from game module.',422);
+   GameFoundation::checkSession(GameRegistry::module($game),$s,(string)($s['id']??''));
    $viewToken=token();$q=$db->prepare('INSERT INTO game_sessions(id,game_id,status,version,state_json,viewer_token) VALUES (?,?,?,?,?,?)');
    $q->execute([$s['id'],$game,$s['status'],$s['version'],json_encode($s,JSON_THROW_ON_ERROR),$viewToken]);
    audit($db,'session.start',$s['id'],['game'=>$game]);$db->commit();
