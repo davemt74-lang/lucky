@@ -19,6 +19,7 @@ $startupAddress='http://127.0.0.1:8833/first-admin.php'
 if(!(Test-Path $php) -or !(Test-Path $phpcgi) -or !(Test-Path $mariadb) -or !(Test-Path $caddy)){throw 'Bundled HomeServer runtime is incomplete.'}
 foreach($path in @($data,$storage,$dbdata,$logs,$state)){New-Item -ItemType Directory -Force -Path $path | Out-Null}
 $logFile=Join-Path $logs 'launcher.log'
+$env:PATH=(Join-Path $runtime 'ffmpeg\bin')+';'+(Join-Path $runtime 'mariadb\bin')+';'+$env:PATH
 function Record([string]$message){Add-Content -Path $logFile -Value ("$(Get-Date -Format o) "+$message)}
 $mutex=New-Object System.Threading.Mutex($false,'Local\LuckyGameHubHomeServer')
 $held=$false
@@ -74,7 +75,8 @@ log-error=$($logs.Replace('\','/'))/mariadb-error.log
  }
  function Launch([string]$binary,[string[]]$arguments,[string]$name){
   Record ("Starting "+$name)
-  $p=Start-Process -FilePath $binary -ArgumentList $arguments -PassThru -WindowStyle Hidden
+  $quoted=@($arguments|ForEach-Object {if($_ -match '[\s"]'){'"'+($_ -replace '"','\"')+'"'}else{$_}})
+  $p=Start-Process -FilePath $binary -ArgumentList ($quoted -join ' ') -PassThru -WindowStyle Hidden
   $script:processes+=@($p)
   return $p
  }
