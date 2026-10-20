@@ -4,6 +4,7 @@ from pathlib import Path
 from playwright.async_api import async_playwright
 BASE=Path(__file__).resolve().parents[1]
 section=(BASE/'editor.php').read_text().split('?>',1)[1].split('<?php shellEnd()',1)[0]
+section=section.replace('<?php accountMenu(); ?>','<details class="account-menu"><summary><span class="profile-avatar">★</span> Host ▾</summary><div class="account-dropdown"><a href="account.php">Account settings</a></div></details>')
 CSS=(BASE/'public/style.css').read_text()+(BASE/'public/platform.css').read_text()+(BASE/'public/editor-workspace.css').read_text()
 SCRIPT=(BASE/'public/editor.js').read_text()
 ID1='a'*32;ID2='b'*32
@@ -32,7 +33,12 @@ async def main():
    page.on('pageerror',lambda e:errors.append(str(e)))
    await page.set_content(html,wait_until='domcontentloaded');await page.wait_for_timeout(260)
    check(f'{width}px editor loads source footage',await page.locator('.editor-clip').count()==2)
-   check(f'{width}px renders queue controls',await page.locator('#render-queue').is_visible())
+   check(f'{width}px render modal initially closed',await page.locator('#render-dialog').is_hidden())
+   check(f'{width}px render/export button visible in header',await page.locator('#open-render-dialog').is_visible())
+   check(f'{width}px old camera capture panel removed',await page.locator('.studio-camera-panel').count()==0)
+   await page.locator('#open-render-dialog').click()
+   check(f'{width}px render queue controls in open modal',await page.locator('#render-queue').is_visible())
+   await page.locator('#close-render-dialog').click()
    if width==375:
     print('WIDE:',await page.evaluate("({page:document.documentElement.scrollWidth, screen:innerWidth, nodes:[...document.querySelectorAll('*')].filter(el=>el.scrollWidth>el.clientWidth+3 || el.getBoundingClientRect().right>innerWidth+3).map(el=>({tag:el.tagName,id:el.id,className:el.className?.toString?.(),right:el.getBoundingClientRect().right,delta:el.scrollWidth-el.clientWidth})).sort((a,b)=>b.delta-a.delta).slice(0,12)})"))
    check(f'{width}px no horizontal overflow',await page.evaluate('document.documentElement.scrollWidth<=innerWidth+2'))
@@ -43,7 +49,7 @@ async def main():
    check('split makes two non-destructive video segments',await page.locator('.editor-clip').count()==3)
    await page.locator('#editor-save-project').click()
    check('save edit project includes split segments',await page.evaluate('demo.saved?.length===3 && demo.saved[0].id===demo.saved[1].id'))
-   await page.wait_for_function('demo.saved !== null');await page.locator('#render-track').select_option('d'*32)
+   await page.wait_for_function('demo.saved !== null');await page.locator('#open-render-dialog').click();await page.locator('#render-track').select_option('d'*32)
    await page.locator('#render-volume').fill('24')
    await page.locator('#render-queue').click();await page.wait_for_timeout(80)
    check('render includes saved editing decisions',await page.evaluate('demo.queued?.edits?.length===3'))
