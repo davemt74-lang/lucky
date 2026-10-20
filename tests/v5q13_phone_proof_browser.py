@@ -39,7 +39,7 @@ async def run():
   ok('approval controls hidden before review',await page.locator('#phone-proof-review').is_hidden())
   await page.evaluate('__reviewReady=true');await page.wait_for_timeout(900)
   ok('review buttons replace record buttons',await page.locator('#phone-proof-review').is_visible() and await page.locator('#phone-proof-recording').is_hidden())
-  await page.locator('[data-phone="proof-approve"]').click()
+  await page.locator('[data-phone="proof-save"]').click()
   await page.wait_for_timeout(100)
   ok('Save sent as phone command',await page.evaluate("__commands.includes('proof-save')"))
   await page.evaluate('__proofOpen=false');await page.wait_for_timeout(1000)
