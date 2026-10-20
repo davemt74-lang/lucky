@@ -28,7 +28,7 @@ async def main():
   await p.locator('#timeline-title-text').fill('Grand Prize winner')
   await p.locator('#timeline-title-start').fill('1.0')
   await p.locator('#timeline-title-duration').fill('3.0')
-  await p.locator('#timeline-title-position').select_option('top')
+  await p.locator('[data-timed-title-style="headline"]').click()
   await p.locator('#timeline-add-title').click()
   ok('timed T1 block rendered independently from V1',await p.locator('.studio-title-block').count()==1 and await p.locator('.editor-clip').count()==2)
   await p.locator('[data-studio-pane="audio"]').click()
