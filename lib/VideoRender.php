@@ -62,6 +62,7 @@ final class VideoRender {
    $visuals=MontageVisuals::filters((string)($c['look_preset']??'none'));
    $captionFilter=MontageVisuals::overlay($c,$tempDir,$i,$size['width']);
    if($captionFilter!=='')$visuals[]=$captionFilter;
+   $visuals=array_merge($visuals,MontageVisuals::timelineOverlays($c,$tempDir,$i,$size['width']));
    if($visuals)$vf.=','.implode(',',$visuals);
    if($kind==='photo'){
     $argv=[$this->ffmpeg,'-hide_banner','-nostdin','-v','error','-y','-loop','1','-framerate','30','-i',$input,'-f','lavfi','-i','anullsrc=channel_layout=stereo:sample_rate=48000'];
@@ -120,12 +121,24 @@ final class VideoRender {
   $concat=$tempDir.'/list.txt';$list='';foreach($segments as $seg)$list.="file '".str_replace("'","'\\''",$seg)."'\n";file_put_contents($concat,$list);
   $combined=$tempDir.'/combined.mp4';
   $this->runProcess([$this->ffmpeg,'-hide_banner','-nostdin','-v','error','-y','-f','concat','-safe','0','-i',$concat,'-c','copy','-movflags','+faststart',$combined],$tempDir.'/concat.log',180);
+  $layer=$clips[0]['music_layer']??null;
   if($soundtrack!==null&&$musicVolume>0){
    if(!is_file($soundtrack))throw new RuntimeException('Selected soundtrack is missing.');
    $audio=$this->probe($soundtrack,$tempDir.'/music-probe.log');if(!$audio['audio'])throw new RuntimeException('Selected music file has no audio stream.');
    $vol=number_format($musicVolume,2,'.','');
    // Dynamic sidechain ducking under speech; retains original recorded reactions.
-   $filter="[1:a]volume={$vol}[music];[music][0:a]sidechaincompress=threshold=0.025:ratio=8:attack=30:release=400[duck];[0:a][duck]amix=inputs=2:duration=first:dropout_transition=0,alimiter=limit=0.9[final]";
+   $timeFilter='';
+   if(is_array($layer)){
+    $start=(int)($layer['startMs']??0);$end=(int)($layer['endMs']??0);$offset=(int)($layer['offsetMs']??0);
+    if($start<0||$end<=$start||$end>$total*1000+1||$offset<0)throw new DomainException('Background soundtrack window invalid.',422);
+    $tStart=number_format($start/1000,3,'.','');$tEnd=number_format($end/1000,3,'.','');
+    $tOffset=number_format($offset/1000,3,'.','');
+    $tTotal=number_format($total,3,'.','');
+    // Trim source music from its own In point, delay it on the B1 timeline, and
+    // pad silence after its Out point. A1 camera speech continues throughout.
+    $timeFilter="atrim=start={$tOffset}:duration=".number_format(($end-$start)/1000,3,'.','').",asetpts=PTS-STARTPTS,adelay={$start}:all=1,apad=whole_dur={$tTotal},atrim=duration={$tTotal},";
+   }
+   $filter="[1:a]{$timeFilter}volume={$vol}[music];[music][0:a]sidechaincompress=threshold=0.025:ratio=8:attack=30:release=400[duck];[0:a][duck]amix=inputs=2:duration=first:dropout_transition=0,alimiter=limit=0.9[final]";
    $this->runProcess([$this->ffmpeg,'-hide_banner','-nostdin','-v','error','-y','-i',$combined,'-stream_loop','-1','-i',$soundtrack,'-filter_complex',$filter,'-map','0:v:0','-map','[final]','-c:v','copy','-c:a','aac','-b:a','160k','-movflags','+faststart','-shortest',$output],$tempDir.'/music.log',360);
   }else{
    if(!rename($combined,$output))throw new RuntimeException('Cannot finalize video file.');
