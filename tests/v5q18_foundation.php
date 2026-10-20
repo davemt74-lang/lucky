@@ -47,5 +47,4 @@ yes(str_contains($api,"$"."s['game']==='spin-wheel'&&$"."verb==='spin'"),'wheel-
 yes(str_contains($api,'GameFoundation::checkSession'),'shared API validates newly created session');
 yes(str_contains($bootstrap,'INSERT IGNORE INTO game_settings')&&str_contains($bootstrap,'FOR UPDATE'),'settings can initialize from registered module without migration');
 yes(!str_contains(file_get_contents(__DIR__.'/../admin.php'),'PLATFORM CONTROL CENTER'),'duplicate Admin Studio headline is absent');
-$local=require __DIR__.'/../lib/GameModule.php';
 echo "V5Q.18 game foundation contract passed\n";
