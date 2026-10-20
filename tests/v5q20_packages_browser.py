@@ -3,6 +3,8 @@ import asyncio
 from playwright.async_api import async_playwright
 from v5p_pairing import make_html
 from v5q16_admin_browser import MOCK
+ORIGINAL='a'*32
+NEW='b'*32
 
 PACKAGE_MOCK="""<script>
 const existingFetch=window.fetch;
