@@ -41,7 +41,7 @@
  };
  const show=(name)=>{for(const id of ['phone-join','phone-wait','phone-controls'])$(id).hidden=id!==name;$('phone-disconnect').hidden=name==='phone-join';};
  const safeName=()=>String($('phone-name').value||'').trim().slice(0,48);
- function forget(){toggleListening(false);commandQueue=[];feedback=null;pendingCommand=null;game=null;gameVersion=-1;updateProof(null);state=null;try{sessionStorage.removeItem(storageKey);}catch(_){}active=false;show('phone-join');message('Connection expired. Scan a new QR code on the host screen.',true);}
+ function forget(){stopPrizeSpeech();toggleListening(false);commandQueue=[];feedback=null;pendingCommand=null;game=null;gameVersion=-1;updateProof(null);state=null;try{sessionStorage.removeItem(storageKey);}catch(_){}active=false;show('phone-join');message('Connection expired. Scan a new QR code on the host screen.',true);}
  async function request(action,body={},authenticated=true){const headers={'Content-Type':'application/json'};
   if(authenticated){if(!state)throw Error('Phone not paired.');headers['X-Controller-Token']=state.token;body={id:state.id,...body};}
   const response=await fetch('api/controller.php?action='+encodeURIComponent(action),{method:'POST',headers,credentials:'omit',cache:'no-store',body:JSON.stringify(body)});
@@ -78,7 +78,11 @@
   if(offer&&$('phone-offer-name'))$('phone-offer-name').textContent=game.offer.name+' · $'+(Number(game.offer.cents)/100).toFixed(2);
  }
  function updateGame(current){
-  if(!current)return;game=current;applyMode();
+  if(!current)return;
+  const wasPending=game?.offer?.status==='pending';
+  game=current;applyMode();
+  if(wasPending&&game.offer?.status!=='pending')stopPrizeSpeech();
+  if(game.offer?.status==='pending'&&!game.spinning)announcePrize();
   const panel=$('phone-game-state');if(!panel)return;
   if(current.upgradeRequired){
    panel.textContent='HOST DATABASE UPDATE REQUIRED · On desktop, sign in and run upgrade.php. Your phone is still paired.';
@@ -171,6 +175,14 @@
    listening=true;speech.start();mic?.setAttribute('aria-pressed','true');mic?.classList.add('phone-voice-active');voiceStatus.textContent='Listening…';
   }catch(e){toggleListening(false);voiceStatus.textContent='Could not start microphone: '+e.message;}
  }
+ const announcementToggle=$('phone-announcements-enabled');
+ try{if(localStorage.getItem(voicePreferenceKey)==='off')announcementToggle.checked=false;}catch(_){}
+ announcementToggle?.addEventListener('change',()=>{
+  try{localStorage.setItem(voicePreferenceKey,announcementToggle.checked?'on':'off');}catch(_){}
+  if(announcementToggle.checked){updateSpeechStatus('Spoken prize announcements enabled.');announcePrize();}
+  else{stopPrizeSpeech();updateSpeechStatus('Automatic announcements are off. Hear prize still works.');}
+ });
+ $('phone-prize-read')?.addEventListener('click',()=>announcePrize(true));
  mic?.addEventListener('click',()=>toggleListening(!listening));
  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'&&listening)toggleListening(false);});
  $('phone-join-form').addEventListener('submit',join);
