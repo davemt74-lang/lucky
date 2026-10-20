@@ -137,14 +137,17 @@ final class GamePackageInstaller {
    $data=json_decode($raw,true,16,JSON_THROW_ON_ERROR);
    $manifest=self::validateManifest($data);
    $id=$manifest['id'];$version=$manifest['version'];
-   if(isset(GameRegistry::modules()[$id]))
-    throw new DomainException('Built-in games are protected. Use their certified publisher update channel.',409);
+   $builtIn=isset(GameRegistry::modules()[$id]);
    $expected=['manifest.json'=>true];
    if(isset($entries['manifest.sig']))$expected['manifest.sig']=true;
    foreach($manifest['files'] as $file=>$hash)$expected[$file]=true;
    if(count($expected)!==count($entries)||array_diff_key($expected,$entries))
     throw new DomainException('Game ZIP content does not match its file manifest.',422);
    $verified=self::verifySignature($zip,$entries,$raw,$publisherKey);
+   // Built-in games may receive signed *staged* updates, but can never be
+   // replaced or deleted by uploaded ZIPs. Runtime activation is separate.
+   if($builtIn&&!$verified)
+    throw new DomainException('Updates to built-in games require a pinned publisher signature.',403);
    $base=self::base($root);self::ensureDir($base);
    $lock=fopen($base.'/.lock','c');
    if(!$lock||!flock($lock,LOCK_EX))throw new RuntimeException('Cannot lock game package installation.');
@@ -188,6 +191,7 @@ final class GamePackageInstaller {
      $receipt=['id'=>$id,'version'=>$version,'title'=>$manifest['title'],
       'publisher'=>$manifest['publisher'],'host'=>$manifest['host'],
       'phone'=>$manifest['phone'],'manifestSha256'=>$digest,'signatureVerified'=>$verified,
+      'builtIn'=>$builtIn,
       'status'=>'staged','fileCount'=>count($manifest['files']),
       'installedAt'=>gmdate('Y-m-d\TH:i:s\Z')];
      $json=json_encode($receipt,JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
