@@ -49,6 +49,23 @@ async def main():
   await page.locator('#timeline-add-title').click()
   ok('T1 timed title block works above V1',await page.locator('#editor-titles-lane .studio-title-block').count()==1)
   ok('no browser errors',not errors)
+  # The TV/desktop wheel stage stays clear while fallback host controls remain reachable.
+  from pathlib import Path
+  import re
+  root=Path(__file__).resolve().parents[1]
+  fragment=(root/'game.php').read_text().split('?>',1)[1].split('<?php shellEnd()',1)[0]
+  fragment=re.sub(r'<script\\b[^>]*></script>','',fragment,flags=re.I)
+  style=(root/'public/platform.css').read_text()
+  host=await browser.new_page(viewport={'width':1280,'height':900})
+  await host.set_content('<html><head><style>'+style+'</style></head><body class="game-fullwidth">'+fragment+'</body></html>')
+  ok('wheel has no surrounding game-state text',await host.locator('#host-panel-game #game-state').count()==0)
+  ok('wheel has no visible host control buttons beneath it',await host.locator('#host-panel-game .platform-control-row').count()==0)
+  ok('host controls remain in Game menu',await host.locator('#console-menu .platform-control-row button').count()==4)
+  ok('postgame Review highlights moved to Game menu',await host.locator('#console-menu #postgame-review').count()==1)
+  ok('prize announcement anchored inside wheel',await host.locator('.platform-wheel-wrap #game-message').count()==1)
+  await host.locator('#game-message').evaluate("(el)=>{el.dataset.highlight='true';el.textContent='Grand prize!';}")
+  ok('winning result remains visible on wheel',await host.locator('#game-message').is_visible())
+  await host.close()
   await browser.close()
  for name,value in checks:print(('PASS ' if value else 'FAIL ')+name,flush=True)
  if errors:print('JS errors:',errors,flush=True)
