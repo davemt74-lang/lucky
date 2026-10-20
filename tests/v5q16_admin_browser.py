@@ -49,7 +49,7 @@ async def main():
    html=make_html('admin').replace('</head>',MOCK+'</head>',1)
    await page.set_content(html,wait_until='domcontentloaded')
    await page.wait_for_function("document.querySelector('#session-game-filter').options.length===2")
-   ck(f'{width}: dedicated header shows Admin Studio',await page.locator('.admin-global-heading').count()==1)
+   ck(f'{width}: repeated admin hero and global title removed',await page.locator('.admin-global-heading,.admin-workspace-header').count()==0 and await page.get_by_text('PLATFORM CONTROL CENTER').count()==0)
    ck(f'{width}: shared photo/avatar account dropdown',await page.locator('.header .account-menu .profile-avatar').count()==1)
    ck(f'{width}: account dropdown provides profile and secure logout',await page.locator('.header .account-dropdown a[href="account.php"]').count()==1 and await page.locator('.header .account-dropdown input[name=csrf]').count()==1)
    ck(f'{width}: sidebar has six admin categories',await page.locator('.admin-console-sidebar [data-tab]').count()==6)

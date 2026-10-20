@@ -8,6 +8,6 @@ interface GameModule {
  public function validateSettings(array $settings):array;
  public function createSession(array $settings,string $id):array;
  public function applySettings(array &$session,array $settings):void;
- public function action(array &$session,string $verb):array;
+ public function action(array &$session,string $verb,array $payload=[]):array;
  public function publicView(array $session):array;
 }

@@ -25,6 +25,7 @@ jobs:
         run: |
           php tests/engine.php
           php tests/v5q16_session_lifecycle.php
+          php tests/v5q18_foundation.php
           php tests/spin_reveal.php
           php tests/montage_claim_timeline.php
           php tests/proof_handoff.php

@@ -653,3 +653,9 @@ body.admin-studio-page .admin-session-actions .admin-session-delete{
 }
 body.admin-studio-page .admin-session-actions .admin-session-delete:hover{background:#713745;border-color:#ffb6bc}
 @media(max-width:570px){body.admin-studio-page .admin-session-actions .admin-session-delete{margin-left:0}}
+
+/* V5Q.18: remove repeated admin hero; show only mobile section toggle. */
+body.admin-studio-page .admin-mobile-nav{display:none}
+body.admin-studio-page .admin-console{margin-top:12px}
+body.admin-studio-page .admin-console-workspace>.platform-admin-layout{margin:0}
+@media(max-width:960px){body.admin-studio-page .admin-mobile-nav{display:flex;justify-content:flex-end;margin:0 0 10px}body.admin-studio-page .admin-mobile-nav #admin-nav-toggle{display:inline-flex}}

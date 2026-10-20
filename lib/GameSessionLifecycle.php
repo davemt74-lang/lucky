@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-require_once __DIR__.'/GameRegistry.php';
+require_once __DIR__.'/GameRegistry.php';require_once __DIR__.'/GameFoundation.php';
 
 /**
  * Shared lifecycle for EVERY registered game module.
@@ -14,12 +14,7 @@ final class GameSessionLifecycle {
  public const FINISHED='ended';
 
  public static function lockGame(PDO $db,string $game):array {
-  GameRegistry::module($game); // Enforce registered/ready module; not spin-wheel-specific.
-  if(!preg_match('/^[a-z0-9][a-z0-9-]{0,63}$/D',$game))throw new DomainException('Invalid game.',400);
-  $q=$db->prepare('SELECT config_json FROM game_settings WHERE game_id=? FOR UPDATE');
-  $q->execute([$game]);$row=$q->fetch();
-  if(!$row)throw new DomainException('Configure this game before starting.',409);
-  return json_decode($row['config_json'],true,512,JSON_THROW_ON_ERROR);
+  return GameFoundation::settings($db,$game);
  }
  public static function assertVacant(PDO $db,string $game,?string $except=null):void {
   $q=$db->prepare("SELECT id FROM game_sessions WHERE game_id=? AND status IN ('active','paused') ORDER BY created_at DESC,id DESC LIMIT 1 FOR UPDATE");
