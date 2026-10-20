@@ -42,7 +42,12 @@
   const response=await fetch('api/controller.php?action='+encodeURIComponent(action),{
     method:'POST',headers,body:JSON.stringify(body),cache:'no-store',credentials:'same-origin'
   });
-  const data=await response.json();if(!response.ok||!data.ok)throw Error(data.error||'Controller request failed.');
+  const data=await response.json();
+  if(!response.ok||!data.ok){
+   const error=new Error(data.error||'Controller request failed.');
+   error.httpStatus=response.status;
+   throw error;
+  }
   return data;
  }
  function show(id){
@@ -86,7 +91,9 @@
    else if(reply.status==='paired')refreshGame(reply.game);
   }catch(e){
    status(e.message);
-   if(/expired|disconnected|revoked|authorization|invalid/i.test(e.message)){
+   // A transport failure is NOT a revoked phone. Never discard credentials
+   // just because Wi-Fi briefly drops or a connection reports "disconnected".
+   if(e.httpStatus===401||e.httpStatus===403){
     clearPending();closeGame();sessionStorage.removeItem(key);pair=null;game=null;show('join');
    }else show('wait');
   }finally{polling=false;}
