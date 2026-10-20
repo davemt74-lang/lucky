@@ -22,8 +22,20 @@ shellStart($title.' — Game Console');
  <div class="package-console-stage" style="min-height:60vh;background:#070f1d;border:1px solid #35435a;border-radius:12px;overflow:hidden">
  <iframe id="package-frame" sandbox="allow-scripts" referrerpolicy="no-referrer" title="<?=htmlspecialchars($title,ENT_QUOTES)?> gameplay" style="width:100%;height:68vh;border:0;background:#0b1422" hidden></iframe>
  </div>
- <?php if($phone):?><p class="mini-label">This game contains a separate phone controller. Remote controller pairing and its approved action bridge are being certified in the next section.</p><?php else:?><p class="mini-label">This game does not require a phone controller.</p><?php endif;?>
+ <?php if($phone):?>
+ <section class="surface" id="pkg-phone-panel" aria-label="Pair custom game phone" style="margin-top:16px">
+  <div class="card-title-row"><div><p class="mini-label">GAME-SPECIFIC PHONE CONTROLLER</p><h2>Connect a phone</h2></div></div>
+  <p>The phone will load this game's own controller. Scan the QR code and approve the phone below. Only approved phones can control this session.</p>
+  <div id="pkg-phone-invite" hidden style="grid-template-columns:160px minmax(0,1fr);gap:16px;align-items:center">
+   <div id="pkg-phone-qr" aria-label="Private custom phone QR pairing link"></div>
+   <label>Controller link<input id="pkg-phone-link" readonly style="width:100%"></label>
+  </div>
+  <p id="pkg-phone-state" role="status" aria-live="polite">Start a game to enable the phone controller.</p>
+  <div id="pkg-phone-pairs"></div>
+ </section>
+ <?php else:?><p class="mini-label">This game does not require a phone controller.</p><?php endif;?>
 </section>
-<script src="public/package-game.js?v=5q22g" defer></script>
+<script src="public/qr.js?v=5q11" defer></script>
+<script src="public/package-game.js?v=5q22h" defer></script>
 <script>/* No inline state or secrets are required for host game startup. */</script>
 <?php shellEnd(); ?>

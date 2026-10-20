@@ -5,6 +5,60 @@
  const validGame=typeof game==='string'&&/^[a-z0-9][a-z0-9-]{1,62}$/.test(game);
  const status=$('package-status'),frame=$('package-frame');
  let session=null,loading=false,ending=false,polling=false;
+ const phonePanel=$('pkg-phone-panel');
+ let lastPhoneURL='',hostCsrf='',phoneLoading=false;
+ function updatePhoneInvite(s){
+  if(!phonePanel)return;
+  const display=$('pkg-phone-invite');
+  const live=s&&['active','paused'].includes(s.view.status);
+  display.hidden=!live;
+  if(!live){lastPhoneURL='';$('pkg-phone-state').textContent='Start a game to enable the phone controller.';return;}
+  const href=new URL('package-controller.php?'+new URLSearchParams({
+    session:s.view.id,viewer:s.viewerToken
+  }),location.href).href;
+  if(lastPhoneURL!==href){
+   lastPhoneURL=href;$('pkg-phone-link').value=href;
+   if(window.LuckyQR)$('pkg-phone-qr').innerHTML=LuckyQR.svg(href);
+  }
+  $('pkg-phone-state').textContent='Scan the QR code and approve each phone below.';
+ }
+ async function hostController(action,body={}){
+  if(!hostCsrf){const me=await L.getMe();hostCsrf=me.csrf;
+   if(!hostCsrf)throw Error('Host sign-in required.');}
+  const response=await fetch('api/controller.php?action='+encodeURIComponent(action),{
+   method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':hostCsrf},
+   credentials:'same-origin',cache:'no-store',body:JSON.stringify(body)
+  });
+  const data=await response.json();
+  if(!response.ok||!data.ok)throw Error(data.error||'Pairing request failed.');
+  return data;
+ }
+ async function listPhones(){
+  if(!phonePanel||phoneLoading||!session||ending)return;
+  phoneLoading=true;
+  try{
+   const answer=await hostController('list'),panel=$('pkg-phone-pairs');
+   panel.replaceChildren();
+   const phones=(answer.pairs||[]).filter(p=>['pending','paired'].includes(p.status));
+   if(!phones.length){const empty=document.createElement('p');empty.textContent='No phones awaiting approval.';panel.append(empty);}
+   for(const phone of phones){
+    const row=document.createElement('div');row.className='phone-pair-device';
+    const title=document.createElement('strong');title.textContent=phone.device_name||'Phone';
+    const state=document.createElement('span');state.textContent=phone.status==='paired'?'Connected':'Awaiting approval';
+    row.append(title,state);
+    if(phone.status==='pending'){
+     const approve=document.createElement('button');approve.className='btn btn-primary';approve.textContent='Approve';approve.type='button';
+     approve.onclick=()=>hostController('approve',{id:phone.id}).then(listPhones).catch(e=>say(e.message,true));
+     row.append(approve);
+    }
+    const reject=document.createElement('button');reject.className='btn btn-outline';reject.textContent='Disconnect';reject.type='button';
+    reject.onclick=()=>hostController('revoke',{id:phone.id}).then(listPhones).catch(e=>say(e.message,true));
+    row.append(reject);panel.append(row);
+   }
+  }catch(e){$('pkg-phone-state').textContent=e.message;}
+  finally{phoneLoading=false;}
+ }
+
  const say=(message,bad=false)=>{status.textContent=message;status.classList.toggle('platform-error',bad);};
  function viewURL(s){
   return 'package-view.php?'+new URLSearchParams({
@@ -14,6 +68,7 @@
  }
  function configure(s){
   session=s;
+  updatePhoneInvite(s);
   const live=s&&['active','paused'].includes(s.view.status);
   $('pkg-start').disabled=loading||live;
   $('pkg-pause').disabled=loading||!live;
@@ -85,4 +140,5 @@
  frame.addEventListener('load',()=>{if(session)sendState(session.view);});
  if(!validGame){say('Invalid game identifier.',true);return;}
  reload();setInterval(reload,1000);
+ if(phonePanel){setInterval(listPhones,2000);}
 })();

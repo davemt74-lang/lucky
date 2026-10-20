@@ -2,7 +2,7 @@
 declare(strict_types=1);
 require __DIR__.'/../lib/Bootstrap.php';
 require __DIR__.'/../lib/ControllerPairing.php';
-require __DIR__.'/../lib/ControllerGame.php';require_once __DIR__.'/../lib/PrizeDecision.php';
+require __DIR__.'/../lib/ControllerGame.php';require_once __DIR__.'/../lib/PackageControllerBridge.php';require_once __DIR__.'/../lib/GameSessionLifecycle.php';require_once __DIR__.'/../lib/PrizeDecision.php';
 require_once __DIR__.'/../lib/SchemaGuard.php';
 require_once __DIR__.'/../lib/ControllerRate.php';
 headerSecurity();
@@ -25,7 +25,7 @@ try {
   if(!$originHost||strcasecmp((string)$originHost,$host)!==0)throw new DomainException('Origin not permitted.',403);
  }
  $action=strval($_GET['action']??'');$in=jsonInput();$db=db();
- $phoneActions=['claim','claim_display','status','command','disconnect'];
+ $phoneActions=['claim','claim_display','status','command','disconnect','package_status','package_command'];
  if(in_array($action,$phoneActions,true)){
   if($action==='claim'){
    $id=strval($in['id']??'');$key=strval($in['key']??'');$name=ControllerPairing::label($in['name']??'');
@@ -59,8 +59,60 @@ try {
    success(['id'=>$newId,'controllerToken'=>$token,'status'=>'pending']);
   }
   $id=strval($in['id']??'');$token=(string)($_SERVER['HTTP_X_CONTROLLER_TOKEN']??'');
-  $p=ControllerPairing::authenticate($db,$id,$token,in_array($action,['command','select_package'],true));
+  $p=ControllerPairing::authenticate($db,$id,$token,in_array($action,['command','select_package','package_command'],true));
   $status=ControllerPairing::status($p);
+  if(in_array($action,['package_status','package_command'],true)){
+   $session=(string)($in['session']??'');$viewer=(string)($in['viewer']??'');
+   ControllerPairing::checkId($session);
+   if($status!=='paired'){
+    if($action==='package_status'&&$status==='pending')success(['status'=>'pending','game'=>null]);
+    throw new DomainException('Phone is awaiting approval or has expired.',403);
+   }
+   $pre=sessionRow($db,$session);$module=GameRegistry::module((string)$pre['game_id']);
+   if(!PackageControllerBridge::isPackage($module))
+    throw new DomainException('This game has no packaged phone controller.',403);
+   $q=$db->prepare("SELECT admin_id FROM audit_log WHERE session_id=? AND event='session.start' ORDER BY id ASC LIMIT 1");
+   $q->execute([$session]);$owner=(int)$q->fetchColumn();
+   PackageControllerBridge::bound($p,$pre,$viewer,$owner);
+   if($action==='package_status')
+    success(['status'=>'paired','game'=>$module->publicView(stateFromRow($pre)),'phone'=>true]);
+   $cmd=PackageControllerBridge::action($in['verb']??null,$in['payload']??[], $in['confirm']??false);
+   $nonce=ControllerPairing::nonce($in['nonce']??null);
+   $db->beginTransaction();
+   try{
+    // Existing wheel controller transactions lock pair before game settings.
+    // Keep the same ordering so two games sharing an approved phone cannot
+    // deadlock on reversed pair/game locks.
+    $q=$db->prepare('SELECT * FROM controller_pairs WHERE id=? FOR UPDATE');$q->execute([$id]);$locked=$q->fetch();
+    if(!$locked||!hash_equals((string)($locked['controller_hash']??''),ControllerPairing::tokenHash($token))||
+       ControllerPairing::status($locked)!=='paired')
+     throw new DomainException('The phone connection was revoked or expired.',403);
+    GameSessionLifecycle::lockGame($db,(string)$pre['game_id']);
+    $q=$db->prepare('SELECT id FROM controller_commands WHERE pair_id=? AND client_nonce=?');$q->execute([$id,$nonce]);
+    if($q->fetch()){
+     $current=sessionRow($db,$session);$db->commit();
+     success(['applied'=>true,'repeat'=>true,'game'=>$module->publicView(stateFromRow($current))]);
+    }
+    $q=$db->prepare('SELECT COUNT(*) FROM controller_commands WHERE pair_id=? AND created_at>=UTC_TIMESTAMP()-INTERVAL 1 SECOND');
+    $q->execute([$id]);$second=(int)$q->fetchColumn();
+    $q=$db->prepare('SELECT COUNT(*) FROM controller_commands WHERE pair_id=? AND created_at>=UTC_TIMESTAMP()-INTERVAL 1 MINUTE');
+    $q->execute([$id]);$minute=(int)$q->fetchColumn();ControllerRate::check($second,$minute,$cmd['verb']);
+    $row=sessionRow($db,$session,true);
+    PackageControllerBridge::bound($locked,$row,$viewer,$owner);
+    if(!in_array($row['status'],['active','paused'],true))
+     throw new DomainException('This game has already ended or been saved.',409);
+    $state=stateFromRow($row);$event=$module->action($state,$cmd['verb'],$cmd['payload']);
+    saveState($db,$state);
+    $q=$db->prepare('INSERT INTO game_events(session_id,idempotency_key,event_type,payload_json) VALUES (?,?,?,?)');
+    $q->execute([$session,PackageControllerBridge::key($id,$nonce),$event['type'],
+     json_encode(['event'=>$event,'source'=>'paired-phone'],JSON_THROW_ON_ERROR)]);
+    $q=$db->prepare('INSERT INTO controller_commands(pair_id,client_nonce,command,delivered_at) VALUES (?,?,?,UTC_TIMESTAMP())');
+    $q->execute([$id,$nonce,$cmd['verb']]);
+    audit($db,'game.package_phone_command',$session,['pairId'=>$id,'verb'=>$cmd['verb']]);
+    $view=$module->publicView($state);$db->commit();
+   }catch(Throwable $e){$db->rollBack();throw $e;}
+   success(['applied'=>true,'repeat'=>false,'game'=>$view]);
+  }
   if($action==='status'){
    $commandId=(int)($in['commandId']??0);$delivery=null;
    if($commandId>0){
