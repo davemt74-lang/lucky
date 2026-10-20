@@ -283,7 +283,7 @@ body.editor-workspace .studio-monitor{position:relative;isolation:isolate}
 }
 
 /* Prevent contained media elements from painting or receiving clicks over the timeline. */
-body.editor-workspace .studio-body{position:relative;z-index:0;overflow:hidden;min-height:0}
+body.editor-workspace .studio-body{position:relative;z-index:auto;overflow:hidden;min-height:0}
 body.editor-workspace .studio-monitor-panel{height:100%;max-height:100%;min-height:0;overflow:hidden;isolation:isolate}
 body.editor-workspace .studio-monitor{overflow:hidden}
 body.editor-workspace .studio-sequence{position:relative;z-index:2;overflow:hidden}
@@ -292,3 +292,10 @@ body.editor-workspace .studio-sequence-head{position:relative;z-index:3}
  body.editor-workspace .studio-body{height:auto;max-height:none;overflow:visible}
  body.editor-workspace .studio-monitor-panel{height:310px;min-height:310px;max-height:310px}
 }
+
+/* Inspector is fixed and must sit above its sibling backdrop, not inside a
+   low-priority stacking context created by the workspace body. */
+body.editor-workspace .studio-inspector.is-open{z-index:151}
+body.editor-workspace .studio-inspector-backdrop:not([hidden]){z-index:140}
+body.editor-workspace .studio-clip-menu:not([hidden]){z-index:170}
+body.editor-workspace .studio-audio-dialog{z-index:180}
