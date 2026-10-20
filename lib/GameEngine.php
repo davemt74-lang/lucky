@@ -1,6 +1,6 @@
 <?php
-require_once __DIR__.'/SpinReveal.php';
 declare(strict_types=1);
+require_once __DIR__.'/SpinReveal.php';
 
 /** Stateless, deterministic game rules. Database transactions protect calls to these methods. */
 final class GameEngine {
