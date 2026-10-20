@@ -39,7 +39,9 @@ async def main():
   markup=html_page('game.php',script,MOCK.replace("window.__state='active'","window.__state='ended'"))
   await page.set_content(markup,wait_until='domcontentloaded')
   await page.wait_for_function('window.LuckyCapture && document.querySelector("#start-game")')
-  await page.locator('#start-game').click()
+  await page.evaluate("document.querySelector('#console-menu').showModal()")
+   await page.locator('#start-game').click()
+   await page.evaluate("document.querySelector('#console-menu').close()")
   await page.wait_for_function('window.__permissionCalls>0')
   test('Start Game requests camera permission before prize claim',await page.evaluate('window.__permissionCalls>0'))
   # Prize proof is always shown on proof.php, not embedded in game.php.
