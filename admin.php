@@ -79,7 +79,7 @@ shellStart('Admin Studio','admin','admin-studio-page');
   </form>
   <p id="game-update-message" class="voice-status" role="status" aria-live="polite"></p>
   <div id="game-update-releases" class="game-update-releases" aria-live="polite"></div>
-  <p class="mini-label">Only publisher-signed release metadata is displayed. Automatic downloads, package installation and code execution are not enabled in this section; those require separate installer certification.</p>
+  <p class="mini-label">Update checks are manual. You may explicitly download and stage publisher-verified ZIPs. Automatic downloading, runtime activation and code execution remain disabled until separately certified.</p>
  </section>
 </section>
 <section id="tab-prizes" class="surface platform-admin-panel"><div class="card-title-row"><div><p class="mini-label">GAME 1 · SERVER PRIZES</p><h2>Prize packages</h2></div><button id="save-prizes" type="button" class="btn btn-primary">Save package changes</button></div><p>Use + to add a Draft package. Save its tiers, odds and awards, then Publish it to make it eligible for the next game. Only Published and enabled packages can be selected. Games already started retain their original prizes.</p>
@@ -99,4 +99,4 @@ shellStart('Admin Studio','admin','admin-studio-page');
 <section id="tab-history" class="surface platform-admin-panel" hidden><h2>Finished-game archive</h2><p>Completed games are preserved with their audit records, prizes, and session timestamps.</p><button class="btn btn-outline" id="refresh-history">↻ Refresh</button><div id="history-items" class="platform-claim-list"></div><button class="btn btn-outline" id="export-history">Export history CSV</button></section>
 <section id="tab-migration" class="surface platform-admin-panel" hidden><h2>Import a V5 browser configuration</h2><p>The older game stored prizes and music in one browser. You can import its Tier 1, Tier 2, and Bonus prize definitions here. This does not erase the old browser copy. Existing claimed prizes are imported into a separate completed historical session, never into an active game. Duplicate imports of the same game are blocked.</p><p id="legacy-status" class="voice-status">Checking this browser…</p><button id="import-legacy" class="btn btn-outline">Import prizes and archived claims</button></section>
 </div><p id="admin-status" class="voice-status" role="status" aria-live="polite"></p></div></div>
-<script src="public/client.js" defer></script><script src="public/admin.js?v=5q22" defer></script><script src="public/game-catalog.js?v=5q22e" defer></script><?php shellEnd(); ?>
+<script src="public/client.js" defer></script><script src="public/admin.js?v=5q22" defer></script><script src="public/game-catalog.js?v=5q22f" defer></script><?php shellEnd(); ?>
