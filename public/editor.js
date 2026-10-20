@@ -321,7 +321,7 @@
   audioStatus('Saving audio to this prize…');
   try{
    const me=await L.getMe();const form=new FormData();
-   form.append('session',session);form.append('claim',recordTarget.claimId);
+   form.append('session',session);form.append('claim',recordTarget.claimId);form.append('kind','audio');
    const extension=recordBlob.type.startsWith('audio/mp4')?'m4a':'webm';
    form.append('media',recordBlob,'voiceover.'+extension);
    form.append('sourceLabel','Studio microphone');
