@@ -19,6 +19,18 @@ final class PackageGameSandbox {
   // constrains capabilities. Static module JS/CSS are embedded inline.
   $base=GamePackageInstaller::base($root).'/'.$game.'/versions/'.$version;
   $assets='';$size=0;
+  $hashes=$receipt['fileHashes']??null;
+  // Packages staged before V5Q.23B have no stored hash map, but remain
+  // readable; newer ones must validate every asset against its signed or
+  // manually approved manifest even after a HomeServer restart.
+  if($hashes!==null&&!is_array($hashes))throw new DomainException('Invalid package asset manifest.',409);
+  $verify=function(string $assetPath,string $bytes)use($hashes):void {
+   if($hashes===null)return; // legacy staged package
+   $expected=$hashes[$assetPath]??null;
+   if(!is_string($expected)||!preg_match('/^[a-f0-9]{64}$/D',$expected)||
+      !hash_equals($expected,hash('sha256',$bytes)))
+    throw new DomainException('A game asset failed runtime integrity verification.',409);
+  };
   $it=new RecursiveIteratorIterator(new RecursiveDirectoryIterator($base,FilesystemIterator::SKIP_DOTS));
   foreach($it as $entryFile){
    if($entryFile->isLink())throw new DomainException('Unsafe package resource.',403);
@@ -27,6 +39,7 @@ final class PackageGameSandbox {
    $resource=GamePackageActivation::file($game,$version,str_replace(DIRECTORY_SEPARATOR,'/',$path),$root,true);
    $bytes=file_get_contents($resource['path']);
    if(!is_string($bytes))throw new DomainException('Game resource unreadable.',422);
+   $verify(str_replace(DIRECTORY_SEPARATOR,'/',$path),$bytes);
    $size+=strlen($bytes);
    if($size>2*1024*1024)throw new DomainException('Game scripts and styles exceed 2 MB sandbox budget.',422);
    if(str_ends_with($path,'.css'))$assets.='<style>'.str_replace('</style','<\/style',$bytes).'</style>';
@@ -38,7 +51,31 @@ final class PackageGameSandbox {
   $raw=preg_replace('~<link\b(?=[^>]*\brel\s*=\s*["\']?stylesheet)[^>]*>~is','',$raw);
   $bridge='<script>document.addEventListener("click",function(e){const b=e.target.closest("[data-game-input]");if(!b)return;parent.postMessage({type:"lucky:input",name:b.dataset.gameInput,value:b.dataset.gameValue||null},"*");});</script>';
   $inject=$assets.$bridge;
-  if(stripos($raw,'</body>')!==false)return preg_replace('~</body>~i',$inject.'</body>',$raw,1);
-  return '<!doctype html><html><body>'.$raw.$inject.'</body></html>';
+  $document=stripos($raw,'</body>')!==false
+   ?preg_replace('~</body>~i',$inject.'</body>',$raw,1)
+   :'<!doctype html><html><body>'.$raw.$inject.'</body></html>';
+  if(!is_string($document))throw new DomainException('Invalid game document.',422);
+  $embedded=[];$totalMedia=0;
+  // Explicit offline references work in HTML src/poster, CSS url(), and JS
+  // string literals. Media is transformed to data: URIs: an opaque-origin
+  // iframe has no access to the HomeServer's session cookies or a URL loader.
+  $document=preg_replace_callback(
+   '~lucky-asset:([A-Za-z0-9][A-Za-z0-9_./-]{0,155}\\.(?:png|jpg|jpeg|webp|mp3|m4a|ogg|wav|webm|woff2))~',
+   function(array $found)use($game,$version,$root,$verify,&$embedded,&$totalMedia):string {
+    $path=$found[1];
+    if(isset($embedded[$path]))return $embedded[$path];
+    $file=GamePackageActivation::file($game,$version,$path,$root,true);
+    $raw=file_get_contents($file['path']);
+    if(!is_string($raw)||strlen($raw)!==$file['bytes'])
+     throw new DomainException('Unable to read offline media asset.',422);
+    $verify($path,$raw);
+    $totalMedia+=strlen($raw);
+    if($totalMedia>24*1024*1024)
+     throw new DomainException('This game view exceeds the 24 MB offline media budget.',413);
+    return $embedded[$path]='data:'.explode(';',$file['type'])[0].';base64,'.base64_encode($raw);
+   },$document);
+  if(!is_string($document)||str_contains($document,'lucky-asset:'))
+   throw new DomainException('Game contains an invalid or missing offline media reference.',422);
+  return $document;
  }
 }
