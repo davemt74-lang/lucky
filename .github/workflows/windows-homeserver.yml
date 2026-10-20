@@ -67,8 +67,22 @@ jobs:
           if($raw -notmatch "'deployment' => 'homeserver'" -or $raw -notmatch "'db_host' => '127.0.0.1'"){throw 'Database is not loopback-only'}
           if(!(Test-Path (Join-Path $data 'caddy-data'))){throw 'Internal LAN certificate state missing'}
           # All mutable data survives another startup; no first-run reinit.
-          $out=& $start -Smoke -NoBrowser 2>&1 | Out-String
-          if($out -notmatch 'HOMESERVER_SMOKE_OK'){throw 'HomeServer did not recover after restart'}
+          try {
+            $out=& $start -Smoke -NoBrowser 2>&1 | Out-String
+            Write-Host $out
+            if($out -notmatch 'HOMESERVER_SMOKE_OK'){throw 'HomeServer did not recover after restart'}
+          } catch {
+            Write-Host ('RESTART ERROR: '+$_.Exception.Message)
+            $logDir=Join-Path $env:LOCALAPPDATA 'LuckyGameHub\logs'
+            if(Test-Path $logDir){
+              Get-ChildItem $logDir -File |ForEach-Object {
+                Write-Host ('=== '+$_.Name+' ===')
+                Get-Content -LiteralPath $_.FullName -Tail 65 |Write-Host
+              }
+            }
+            Get-NetTCPConnection -LocalPort 8833,9017,3307 -ErrorAction SilentlyContinue |Select-Object LocalAddress,LocalPort,State |Format-Table |Out-String |Write-Host
+            throw
+          }
           Write-Host 'WINDOWS_OFFLINE_INSTALL_AND_RESTART_PASS'
       - name: Upload Windows installer and verification manifest
         uses: actions/upload-artifact@v4
