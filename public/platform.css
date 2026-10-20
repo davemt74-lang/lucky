@@ -684,3 +684,9 @@ body.admin-studio-page #package-remove{border-color:#9c6571;color:#ffccd0}
  body.admin-studio-page .prize-package-config>label:first-child{max-width:none;flex:1 1 100%}
  body.admin-studio-page .prize-package-config button{flex:1 1 115px}
 }
+
+/* V5Q.21 — package publication state displayed beside each package and tab. */
+body.admin-studio-page .prize-package-tabs .package-draft{border-style:dashed;opacity:.8}
+body.admin-studio-page .package-publication-status{font-size:12px;display:inline-flex;align-items:center;min-height:36px;padding:6px 10px;border-radius:9px;background:#1d3437;color:#b9e8d0;white-space:normal}
+body.admin-studio-page .package-publication-status[data-status=draft]{background:#3c3042;color:#ffe1ad}
+body.admin-studio-page #package-publish:not(:disabled){border-color:#8da07c}
