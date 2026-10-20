@@ -19,7 +19,7 @@ final class MigrationSql {
     }
     continue;
    }
-   if($char==="'"||$char==='"'||$char==='\x60'){$quote=$char;$buffer.=$char;continue;}
+   if($char==="'"||$char==='"'||$char===chr(96)){$quote=$char;$buffer.=$char;continue;}
    if($char==='-'&&$next==='-'&&($i+2===$length||ctype_space($sql[$i+2]))){
     $i+=2;
     while($i<$length&&$sql[$i]!=="\n")$i++;
