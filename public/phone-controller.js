@@ -69,11 +69,20 @@
   // The proof controls are the only primary controls while the desktop proof page is active.
   // Keep the accordion closed on first entry; preserve its user-selected state while active.
   if(accordion.hidden!==!showing){accordion.hidden=!showing;accordion.open=showing;}
-  const reviewing=showing&&Number(proof.reviewCount)>0;
-  if($('phone-proof-recording'))$('phone-proof-recording').hidden=reviewing;
-  if($('phone-proof-review'))$('phone-proof-review').hidden=!reviewing;
-  const approved=showing&&Number(proof.savedCount)>0;
-  if($('phone-proof-rerecord-saved'))$('phone-proof-rerecord-saved').hidden=reviewing||!approved;
+  const phase=proofState.phase||(Number(proofState.reviewCount)>0?'review':'live');
+  const reviewing=showing&&(phase==='review'||Number(proofState.reviewCount)>0&&phase==='live');
+  const recording=phase==='recording',processing=phase==='processing',saving=phase==='saving',saved=phase==='saved';
+  const consent=$('phone-proof-consent');if(consent){consent.checked=!!proofState.consent;consent.disabled=recording||processing||saving;}
+  const label=$('phone-proof-phase');
+  if(label)label.textContent=recording?'● Recording…':processing?'Processing video…':reviewing?'Review recorded video · Save when ready':saving?'Saving video to the timeline…':saved?'✓ Video saved to the editor timeline':'Live camera ready · Recording consent required';
+  const record=$('phone-proof-recording');if(record)record.hidden=reviewing||processing||saving||saved;
+  const review=$('phone-proof-review');if(review)review.hidden=!reviewing;
+  const recordButton=document.querySelector('[data-phone="proof-record"]');
+  if(recordButton){recordButton.textContent=recording?'● Recording…':'● Record';recordButton.disabled=recording||!proofState.consent;}
+  const stopButton=document.querySelector('[data-phone="proof-stop"]');if(stopButton){stopButton.hidden=!recording;stopButton.disabled=!recording;}
+  const saveButton=document.querySelector('[data-phone="proof-save"]');if(saveButton)saveButton.disabled=!reviewing;
+  const approved=showing&&Number(proofState.savedCount)>0;
+  if($('phone-proof-rerecord-saved'))$('phone-proof-rerecord-saved').hidden=reviewing||recording||processing||saving||!approved;
  }
  async function send(action){if(!active)return;
   if(busy||pendingCommand){if(commandQueue.length>=16){message('Too many pending controls. Wait for the screen to respond.',true);return;}commandQueue.push(action);message(`Waiting… (${commandQueue.length} queued)`);return;}
@@ -129,6 +138,7 @@
  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'&&listening)toggleListening(false);});
  $('phone-join-form').addEventListener('submit',join);
  document.querySelectorAll('[data-phone]').forEach(button=>button.addEventListener('click',()=>send(button.dataset.phone)));
+ $('phone-proof-consent')?.addEventListener('change',e=>send(e.target.checked?'proof-consent-on':'proof-consent-off'));
  $('phone-disconnect').addEventListener('click',async()=>{try{await request('disconnect');}catch(_){}forget();});
  try{const existing=JSON.parse(sessionStorage.getItem(storageKey)||'null');if(existing&&/^[a-f0-9]{32}$/.test(existing.id)&&/^[a-f0-9]{64}$/.test(existing.token))state=existing;}catch(_){}
  if(state){if(location.protocol!=='about:')history.replaceState(null,'','controller.php');show('phone-wait');status();}
