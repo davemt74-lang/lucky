@@ -21,12 +21,13 @@ async def main():
    return result;
   }}""")
   await pg.locator('#spin-game').click()
-  await pg.wait_for_function('document.querySelector("#prize-offer-stage").hidden===false',timeout=9000)
-  tests.append(('winner waits for acceptance',await pg.locator('#prize-offer-stage').is_visible()))
-  tests.append(('no proof before acceptance',await pg.evaluate('!window.__proofNav')))
-  await pg.locator('#prize-offer-accept').click()
+  await pg.wait_for_function("document.querySelector('#game-message').textContent.includes('Spin complete')",timeout=9000)
+  tests.append(('desktop contains no prize acceptance panel or buttons',await pg.locator('#prize-offer-stage,#prize-offer-accept,#prize-offer-decline').count()==0))
+  tests.append(('desktop message contains no winner name or value', 'Camera Prize' not in await pg.locator('#game-message').inner_text() and '$12.50' not in await pg.locator('#game-message').inner_text()))
+  tests.append(('desktop does not submit a prize decision',await pg.evaluate("Lucky.api.toString().includes('prize_decide')===true") and await pg.evaluate('!window.__proofNav')))
+  await pg.evaluate("__offerStatus='accepted'") # phone commits decision; host observes it
   await pg.wait_for_function('window.__proofNav',timeout=5000)
-  tests.append(('accept opens correct claim',await pg.evaluate('window.__proofNav.includes("claim=dddddddddddddddddddddddddddddddd")')))
+  tests.append(('phone acceptance opens exact proof claim on desktop',await pg.evaluate('window.__proofNav.includes("claim=dddddddddddddddddddddddddddddddd")')))
   await pg.close()
   sent=[];phone_proof={'active':False,'phase':'opening','claimId':CID,'consent':False,'reviewCount':0,'savedCount':0}
   async def api(route):
