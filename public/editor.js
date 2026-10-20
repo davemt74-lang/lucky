@@ -558,6 +558,47 @@
   }catch(err){inform('Clip saved; refresh media bin to import it: '+err.message,true);}
  }
  async function init(){
+  $('timeline-add-title').onclick=()=>{
+   const total=timelineMs(),text=$('timeline-title-text').value.trim();
+   if(!total||!text||text.length>120)return inform('Add video footage and enter a title first.',true);
+   const start=ms($('timeline-title-start').value);
+   const duration=ms($('timeline-title-duration').value);
+   if(!Number.isFinite(start)||!Number.isFinite(duration)||start<0||start>=total||duration<300||start+duration>total)
+    return inform('Title start/duration must fit within the movie.',true);
+   if(layers.titles.length>=24)return inform('Maximum 24 text overlays.',true);
+   const item={id:fresh(),text,startMs:start,durationMs:duration,
+    position:$('timeline-title-position').value,size:$('timeline-title-size').value};
+   layers.titles.push(item);dirty=true;render();selectTitle(item.id);inform('Text added to T1. Save edit to retain it.');
+  };
+  $('timeline-delete-title').onclick=()=>{
+   if(!selectedTitle)return inform('Click a T1 title first.',true);
+   layers.titles=layers.titles.filter(x=>x.id!==selectedTitle);selectedTitle='';
+   dirty=true;render();inform('Removed T1 title without changing original footage.');
+  };
+  for(const id of ['timeline-title-text','timeline-title-start','timeline-title-duration','timeline-title-position','timeline-title-size']){
+   $(id).addEventListener('change',commitTitleForm);
+  }
+  $('timeline-apply-music').onclick=()=>{
+   const id=$('timeline-music-select').value,total=timelineMs();
+   if(!total||!availableSongs.some(t=>t.id===id))return inform('Choose an uploaded audio-library song and add video first.',true);
+   const start=ms($('timeline-music-start').value),end=ms($('timeline-music-end').value)||total,
+    offset=ms($('timeline-music-offset').value),volume=Number($('timeline-music-volume').value);
+   if([start,end,offset,volume].some(x=>!Number.isFinite(x))||start<0||end>total||end<=start||offset<0||offset>1200000)
+    return inform('The soundtrack start/end must fit within this movie.',true);
+   layers.background={trackId:id,startMs:start,endMs:end,offsetMs:offset,volume};
+   $('render-track').value=id;$('render-volume').value=String(volume);
+   dirty=true;render();inform('B1 background audio attached. Save edit to retain it.');
+  };
+  $('timeline-clear-music').onclick=()=>{layers.background=null;dirty=true;render();inform('Removed B1 soundtrack without deleting audio-library file.');};
+  $('timeline-music-volume').oninput=()=>{$('timeline-music-volume-value').textContent=$('timeline-music-volume').value+'%';};
+  $('render-track').addEventListener('change',()=>{
+   $('timeline-music-select').value=$('render-track').value;
+   if($('render-track').value&&timelineMs()){
+    const total=timelineMs();
+    layers.background={trackId:$('render-track').value,startMs:0,endMs:total,offsetMs:0,volume:Number($('render-volume').value)};
+    dirty=true;render();
+   }
+  });
   $('editor-play').onclick=()=>preview([...clips]);$('editor-stop').onclick=stop;$('editor-save-project').onclick=save;$('editor-export').onclick=exportProject;
   $('editor-apply-look').onclick=()=>{if(!applyLook(chosen,$('editor-look').value))inform('Select a timeline clip first.',true);};
   $('editor-apply-overlay').onclick=()=>{if(!overlayClip(chosen,$('editor-overlay-text').value,$('editor-overlay-position').value,$('editor-overlay-size').value))inform('Select a clip and enter a title of at most 120 characters.',true);};
