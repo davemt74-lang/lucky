@@ -50,7 +50,9 @@
   // The public TV view intentionally omits claim IDs. The signed-in session owns
   // the authoritative claim IDs required for proof capture and revision history.
   const actualClaims=data?.session?.claims||[];
-   const hidePending=!!(view?.lastSpin?.type==='award'&&(view.spinPending||currentOffer?.status!=='accepted'));
+   const latestClaim=actualClaims.at(-1);
+   const lastAccepted=currentOffer?.status==='accepted'&&currentOffer?.claimId===latestClaim?.id;
+   const hidePending=!!(latestClaim&&view?.lastSpin?.type==='award'&&(view.spinPending||!lastAccepted));
    const visibleClaims=hidePending?actualClaims.slice(0,-1):actualClaims;
    const items=visibleClaims.slice().reverse();
   // Count the actual unclaimed prize values across all three configured tiers.
