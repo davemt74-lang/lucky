@@ -14,6 +14,7 @@ final class GameWithoutPhone implements GameModule {
 }
 $without=new GameWithoutPhone();
 expectV5Q22(!($without instanceof PhoneControllerProvider),'Phone controllers must be optional');
+expectV5Q22(GameRegistry::controllerFor($without)===null,'Registry must return null for games without phone support');
 $wheel=GameRegistry::controller('spin-wheel');
 expectV5Q22(($wheel['layout']??null)==='spin-wheel','Wheel needs its own controller layout');
 expectV5Q22(in_array('spin',$wheel['actions'],true),'Wheel must declare spin action');
