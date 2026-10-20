@@ -394,3 +394,27 @@ body.game-fullwidth #win-dialog{display:none!important}
 
 /* Keep explicit recording consent visible without covering settings or buttons. */
 .proof-editor-page .proof-consent-overlay{position:static;display:flex;align-items:center;margin:8px 5px;max-width:100%;width:fit-content}
+
+/* V5Q.15F — one primary video viewport for live capture AND saved/unsaved playback. */
+.proof-editor-page .proof-video-stage:has(#capture-review:not([hidden])) #camera-grid{display:none!important}
+.proof-editor-page .proof-video-stage #capture-review:not([hidden]){display:block;margin:0;padding:10px;background:#060f1c;border:1px solid #253956;border-radius:11px}
+.proof-editor-page .proof-video-stage #capture-review .capture-review-list{display:flex;flex-direction:column;gap:12px}
+.proof-editor-page .proof-video-stage #capture-review .review-tile{margin:0;background:transparent;border:0;padding:0}
+.proof-editor-page .proof-video-stage #capture-review .review-tile video{width:100%;max-height:70vh;aspect-ratio:16/9;object-fit:contain;border-radius:8px;background:#000}
+.proof-editor-page #camera-grid .camera-source>.camera-source-title,
+.proof-editor-page #camera-grid .camera-source>input[data-camera-name],
+.proof-editor-page #camera-grid .camera-source>.mini-label,
+.proof-editor-page #camera-grid .camera-source>.camera-source-actions{display:none!important}
+.proof-editor-page #camera-grid .camera-source{padding:0}
+.proof-editor-page #camera-grid .camera-source video{width:100%;max-height:75vh;object-fit:contain}
+.phone-proof-consent{display:flex;align-items:flex-start;gap:11px;background:#253854;padding:12px;border:1px solid #4f708f;border-radius:10px;line-height:1.45;font-size:14px;cursor:pointer}
+.phone-proof-consent input{margin-top:3px;width:20px;height:20px;flex-shrink:0;accent-color:#efc573}
+#phone-proof-phase{padding:9px 3px;color:#ffda99;font-weight:800;font-size:15px}
+.phone-proof-controls button[data-phone="proof-record"]:disabled{opacity:.72;cursor:default}
+@media(max-width:700px){.proof-editor-page .proof-video-stage #capture-review .review-tile video{max-height:46vh}}
+
+/* Advanced camera naming appears only while settings are explicitly expanded. */
+.proof-editor-page .proof-video-stage:has(#proof-camera-settings[open]) #camera-grid .camera-source>.camera-source-title{display:flex!important}
+.proof-editor-page .proof-video-stage:has(#proof-camera-settings[open]) #camera-grid .camera-source>input[data-camera-name]{display:block!important}
+.proof-editor-page .proof-video-stage:has(#proof-camera-settings[open]) #camera-grid .camera-source>.mini-label{display:block!important}
+.proof-editor-page .proof-video-stage:has(#proof-camera-settings[open]) #camera-grid .camera-source>.camera-source-actions{display:flex!important}

@@ -8,9 +8,10 @@ shellStart('Edit Prize Proof','claims');
 <header class="claim-stage-head"><div><p class="eyebrow" id="proof-heading-context">PRIZE PROOF</p><h2><span id="capture-prize-label">Claimed prize</span></h2></div><div class="proof-header-actions"><a class="btn btn-outline" id="proof-return" href="game.php">✓ Done · Back to game</a></div></header>
 <div class="proof-editor-layout"><section class="claim-capture" aria-label="Capture prize reaction">
   <div class="proof-video-stage"><div id="camera-grid" class="camera-grid" aria-label="Live camera feeds"><div class="camera-waiting">Live video appears here after camera permission is granted.</div></div><canvas id="capture-photo-canvas" hidden></canvas>
+   <section id="capture-review" class="capture-review" hidden aria-label="Review recorded video"><h3>Review recording</h3><div id="capture-review-list" class="capture-review-list"></div></section>
   <label class="platform-checkbox proof-consent-overlay"><input type="checkbox" id="capture-consent"> Everyone recorded has agreed to this private video.</label>
   <details id="proof-camera-settings" class="proof-camera-settings"><summary>⚙ Camera settings</summary>
-  <section id="capture-review" class="capture-review" hidden aria-label="Review recorded video"><h3>Review recording</h3><div id="capture-review-list" class="capture-review-list"></div></section>
+  
   <div id="capture-recording-tools" class="capture-recording-tools">
   <div class="camera-toolbar"><button class="btn btn-outline" id="camera-enable" type="button" disabled>Enable cameras</button><button class="btn btn-outline" id="camera-refresh" type="button">Refresh sources</button><button class="btn btn-outline" id="camera-off" type="button">Cameras off</button><span class="mini-label" id="capture-live-status">Cameras off</span></div>
   <div class="proof-rotation-status" role="status" aria-live="polite"><div><strong id="proof-active-angle">Ready for proof</strong><span id="proof-next-angle">Next camera: —</span></div><div id="proof-countdown" class="proof-countdown">—</div></div>
@@ -30,5 +31,5 @@ shellStart('Edit Prize Proof','claims');
 <p id="proof-errors" class="platform-error" role="alert" hidden></p>
 <h3 id="proof-prize-title" class="sr-only">Loading prize…</h3><p id="proof-prize-context" class="sr-only"></p>
 </aside></div></div></dialog>
-<script src="public/client.js" defer></script><script src="public/proof-sequence.js?v=5q2" defer></script><script src="public/claim-capture.js?v=5q15a" defer></script><script src="public/proof.js?v=5q15bfix" defer></script><script src="public/ui-receiver.js?v=5q8b" defer></script>
+<script src="public/client.js" defer></script><script src="public/proof-sequence.js?v=5q2" defer></script><script src="public/claim-capture.js?v=5q15f" defer></script><script src="public/proof.js?v=5q15f" defer></script><script src="public/ui-receiver.js?v=5q8b" defer></script>
 <?php shellEnd(); ?>

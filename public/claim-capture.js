@@ -4,7 +4,9 @@
  const $=id=>document.getElementById(id);
  let session='',claim='',prize='Prize',feeds=new Map(),recordings=new Map(),audioStream=null,audioRecorder=null,recordTimer=null;
  let uploading=0,approvedCount=0,closing=false,previewGeneration=0,proofProfile=[],proofPlan=[],sequenceAbort=null,sequencePromise=null,cameraAuthorized=false;
- const drafts=new Map();let draftSerial=0,recordAttempt=0,priming=null;
+ const drafts=new Map();let draftSerial=0,recordAttempt=0,priming=null,capturePhase='live',replacementId=null,savedPreview=null,savedVideos=[];
+ const setPhase=phase=>{capturePhase=phase;window.dispatchEvent(new CustomEvent('lucky:proof-phase',{detail:{session,claim,phase,consent:!!$('capture-consent')?.checked}}));};
+ const consentChanged=()=>window.dispatchEvent(new CustomEvent('lucky:proof-phase',{detail:{session,claim,phase:capturePhase,consent:!!$('capture-consent')?.checked}}));
  // A user-initiated Start Game click obtains camera permission before the first prize.
  // Release the probe immediately so hardware remains available for live proof feeds.
  async function prime(){
@@ -16,40 +18,54 @@
  }
  function showDrafts(){
   const pane=$('capture-review'),list=$('capture-review-list'),controls=$('capture-recording-tools');if(!pane||!list)return;
-  list.replaceChildren();pane.hidden=drafts.size===0;if(controls)controls.hidden=drafts.size>0;
-  const retake=$('capture-rerecord-saved');if(retake)retake.hidden=drafts.size>0||approvedCount===0;
-  for(const [id,clip] of drafts){const tile=document.createElement('div');tile.className='review-tile';tile.dataset.draft=id;
+  list.replaceChildren();const reviewing=drafts.size>0||!!savedPreview;pane.hidden=!reviewing;if(controls)controls.hidden=reviewing;
+  const retake=$('capture-rerecord-saved');if(retake)retake.hidden=reviewing||approvedCount===0;
+  const entries=drafts.size?[...drafts.entries()]:savedPreview?[['saved',savedPreview]]:[];
+  for(const [id,clip] of entries){
+   const saved=id==='saved',tile=document.createElement('div');tile.className='review-tile';tile.dataset.draft=id;
    const title=document.createElement('strong');title.textContent=clip.angleLabel||clip.sourceLabel||'Recorded video';
    const player=document.createElement('video');player.controls=true;player.playsInline=true;player.preload='metadata';player.src=clip.url;
    const actions=document.createElement('div');actions.className='capture-actions';
-   for(const [label,fn] of [['▶ Play',()=>{player.currentTime=0;return player.play();}],['✓ Approve',()=>approveDraft(id)],['↻ Re-record',()=>rerecordDraft(id)],['🗑 Delete',()=>deleteDraft(id)]]){
-    const button=document.createElement('button');button.type='button';button.className='btn btn-outline';button.textContent=label;button.onclick=()=>Promise.resolve().then(fn).catch(e=>status(e.message,true));actions.append(button);
-   }
+   const choices=saved?[['▶ Play',()=>{player.currentTime=0;return player.play();}],['↻ Re-record',()=>rerecordSaved()]]:
+    [['▶ Play',()=>{player.currentTime=0;return player.play();}],['✓ Save',()=>approveDraft(id)],['↻ Re-record',()=>rerecordDraft(id)],['🗑 Delete',()=>deleteDraft(id)]];
+   for(const [label,fn] of choices){const button=document.createElement('button');button.type='button';button.className='btn btn-outline';button.textContent=label;button.onclick=()=>Promise.resolve().then(fn).catch(e=>status(e.message,true));actions.append(button);}
    tile.append(title,player,actions);list.append(tile);
   }
-  window.dispatchEvent(new CustomEvent('lucky:proof-review',{detail:{session,claim,reviewCount:drafts.size}}));
+  if(drafts.size)setPhase('review');
+  window.dispatchEvent(new CustomEvent('lucky:proof-review',{detail:{session,claim,reviewCount:drafts.size,approvedCount}}));
  }
  function stage(blob,filename,durationMs,sourceLabel,angleLabel='',angleIndex=0){
-  if(closing||!blob?.size)return;const id='video-'+(++draftSerial);drafts.set(id,{blob,filename,durationMs,sourceLabel,angleLabel,angleIndex,url:URL.createObjectURL(blob),session,claim});
-  showDrafts();status('Video recorded. Play it, then Approve to add it to this prize.');
+  if(closing||!blob?.size)return;const id='video-'+(++draftSerial);
+  drafts.set(id,{blob,filename,durationMs,sourceLabel,angleLabel,angleIndex,url:URL.createObjectURL(blob),session,claim,replaceClipId:replacementId||''});
+  replacementId=null;showDrafts();status('Recording processed. Review the video, then Save it to this prize.');
  }
- function deleteDraft(id){const clip=drafts.get(id);if(!clip)return;URL.revokeObjectURL(clip.url);drafts.delete(id);showDrafts();status('Recording discarded locally; no upload was made.');}
- async function approveDraft(id){const clip=drafts.get(id);if(!clip)throw Error('No recording to approve.');if(clip.session!==session||clip.claim!==claim)throw Error('Prize changed; recording not uploaded.');
-  await upload(clip.blob,clip.filename,'video',clip.durationMs,clip.sourceLabel,clip.angleLabel,clip.angleIndex);
-  deleteDraft(id);status('Approved video saved to this prize.');
+ function deleteDraft(id){const clip=drafts.get(id);if(!clip)return;URL.revokeObjectURL(clip.url);drafts.delete(id);showDrafts();if(!drafts.size)setPhase('live');status('Recording discarded locally; no upload was made.');}
+ async function approveDraft(id){const clip=drafts.get(id);if(!clip)throw Error('No recording to save.');if(clip.session!==session||clip.claim!==claim)throw Error('Prize changed; recording not uploaded.');
+  setPhase('saving');
+  try{const uploaded=await upload(clip.blob,clip.filename,'video',clip.durationMs,clip.sourceLabel,clip.angleLabel,clip.angleIndex,clip.replaceClipId||'');
+   savedPreview={url:uploaded.src,sourceLabel:clip.sourceLabel,angleLabel:clip.angleLabel};deleteDraft(id);
+   setPhase('saved');showDrafts();status('Video saved to this prize and automatically placed in the main editor timeline.');
+  }catch(e){setPhase('review');throw e;}
  }
- async function rerecordDraft(id){const clip=drafts.get(id);if(!clip)return;const cameraId=[...feeds.entries()].find(([_,f])=>f.label===clip.sourceLabel)?.[0]||selected()[0];
-  deleteDraft(id);if(!cameraId)throw Error('Select the camera to record again.');await record([cameraId]);
+ async function rerecordDraft(id){const clip=drafts.get(id);if(!clip)return;
+  const cameraId=[...feeds.entries()].find(([_,f])=>f.label===clip.sourceLabel)?.[0]||selected()[0];
+  replacementId=clip.replaceClipId||null;deleteDraft(id);savedPreview=null;
+  if(!cameraId)throw Error('Select a camera to re-record.');await record([cameraId]);
+ }
+ async function rerecordSaved(){const latest=savedVideos.filter(c=>c.kind==='video').at(-1);if(!latest)throw Error('No saved video available to replace.');
+  replacementId=latest.id;savedPreview=null;showDrafts();setPhase('live');await record();
  }
  function clearDrafts(){for(const id of [...drafts.keys()])deleteDraft(id);}
  async function phoneAction(action){
   if(!$('win-dialog')?.open||!claim)return false;
   switch(action){
-   case 'proof-record':if(drafts.size)return false;await record();return true;
+   case 'proof-consent-on':$('capture-consent').checked=true;consentChanged();return true;
+   case 'proof-consent-off':if(recordings.size||sequencePromise)return false;$('capture-consent').checked=false;consentChanged();return true;
+   case 'proof-record':if(drafts.size||savedPreview)return false;await record();return recordings.size>0||!!sequencePromise;
    case 'proof-stop':{const wasVideo=recordings.size>0||!!sequencePromise;await stopRecording();if(wasVideo){for(let i=0;i<40&&drafts.size===0;i++)await new Promise(r=>setTimeout(r,50));}return true;}
    case 'proof-play':{const player=$('capture-review-list')?.querySelector('video');if(!player)return false;player.currentTime=0;await player.play();return true;}
-   case 'proof-approve':{const id=drafts.keys().next().value;if(!id)return false;await approveDraft(id);return true;}
-   case 'proof-rerecord':{const id=drafts.keys().next().value;if(id){await rerecordDraft(id);return true;}if(approvedCount>0){await record();return true;}return false;}
+   case 'proof-save':case 'proof-approve':{const id=drafts.keys().next().value;if(!id)return false;await approveDraft(id);return true;}
+   case 'proof-rerecord':{const id=drafts.keys().next().value;if(id){await rerecordDraft(id);return true;}if(approvedCount>0){await rerecordSaved();return true;}return false;}
    case 'proof-delete':{const id=drafts.keys().next().value;if(!id)return false;deleteDraft(id);return true;}
    default:return false;
   }
@@ -137,12 +153,12 @@
   if(!ok)throw Error(errors.join(' · ')||'No selected camera is available.');if(errors.length)status('Some cameras could not be opened: '+errors.join(' · '),true);
   return ids.filter(id=>feeds.has(id));
  }
- async function upload(blob,filename,kind,durationMs,sourceLabel='',angleLabel='',angleIndex=0){
+ async function upload(blob,filename,kind,durationMs,sourceLabel='',angleLabel='',angleIndex=0,replaceClipId=''){
   checkLive();permitted();if(!blob?.size)return;if(blob.size>80*1024*1024)throw Error('Each clip must be 80 MB or less.');uploading++;
   try{
    status(`Uploading ${sourceLabel||kind} clip…`);const me=await Lucky.getMe();const form=new FormData();
    form.append('session',session);form.append('claim',claim);form.append('media',blob,filename);form.append('kind',kind);
-   form.append('durationMs',String(Math.max(0,Math.round(durationMs||0))));form.append('sourceLabel',clean(sourceLabel));form.append('angleLabel',clean(angleLabel).slice(0,80));form.append('angleIndex',String(angleIndex));form.append('title',`${prize} · ${angleLabel||sourceLabel||kind} reaction`.slice(0,120));
+   form.append('durationMs',String(Math.max(0,Math.round(durationMs||0))));form.append('sourceLabel',clean(sourceLabel));form.append('angleLabel',clean(angleLabel).slice(0,80));form.append('angleIndex',String(angleIndex));if(replaceClipId)form.append('replaceClipId',replaceClipId);form.append('title',`${prize} · ${angleLabel||sourceLabel||kind} reaction`.slice(0,120));
    const r=await fetch('api/claim-media.php?action=upload',{method:'POST',credentials:'same-origin',headers:{'X-CSRF-Token':me.csrf},body:form});
    const data=await r.json();if(!r.ok||!data.ok)throw Error(data.error||'Upload failed');
    status(`Saved ${sourceLabel||kind} to the game timeline.`);await refreshClips();window.dispatchEvent(new CustomEvent('lucky:media-uploaded',{detail:{session,claim,clip:data.clip}}));return data.clip;
@@ -217,19 +233,19 @@
   }catch(e){failures.push(`${feed.label}: ${e.message}`);}}
   if(!recordings.size)throw Error('Could not record any selected cameras. '+failures.join('; '));
   $('capture-stop').hidden=false;badge();status(`Recording ${recordings.size} camera${recordings.size===1?'':'s'} simultaneously, with separate timeline clips.${failures.length?' Unavailable: '+failures.join('; '):''}`);
-  clearTimeout(recordTimer);recordTimer=setTimeout(()=>stopRecording(),30000);
+  setPhase('recording');clearTimeout(recordTimer);recordTimer=setTimeout(()=>stopRecording(),30000);
  }catch(e){status(e.message,true);}}
- async function stopRecording(){if(sequenceAbort){sequenceAbort.abort();return;}clearTimeout(recordTimer);for(const recorder of recordings.values())if(recorder.state==='recording')recorder.stop();
+ async function stopRecording(){if(sequenceAbort){sequenceAbort.abort();return;}if(recordings.size)setPhase('processing');clearTimeout(recordTimer);for(const recorder of recordings.values())if(recorder.state==='recording')recorder.stop();
   if(audioRecorder?.state==='recording')audioRecorder.stop();$('capture-stop').hidden=true;badge();}
  async function refreshClips(){if(!session||!claim)return;try{const r=await fetch('api/claim-media.php?action=list&session='+encodeURIComponent(session),{credentials:'same-origin'});const data=await r.json();if(!r.ok||!data.ok)throw Error(data.error||'Could not list media');
   const list=$('capture-clip-list');list.replaceChildren();const clips=(data.clips||[]).filter(c=>c.claimId===claim);
-  approvedCount=clips.length;const retake=$('capture-rerecord-saved');if(retake)retake.hidden=!approvedCount||drafts.size>0;
+  savedVideos=clips.filter(c=>c.kind==='video');approvedCount=clips.length;const retake=$('capture-rerecord-saved');if(retake)retake.hidden=!approvedCount||drafts.size>0;
   window.dispatchEvent(new CustomEvent('lucky:proof-review',{detail:{session,claim,reviewCount:drafts.size,approvedCount}}));
   const title=document.createElement('strong');title.textContent=`${clips.length} captured clip${clips.length===1?'':'s'} for this prize`;list.append(title);
   for(const clip of clips){const row=document.createElement('div');row.className='claim-captured';row.textContent=`✓ ${clip.title} (${clip.kind})${clip.sourceLabel?' · '+clip.sourceLabel:''}`;list.append(row);}
  }catch(e){status(e.message,true);}}
- function show(s,c,n,angles=[]){clearDrafts();approvedCount=0;closing=false;session=s||'';claim=c||'';prize=n||'Prize';proofProfile=Array.isArray(angles)?angles:[];drawProofPlan();$('capture-prize-label').textContent=prize;$('capture-open-editor').href='editor.php?session='+encodeURIComponent(session);
-  $('capture-consent').checked=false;status(session&&claim?'Live preview ready. Recording requires consent.':'Choose a prize first.');refreshClips();
+ function show(s,c,n,angles=[]){clearDrafts();savedPreview=null;replacementId=null;savedVideos=[];capturePhase='live';approvedCount=0;closing=false;session=s||'';claim=c||'';prize=n||'Prize';proofProfile=Array.isArray(angles)?angles:[];drawProofPlan();$('capture-prize-label').textContent=prize;$('capture-open-editor').href='editor.php?session='+encodeURIComponent(session);
+  $('capture-consent').checked=false;consentChanged();status(session&&claim?'Live preview ready. Recording requires consent.':'Choose a prize first.');refreshClips();
   // The claim page is the one camera station. Start live previews immediately after the
   // verified claim loads, including games initiated on a paired phone (no browser-local
   // Start Game flag). getUserMedia may show the browser's permission prompt; consent to
@@ -242,7 +258,7 @@
  }
  function setup(){const dialog=$('win-dialog');if(!dialog)return;
   $('camera-enable').onclick=()=>refresh(true).catch(e=>status(e.message,true));$('camera-refresh').onclick=()=>refresh().catch(e=>status(e.message,true));
-  $('camera-off').onclick=()=>stopAll().catch(e=>status(e.message,true));$('capture-photo').onclick=photos;$('capture-video').onclick=()=>record();const retake=$('capture-rerecord-saved');if(retake)retake.onclick=()=>record();
+  $('camera-off').onclick=()=>stopAll().catch(e=>status(e.message,true));$('capture-photo').onclick=photos;$('capture-video').onclick=()=>record();const retake=$('capture-rerecord-saved');if(retake)retake.onclick=()=>rerecordSaved().catch(e=>status(e.message,true));const consent=$('capture-consent');if(consent)consent.onchange=consentChanged;
   $('capture-audio').onclick=captureAudio;$('proof-rotate').onclick=captureRotation;$('capture-stop').onclick=stopRecording;
   const mediaFile=$('capture-file');if(mediaFile)mediaFile.onchange=async e=>{try{permitted();for(const file of [...e.target.files]){
     const kind=file.type.startsWith('image/')?'photo':file.type.startsWith('video/')?'video':file.type.startsWith('audio/')?'audio':null;
@@ -253,5 +269,5 @@
   navigator.mediaDevices?.addEventListener?.('devicechange',()=>{if((dialog.open||dialog.dataset.inlineCapture==='true')&&!recordings.size&&!sequencePromise)refresh().catch(()=>{});});
  }
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',setup);else setup();
- window.LuckyCapture={show,prime,phoneAction,reviewCount:()=>drafts.size,approvedCount:()=>approvedCount,hasClaim:()=>!!claim&&!closing,release:stopAll,isBusy:()=>!!sequencePromise||recordings.size>0||!!audioRecorder||uploading>0};
+ window.LuckyCapture={show,prime,phoneAction,reviewCount:()=>drafts.size,approvedCount:()=>approvedCount,phase:()=>capturePhase,consent:()=>!!$('capture-consent')?.checked,hasClaim:()=>!!claim&&!closing,release:stopAll,isBusy:()=>!!sequencePromise||recordings.size>0||!!audioRecorder||uploading>0};
 })();

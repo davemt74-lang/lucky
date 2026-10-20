@@ -72,15 +72,25 @@ try {
    $proof=null;
    if($status==='paired'){
     if(!SchemaGuard::missing($db,['controller_proof_state'])){
-    $q=$db->prepare("SELECT s.session_id,s.claim_id,s.is_open,s.review_count FROM controller_proof_state s WHERE s.host_admin_id=? AND s.is_open=1 AND s.updated_at>UTC_TIMESTAMP()-INTERVAL 12 SECOND ORDER BY s.updated_at DESC LIMIT 1");
-    $current=ControllerGame::snapshot($db);$q->execute([(int)$p['host_admin_id']]);$proof=$q->fetch()?:null;
+    $current=ControllerGame::snapshot($db);$legacyProof=false;
+    try{
+     $q=$db->prepare("SELECT s.session_id,s.claim_id,s.is_open,s.review_count,s.consent_ack,s.capture_phase FROM controller_proof_state s WHERE s.host_admin_id=? AND s.is_open=1 AND s.updated_at>UTC_TIMESTAMP()-INTERVAL 12 SECOND ORDER BY s.updated_at DESC LIMIT 1");
+     $q->execute([(int)$p['host_admin_id']]);$proof=$q->fetch()?:null;
+    }catch(PDOException $e){
+     if($e->getCode()!=='42S22')throw $e;
+     // Old installed schema: keep pairing status healthy until upgrade.php runs.
+     $legacyProof=true;
+     $q=$db->prepare("SELECT s.session_id,s.claim_id,s.is_open,s.review_count FROM controller_proof_state s WHERE s.host_admin_id=? AND s.is_open=1 AND s.updated_at>UTC_TIMESTAMP()-INTERVAL 12 SECOND ORDER BY s.updated_at DESC LIMIT 1");
+     $q->execute([(int)$p['host_admin_id']]);$proof=$q->fetch()?:null;
+    }
+    if($legacyProof&&$proof){$proof['capture_phase']='upgrade';$proof['consent_ack']=0;}
     if($proof && !SchemaGuard::missing($db,['claim_media'])){
      $media=$db->prepare('SELECT COUNT(*) FROM claim_media WHERE claim_id=? AND session_id=?');
      $media->execute([$proof['claim_id'],$proof['session_id']]);$proof['saved_count']=(int)$media->fetchColumn();
     }
     }
    }
-   success(['status'=>$status,'deviceName'=>$p['device_name'],'expiresAt'=>$p['paired_expires_at'],'game'=>$status==='paired'?($current??ControllerGame::snapshot($db)):null,'proof'=>$proof?['active'=>true,'claimId'=>$proof['claim_id'],'reviewCount'=>(int)$proof['review_count'],'savedCount'=>(int)($proof['saved_count']??0)]:['active'=>false],'delivery'=>$delivery,'reason'=>$reason??null]);
+   success(['status'=>$status,'deviceName'=>$p['device_name'],'expiresAt'=>$p['paired_expires_at'],'game'=>$status==='paired'?($current??ControllerGame::snapshot($db)):null,'proof'=>$proof?['active'=>true,'claimId'=>$proof['claim_id'],'reviewCount'=>(int)$proof['review_count'],'consent'=>(bool)($proof['consent_ack']??false),'phase'=>(string)($proof['capture_phase']??'live'),'savedCount'=>(int)($proof['saved_count']??0)]:['active'=>false],'delivery'=>$delivery,'reason'=>$reason??null]);
   }
   if($action==='disconnect'){
    $db->beginTransaction();try{
@@ -161,12 +171,13 @@ try {
  requireAdmin();assertCsrf();$adminId=(int)$_SESSION['admin_id'];
  if($action==='proof_state'){
   SchemaGuard::require($db,['controller_proof_state'],'Live prize proof controls');
-  $session=(string)($in['session']??'');$claim=(string)($in['claim']??'');$open=($in['open']??false)===true;$reviewCount=max(0,min(4,(int)($in['reviewCount']??0))); 
+  if(!$db->query("SHOW COLUMNS FROM controller_proof_state LIKE 'consent_ack'")->fetch())throw new DomainException('Run upgrade.php to activate V5Q.15F phone recording consent.',409);
+  $session=(string)($in['session']??'');$claim=(string)($in['claim']??'');$open=($in['open']??false)===true;$reviewCount=max(0,min(4,(int)($in['reviewCount']??0)));$consent=$open&&($in['consent']??false)===true;$phase=$open?(string)($in['phase']??'live'):'live';if(!in_array($phase,['live','recording','processing','review','saving','saved'],true))throw new DomainException('Invalid recording phase.',422); 
   ControllerPairing::checkId($session);
   sessionRow($db,$session);
   if($open){ControllerPairing::checkId($claim);$q=$db->prepare('SELECT id FROM game_claims WHERE id=? AND session_id=?');$q->execute([$claim,$session]);if(!$q->fetch())throw new DomainException('Claim does not belong to this session.',403);}
-  $q=$db->prepare('INSERT INTO controller_proof_state(session_id,host_admin_id,claim_id,is_open,review_count,updated_at) VALUES (?,?,?,?,?,UTC_TIMESTAMP()) ON DUPLICATE KEY UPDATE host_admin_id=VALUES(host_admin_id),claim_id=VALUES(claim_id),is_open=VALUES(is_open),review_count=VALUES(review_count),updated_at=UTC_TIMESTAMP()');
-  $q->execute([$session,$adminId,$open?$claim:null,$open?1:0,$open?$reviewCount:0]);success(['active'=>$open]);
+  $q=$db->prepare('INSERT INTO controller_proof_state(session_id,host_admin_id,claim_id,is_open,review_count,consent_ack,capture_phase,updated_at) VALUES (?,?,?,?,?,?,?,UTC_TIMESTAMP()) ON DUPLICATE KEY UPDATE host_admin_id=VALUES(host_admin_id),claim_id=VALUES(claim_id),is_open=VALUES(is_open),review_count=VALUES(review_count),consent_ack=VALUES(consent_ack),capture_phase=VALUES(capture_phase),updated_at=UTC_TIMESTAMP()');
+  $q->execute([$session,$adminId,$open?$claim:null,$open?1:0,$open?$reviewCount:0,$consent?1:0,$phase]);success(['active'=>$open]);
  }
  if($action==='invite'){
   $db->beginTransaction();try{

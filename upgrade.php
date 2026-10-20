@@ -32,8 +32,12 @@ if(($_SERVER['REQUEST_METHOD']??'')==='POST'){
     $db->exec("ALTER TABLE claim_media ADD COLUMN angle_label VARCHAR(80) NOT NULL DEFAULT '' AFTER source_label");
   if(!$db->query("SHOW COLUMNS FROM claim_media LIKE 'angle_index'")->fetch())
     $db->exec("ALTER TABLE claim_media ADD COLUMN angle_index TINYINT UNSIGNED NOT NULL DEFAULT 0 AFTER angle_label");
+  if(!$db->query("SHOW COLUMNS FROM controller_proof_state LIKE 'consent_ack'")->fetch())
+    $db->exec("ALTER TABLE controller_proof_state ADD COLUMN consent_ack TINYINT(1) NOT NULL DEFAULT 0 AFTER review_count");
+  if(!$db->query("SHOW COLUMNS FROM controller_proof_state LIKE 'capture_phase'")->fetch())
+    $db->exec("ALTER TABLE controller_proof_state ADD COLUMN capture_phase VARCHAR(12) NOT NULL DEFAULT 'live' AFTER consent_ack");
   audit($db,'platform.upgrade-v5q3');
-  $message='Database upgrade complete, including V5Q.15B prize acceptance and phone controller tables. Refresh the phone controller.';
+  $message='Database upgrade complete, including V5Q.15F phone proof consent and recording state. Refresh the phone controller.';
  }catch(Throwable $e){$failed=true;$message='Upgrade did not complete: '.$e->getMessage();error_log('Lucky migration: '.$e->getMessage());}
 }
 shellStart('Upgrade Platform');
