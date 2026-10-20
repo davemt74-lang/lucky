@@ -220,6 +220,28 @@
      await new Promise((resolve,reject)=>{el.onloadedmetadata=resolve;el.onerror=()=>reject(Error('Cannot read recording'));el.src=c.src;});
      const start=(c.trimStartMs||0)/1000,end=c.trimEndMs?c.trimEndMs/1000:(Number.isFinite(el.duration)?el.duration:Infinity);
      if(start)el.currentTime=start;
+     const mode=c.audioMode||'normal';
+     el.muted=mode!=='normal';
+     const tracks=[];
+     if(mode==='detached'&&c.kind==='video')
+      tracks.push({src:c.src,offset:Number(c.detachedOffsetMs||0)/1000,startAt:start});
+     if(c.voiceoverId&&!c.voiceoverMuted)
+      tracks.push({src:'api/claim-media.php?action=stream&id='+encodeURIComponent(c.voiceoverId),
+       offset:Number(c.voiceoverOffsetMs||0)/1000,startAt:0});
+     for(const track of tracks){
+      const audio=new Audio(track.src);audio.preload='auto';overlayPlayers.push(audio);
+      const sync=()=>{
+       const elapsed=Math.max(0,el.currentTime-start)-track.offset;
+       if(elapsed<0||el.paused||el.ended){audio.pause();return;}
+       const desired=track.startAt+elapsed;
+       if(audio.readyState>0&&Math.abs((audio.currentTime||0)-desired)>0.3){
+        try{audio.currentTime=desired;}catch(_){}
+       }
+       if(audio.paused)audio.play().catch(()=>{});
+      };
+      el.addEventListener('timeupdate',sync);el.addEventListener('playing',sync);
+      el.addEventListener('pause',()=>audio.pause());
+     }
      await el.play().catch(()=>{inform('Select Play in the video player to allow audio.',true);});
      await new Promise(resolve=>{const tick=()=>{if(token!==playToken||el.ended||el.currentTime>=end){el.pause();resolve();return;}previewTimer=setTimeout(tick,150);};tick();});previewMedia=null;
     }
@@ -364,6 +386,12 @@
   $('editor-inspector-backdrop').onclick=()=>setInspector(false);
   $('editor-audio-mode').onchange=()=>{if(chosen){$('editor-detached-offset').disabled=$('editor-audio-mode').value!=='detached';}};
   $('editor-record-audio').onclick=()=>{if(chosen)openAudioRecorder(chosen);};
+  $('editor-audio-start').onclick=startAudioRecording;
+  $('editor-audio-stop').onclick=()=>{if(recorder?.state==='recording')recorder.stop();};
+  $('editor-audio-save').onclick=saveRecordedAudio;
+  $('editor-audio-discard').onclick=()=>{disposeRecordedAudio();$('editor-audio-dialog').close();};
+  $('editor-audio-close').onclick=()=>{disposeRecordedAudio();$('editor-audio-dialog').close();};
+  $('editor-audio-dialog').addEventListener('cancel',()=>disposeRecordedAudio());
   document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeContextMenu();if(inspectorOpen)setInspector(false);}});
   document.addEventListener('pointerdown',e=>{if(!e.target.closest('#clip-context-menu')&&!e.target.closest('.editor-clip-more'))closeContextMenu();});
   const exportDialog=$('render-dialog');
