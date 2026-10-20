@@ -49,7 +49,7 @@ async def run():
   ck('timeline editor has no duplicate live-camera panel',await pg.locator('.studio-camera-panel').count()==0)
   ck('main video monitor remains available',await pg.locator('#editor-preview').is_visible())
   ck('original edit clips remain intact',await pg.locator('.editor-clip').count()==2)
-  ck('render/export moved to header button',await pg.locator('#open-render-dialog').is_visible())
+  ck('render/export moved into timeline header button',await pg.locator('.studio-sequence-head #open-render-dialog').is_visible())
   await pg.locator('#open-render-dialog').click()
   ck('render/export settings shown in modal',await pg.locator('#render-dialog').is_visible() and await pg.locator('#render-queue').is_visible())
   await pg.locator('#close-render-dialog').click()

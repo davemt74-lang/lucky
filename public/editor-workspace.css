@@ -225,3 +225,77 @@ body.editor-workspace #editor-audio-status{color:#bdcce0;font-size:13px;line-hei
  body.editor-workspace .studio-inspector{width:min(375px,100vw)}
 }
 @media(prefers-reduced-motion:reduce){body.editor-workspace .studio-inspector{transition:none}}
+
+/* V5Q.15J — monitor-first workspace and compact timeline toolbar. */
+body.editor-workspace .media-editor-studio{grid-template-rows:54px minmax(0,1fr) minmax(182px,31vh);gap:8px}
+body.editor-workspace .studio-body{grid-template-columns:minmax(345px,29%) minmax(0,1fr)}
+body.editor-workspace .studio-monitor-panel{min-height:0}
+body.editor-workspace .media-preview.studio-monitor{box-sizing:border-box;height:auto;min-height:0;max-height:calc(100% - 16px);width:calc(100% - 16px);margin:8px;flex:1 1 0}
+body.editor-workspace .studio-sequence-head{min-height:48px;padding:5px 12px}
+body.editor-workspace .studio-sequence-left,body.editor-workspace .studio-sequence-right{display:flex;align-items:center;gap:9px;min-width:0}
+body.editor-workspace .studio-sequence-left strong{margin-left:10px;white-space:nowrap}
+body.editor-workspace .studio-sequence-right{margin-left:auto}
+body.editor-workspace #editor-fullscreen{width:32px;padding:7px;font-size:15px}
+body.editor-workspace .studio-feedback-overlay{position:fixed;left:12px;bottom:10px;right:auto;width:auto;max-width:65%;z-index:150;pointer-events:none;margin:0;min-height:0;background:#142f40ec;border:1px solid #2f586c;border-radius:8px;padding:8px 13px;color:#a9f7ee;font-size:11px;box-shadow:0 5px 22px #0008}
+body.editor-workspace .studio-feedback-overlay:empty{display:none}
+body.editor-workspace .sr-only{position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden}
+body.editor-workspace .studio-bin{display:flex;min-width:0}
+body.editor-workspace .studio-bin .studio-panel-head{flex-shrink:0}
+body.editor-workspace .studio-bin-list{display:grid;flex:1 1 auto;overflow-y:auto;min-height:90px;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));grid-auto-rows:max-content;align-items:start;gap:9px;padding:10px}
+body.editor-workspace .studio-media-item{display:flex;flex-direction:column;align-items:stretch;gap:6px;padding:6px;position:relative;min-width:0;border-radius:9px;overflow:hidden}
+body.editor-workspace .studio-media-preview{display:grid;place-items:center;width:100%;aspect-ratio:16/9;object-fit:cover;border:0;border-radius:5px;background:#020610;color:#dfc186;font-size:32px;pointer-events:none}
+body.editor-workspace .studio-media-item .studio-media-info{margin-right:26px;min-height:28px}
+body.editor-workspace .studio-media-item .studio-media-info strong{font-size:11px}
+body.editor-workspace .studio-media-item .studio-media-info small{font-size:9px}
+body.editor-workspace .studio-media-item .studio-media-add{position:absolute;right:7px;bottom:7px;grid-column:auto;width:27px;height:27px;display:grid;place-items:center;padding:0;background:#edbe72;border-color:#ffdd9c;color:#1b2638;border-radius:8px;font-size:19px;font-weight:800}
+body.editor-workspace .studio-media-item .studio-media-add:hover{background:#ffdb99}
+body.editor-workspace .studio-tool-library{border-top:1px solid #314660;background:#101d31;min-height:0;max-height:min(42%,300px);overflow:auto;padding:0 9px 9px;flex:0 0 auto}
+body.editor-workspace .studio-tool-heading{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:11px 0;font-size:12px;font-weight:800}
+body.editor-workspace .studio-tool-heading small{font-size:10px;font-weight:500;color:#a8b9d1}
+body.editor-workspace .studio-tool-section{border:1px solid #354965;border-radius:9px;margin-bottom:6px;overflow:hidden;background:#17283f}
+body.editor-workspace .studio-tool-section summary{cursor:pointer;padding:10px 12px;font-size:11px;font-weight:750;list-style-position:inside;color:#f2d297}
+body.editor-workspace .studio-tool-inner{padding:9px 11px 11px;display:grid;gap:8px}
+body.editor-workspace .studio-tool-inner label{display:grid;gap:5px;font-size:11px;color:#c9d4e6}
+body.editor-workspace .studio-tool-inner select,body.editor-workspace .studio-tool-inner input{box-sizing:border-box;width:100%;min-width:0;padding:8px;border:1px solid #4c6688;background:#09192e;color:#fff;border-radius:6px;font-size:11px}
+body.editor-workspace .studio-tool-inner button{white-space:normal;line-height:1.3}
+body.editor-workspace .studio-overlay-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+body.editor-workspace .studio-tool-hint{margin:0;color:#9aaec7;font-size:10px;line-height:1.4}
+body.editor-workspace .studio-monitor-caption{position:absolute;max-width:88%;box-sizing:border-box;left:50%;transform:translateX(-50%);padding:7px 15px;border-radius:7px;color:white;background:#0009;text-align:center;font-size:clamp(17px,2.2vw,32px);font-weight:800;line-height:1.3;overflow-wrap:anywhere;white-space:pre-wrap;text-shadow:0 1px 3px #000;pointer-events:none;z-index:2}
+body.editor-workspace .studio-monitor-caption[data-position="top"]{top:9%}
+body.editor-workspace .studio-monitor-caption[data-position="center"]{top:50%;transform:translate(-50%,-50%)}
+body.editor-workspace .studio-monitor-caption[data-position="bottom"]{bottom:9%}
+body.editor-workspace .studio-monitor-caption[data-size="small"]{font-size:clamp(13px,1.5vw,22px)}
+body.editor-workspace .studio-monitor-caption[data-size="large"]{font-size:clamp(22px,3.2vw,44px)}
+body.editor-workspace .studio-monitor{position:relative;isolation:isolate}
+@media(max-width:1150px){
+ body.editor-workspace .studio-body{grid-template-columns:minmax(280px,34%) minmax(0,1fr)}
+ body.editor-workspace .studio-bin-list{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
+}
+@media(max-width:700px){
+ body.editor-workspace .studio-body{display:flex;flex-direction:column}
+ body.editor-workspace .studio-bin{max-height:240px;min-height:160px}
+ body.editor-workspace .studio-monitor-panel{min-height:310px}
+ body.editor-workspace .media-editor-studio{grid-template-rows:none;overflow:auto;height:100dvh}
+ body.editor-workspace .studio-sequence-left strong,body.editor-workspace .studio-sequence-left small{display:none}
+ body.editor-workspace .studio-sequence-right{gap:5px}
+ body.editor-workspace .studio-sequence-head{padding:6px;flex-wrap:wrap}
+ body.editor-workspace .studio-tool-library{max-height:110px}
+}
+
+/* Prevent contained media elements from painting or receiving clicks over the timeline. */
+body.editor-workspace .studio-body{position:relative;z-index:auto;overflow:hidden;min-height:0}
+body.editor-workspace .studio-monitor-panel{height:100%;max-height:100%;min-height:0;overflow:hidden;isolation:isolate}
+body.editor-workspace .studio-monitor{overflow:hidden}
+body.editor-workspace .studio-sequence{position:relative;z-index:2;overflow:hidden}
+body.editor-workspace .studio-sequence-head{position:relative;z-index:3}
+@media(max-width:700px){
+ body.editor-workspace .studio-body{height:auto;max-height:none;overflow:visible}
+ body.editor-workspace .studio-monitor-panel{height:310px;min-height:310px;max-height:310px}
+}
+
+/* Inspector is fixed and must sit above its sibling backdrop, not inside a
+   low-priority stacking context created by the workspace body. */
+body.editor-workspace .studio-inspector.is-open{z-index:151}
+body.editor-workspace .studio-inspector-backdrop:not([hidden]){z-index:140}
+body.editor-workspace .studio-clip-menu:not([hidden]){z-index:170}
+body.editor-workspace .studio-audio-dialog{z-index:180}

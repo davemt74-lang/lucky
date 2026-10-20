@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__.'/MontageVisuals.php';
 /** Validated, deterministic edit decisions used by both the UI and the renderer. */
 final class MontagePlan {
  public const MAX_RENDER_CLIPS=80;
@@ -35,6 +36,7 @@ final class MontagePlan {
    $voice=(string)($clip['voiceover_id']??$clip['voiceoverId']??'');
    if($voice!==''&&(!preg_match('/^[a-f0-9]{32}$/D',$voice)||($clip['kind']??'')==='audio'))
     throw new DomainException('Invalid voiceover reference.',422);
+   MontageVisuals::validate((string)($clip['look_preset']??$clip['lookPreset']??'none'),(string)($clip['overlay_text']??$clip['overlayText']??''),(string)($clip['overlay_position']??$clip['overlayPosition']??'bottom'),(string)($clip['overlay_size']??$clip['overlaySize']??'medium'));
    $duration=self::ms($clip);
    if($clip['kind']==='photo'&&($duration<1000||$duration>20000))throw new DomainException('Photo duration out of range.',422);
    if($duration>120000)throw new DomainException('Individual clips are limited to 120 seconds for rendered videos.',422);
@@ -95,6 +97,9 @@ final class MontagePlan {
    $item['voiceover_id']=$voiceId;
    $item['voiceover_offset_ms']=(int)$voiceOffset;
    $item['voiceover_muted']=($edit['voiceoverMuted']??false)===true;
+   $look=(string)($edit['lookPreset']??'none');$overlay=(string)($edit['overlayText']??'');$position=(string)($edit['overlayPosition']??'bottom');$size=(string)($edit['overlaySize']??'medium');
+   MontageVisuals::validate($look,$overlay,$position,$size);
+   $item['look_preset']=$look;$item['overlay_text']=$overlay;$item['overlay_position']=$position;$item['overlay_size']=$size;
    $item['transition']=$transition;
    $item['trim_start_ms']=$start;$item['trim_end_ms']=$end;$item['photo_duration_ms']=(int)$photo;$item['title']=$name;
    $out[]=$item;
