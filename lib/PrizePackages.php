@@ -88,16 +88,21 @@ final class PrizePackages {
    throw new DomainException('This prize package is not available for selection.',403);
   $q=$db->prepare('UPDATE prize_package_selection SET package_id=? WHERE game_id=?');$q->execute([$id,'spin-wheel']);
  }
- public static function create(PDO $db,string $name):array {
+ public static function create(PDO $db,string $name,?string $cloneFrom=null):array {
   self::requireReady($db);self::lockGame($db);
   $name=self::label($name);
   $count=(int)$db->query("SELECT COUNT(*) FROM prize_packages WHERE game_id='spin-wheel'")->fetchColumn();
   if($count>=16)throw new DomainException('Maximum 16 prize packages.',422);
-  $cfg=self::currentConfig($db);
+  $source=$cloneFrom??self::chosen($db);
+  self::id($source);
+  $q=$db->prepare("SELECT config_json FROM prize_packages WHERE game_id='spin-wheel' AND id=?");
+  $q->execute([$source]);$raw=$q->fetchColumn();
+  if($raw===false)throw new DomainException('Package to duplicate is unavailable.',404);
+  $config=GameEngine::validateConfig(json_decode($raw,true,512,JSON_THROW_ON_ERROR));
   $id=bin2hex(random_bytes(16));
   $q=$db->prepare("INSERT INTO prize_packages (id,game_id,name,config_json,enabled,player_selectable,sort_order) VALUES (?,'spin-wheel',?,?,1,1,?)");
-  $q->execute([$id,$name,json_encode($cfg['config'],JSON_THROW_ON_ERROR),$count]);
-  return ['id'=>$id,'name'=>$name,'enabled'=>true,'playerSelectable'=>true,'version'=>1,'config'=>$cfg['config']];
+  $q->execute([$id,$name,json_encode($config,JSON_THROW_ON_ERROR),$count]);
+  return ['id'=>$id,'name'=>$name,'enabled'=>true,'playerSelectable'=>true,'version'=>1,'config'=>$config];
  }
  public static function save(PDO $db,string $id,int $version,string $name,array $cfg,bool $enabled,bool $player):array {
   self::requireReady($db);self::lockGame($db);self::id($id);$name=self::label($name);
