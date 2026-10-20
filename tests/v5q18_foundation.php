@@ -3,6 +3,7 @@ declare(strict_types=1);
 define('LUCKY_TESTING',true);
 require_once __DIR__.'/../lib/GameFoundation.php';
 require_once __DIR__.'/../lib/GameSessionLifecycle.php';
+require_once __DIR__.'/../lib/DeploymentMode.php';
 function yes(bool $ok,string $message):void {if(!$ok)throw new RuntimeException('FAIL '.$message);echo "PASS ".$message."\n";}
 final class ExampleGameTwo implements GameModule {
  public function id():string{return 'game-2';}
@@ -47,4 +48,10 @@ yes(str_contains($api,"$"."s['game']==='spin-wheel'&&$"."verb==='spin'"),'wheel-
 yes(str_contains($api,'GameFoundation::checkSession'),'shared API validates newly created session');
 yes(str_contains($bootstrap,'INSERT IGNORE INTO game_settings')&&str_contains($bootstrap,'FOR UPDATE'),'settings can initialize from registered module without migration');
 yes(!str_contains(file_get_contents(__DIR__.'/../admin.php'),'PLATFORM CONTROL CENTER'),'duplicate Admin Studio headline is absent');
+$local=['deployment'=>'homeserver','db_host'=>'127.0.0.1','db_port'=>3306];
+DeploymentMode::assertDatabaseLocation($local);yes(true,'HomeServer accepts loopback database');
+try{DeploymentMode::assertDatabaseLocation(['deployment'=>'homeserver','db_host'=>'cloud.example','db_port'=>3306]);throw new RuntimeException('Remote DB accepted');}
+catch(RuntimeException $e){yes(str_contains($e->getMessage(),'locally'),'HomeServer rejects remote database hosts');}
+DeploymentMode::assertDatabaseLocation(['db_host'=>'database','db_port'=>3306]);
+yes(true,'Existing cloud deployment remains backward compatible');
 echo "V5Q.18 game foundation contract passed\n";
