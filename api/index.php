@@ -64,7 +64,7 @@ try {
    requireAdmin();success(['games'=>GameCatalog::all()]);
   }
   if($action==='game_packages'){
-   requireAdmin();success(['packages'=>GamePackageInstaller::listing(),'active'=>GamePackageActivation::all()]);
+   requireAdmin();$state=GamePackageActivation::inspect();success(['packages'=>GamePackageInstaller::listing(),'active'=>$state['active'],'issues'=>$state['issues']]);
   }
   if($action==='game_update_connection'){
    requireAdmin();success(['connection'=>CloudGameUpdates::summary()]);
