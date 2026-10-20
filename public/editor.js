@@ -640,7 +640,7 @@ function renderBin(){const bin=$('editor-media-bin');if(!bin)return;bin.replaceC
  }
  async function queue(){if(!session||!clips.length)return inform('Add at least one clip before exporting.',true);
   const b=$('render-queue');b.disabled=true;
-  try{if(dirty)await save();const r=await api('queue',{edits:clips.map(fields),layers,profile:$('render-profile').value,soundtrackId:layers.background?.trackId||'',musicVolume:layers.background?.volume||0},true);
+  try{if(dirty&&!(await save()))return;const r=await api('queue',{edits:clips.map(fields),layers,profile:$('render-profile').value,soundtrackId:layers.background?.trackId||'',musicVolume:layers.background?.volume||0},true);
    inform(`Video queued (${r.metrics.clipCount} clips). Run the server's PHP CLI renderer to process it.`);await loadRenders();}
   catch(e){inform(e.message,true);}finally{b.disabled=false;}
  }
