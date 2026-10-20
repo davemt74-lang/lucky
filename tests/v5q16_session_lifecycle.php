@@ -2,6 +2,7 @@
 declare(strict_types=1);
 define('LUCKY_TESTING',true);
 require_once __DIR__.'/../lib/GameSessionLifecycle.php';
+require_once __DIR__.'/../lib/GameEngine.php';
 function check(bool $ok,string $name):void {if(!$ok)throw new RuntimeException($name);echo "PASS $name\n";}
 $config=GameEngine::defaults();$module=GameRegistry::module('spin-wheel');
 $s=$module->createSession($config,str_repeat('a',32));
