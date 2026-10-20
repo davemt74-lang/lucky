@@ -34,7 +34,7 @@ async def main():
    await page.set_content(html,wait_until='domcontentloaded');await page.wait_for_timeout(260)
    check(f'{width}px editor loads source footage',await page.locator('.editor-clip').count()==2)
    check(f'{width}px render modal initially closed',await page.locator('#render-dialog').is_hidden())
-   check(f'{width}px render/export button visible in header',await page.locator('#open-render-dialog').is_visible())
+   check(f'{width}px render/export is in timeline header',await page.locator('.studio-sequence-head #open-render-dialog').is_visible() and await page.locator('.studio-topbar #open-render-dialog').count()==0)
    check(f'{width}px old camera capture panel removed',await page.locator('.studio-camera-panel').count()==0)
    await page.locator('#open-render-dialog').click()
    check(f'{width}px render queue controls in open modal',await page.locator('#render-queue').is_visible())
