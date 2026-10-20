@@ -33,6 +33,7 @@ jobs:
           php tests/v5q22e_game_packages.php
           php tests/v5q22f_cloud_download.php
           php tests/v5q22g_activation.php
+          php tests/v5q22h_phone_bridge.php
           php tests/v5q16_session_lifecycle.php
           php tests/v5q18_foundation.php
           php tests/spin_reveal.php
