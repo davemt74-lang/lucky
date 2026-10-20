@@ -9,8 +9,12 @@ final class GameRegistry {
  public static function module(string $id):GameModule {$m=self::modules()[$id]??null;if(!$m)throw new DomainException('This game is not ready.',404);return $m;}
  /** The explicit controller declaration belongs to each game, not to the platform. */
  public static function controller(string $gameId):?array {
-  $module=self::module($gameId);
+  return self::controllerFor(self::module($gameId));
+ }
+ /** Resolve the contract independently so games without phones are testable. */
+ public static function controllerFor(GameModule $module):?array {
   if(!$module instanceof PhoneControllerProvider)return null;
+  $gameId=$module->id();
   $spec=$module->phoneController();
   if(!is_array($spec) || ($spec['game']??null)!==$gameId
     || !in_array($spec['mode']??null,['custom'],true)
