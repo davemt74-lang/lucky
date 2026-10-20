@@ -3,6 +3,7 @@
  'use strict';const $=id=>document.getElementById(id),L=window.Lucky;
  let source=[],clips=[],chosen=null,session='',playToken=0,previewMedia=null,previewTimer=0,dirty=false,mediaFilter='all',cameraSession='',cameraClaim='';
  let inspectorOpen=false,clipMenuFor=null,recorder=null,recordStream=null,recordBlob=null,recordUrl='',recordTarget=null,overlayPlayers=[];
+ let layers={titles:[],background:null},selectedTitle='',availableSongs=[];
  const inform=(s,bad=false)=>{const n=$('editor-feedback');n.textContent=s;n.classList.toggle('platform-error',bad);};
  const secs=ms=>(Number(ms||0)/1000).toFixed(1),ms=s=>Math.round(Number(s||0)*1000);
  const fresh=()=>window.crypto?.randomUUID?.()||('seg-'+Math.random().toString(36).slice(2));
@@ -209,7 +210,7 @@
  }
 
  function reorder(from,to){if(from===to||from<0||to<0||from>=clips.length||to>=clips.length)return;const [part]=clips.splice(from,1);clips.splice(to,0,part);dirty=true;render();}
- function render(){const root=$('editor-timeline');root.replaceChildren();$('editor-count').textContent=`${clips.length} segments`;renderRuler();
+ function render(){const root=$('editor-timeline');root.replaceChildren();$('editor-count').textContent=`${clips.length} segments`;renderRuler();renderLayerLanes();
   if(!clips.length){root.textContent='Timeline empty. Add clips from the media bin.';select(null);return;}
   clips.forEach((c,i)=>{
    const row=document.createElement('article');row.className='editor-clip'+(c.audioMode==='muted'?' is-muted':'')+(c.audioMode==='detached'?' is-detached':'');row.dataset.instanceId=c.instanceId;row.dataset.kind=c.kind;row.style.width=visualWidth(c)+'px';row.draggable=false;
@@ -243,7 +244,7 @@
   });select(chosen?.instanceId||clips[0].instanceId);
  }
  async function load(){stop();setInspector(false);window.LuckyCapture?.release();cameraClaim='';cameraSession='';if(!session){source=[];clips=[];renderBin();render();await updateCaptureClaims();return;}
-  try {const [a,b]=await Promise.all([media('list'),api('project')]);source=a.clips||[];renderBin();const map=new Map(source.map(c=>[c.id,c]));
+  try {const [a,b]=await Promise.all([media('list'),api('project')]);source=a.clips||[];renderBin();layers=b.layers&&Array.isArray(b.layers.titles)?b.layers:{titles:[],background:null};selectedTitle='';const map=new Map(source.map(c=>[c.id,c]));
    const existing=b.project;clips=Array.isArray(existing)?existing.filter(c=>map.has(c.id)).map(c=>({...map.get(c.id),...c})):source.map(cloneSource);
    dirty=false;render();inform(`${clips.length} segments ready. Changes affect only this montage, not original recordings.`);await loadRenders();await updateCaptureClaims();
   }catch(e){inform(e.message,true);}
@@ -252,7 +253,7 @@
   try{const r=await api('auto');const map=new Map(source.map(c=>[c.id,c]));clips=r.ids.map(id=>cloneSource(map.get(id))).filter(c=>c.id);dirty=true;render();inform('Suggested highlight order ready. Save or edit before rendering.');}
   catch(e){inform(e.message,true);}
  }
- async function save(){if(!session)return;try{await api('save_project',{edits:clips.map(fields)},true);dirty=false;inform('Your non-destructive timeline has been saved.');}
+ async function save(){if(!session)return;try{await api('save_project',{edits:clips.map(fields),layers},true);dirty=false;inform('Your non-destructive timeline has been saved.');}
   catch(e){inform(e.message,true);}
  }
  function updateSelected(event){event.preventDefault();if(!chosen)return;
@@ -318,12 +319,12 @@
   if(token===playToken){$('editor-caption').textContent='Montage preview complete.';inform('Preview complete. Export MP4 to create a single finished movie.');}
  }
  function exportProject(){if(!session||!clips.length)return inform('Nothing to export.',true);
-  const project={version:2,session,exportedAt:new Date().toISOString(),clips:clips.map(c=>({...fields(c),claimId:c.claimId,kind:c.kind,source:c.sourceLabel,prize:c.prize,tier:c.tier,src:c.src}))};
+  const project={version:3,session,exportedAt:new Date().toISOString(),layers,clips:clips.map(c=>({...fields(c),claimId:c.claimId,kind:c.kind,source:c.sourceLabel,prize:c.prize,tier:c.tier,src:c.src}))};
   const url=URL.createObjectURL(new Blob([JSON.stringify(project,null,2)],{type:'application/json'}));const link=document.createElement('a');link.href=url;link.download='lucky-game-'+session.slice(0,8)+'.json';document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);inform('Edit project downloaded.');
  }
  async function queue(){if(!session||!clips.length)return inform('Add at least one clip before exporting.',true);
   const b=$('render-queue');b.disabled=true;
-  try{if(dirty)await save();const r=await api('queue',{edits:clips.map(fields),profile:$('render-profile').value,soundtrackId:$('render-track').value,musicVolume:Number($('render-volume').value)},true);
+  try{if(dirty)await save();const r=await api('queue',{edits:clips.map(fields),layers,profile:$('render-profile').value,soundtrackId:layers.background?.trackId||'',musicVolume:layers.background?.volume||0},true);
    inform(`Video queued (${r.metrics.clipCount} clips). Run the server's PHP CLI renderer to process it.`);await loadRenders();}
   catch(e){inform(e.message,true);}finally{b.disabled=false;}
  }
@@ -486,7 +487,7 @@
    const requested=new URL(location.href).searchParams.get('session');session=(sessions.sessions||[]).some(x=>x.id===requested)?requested:(sessions.sessions||[])[0]?.id||'';s.value=session;
    $('editor-back-game').href='game.php?session='+encodeURIComponent(session);
    s.onchange=()=>{if(dirty&&!confirm('Discard unsaved changes?')){s.value=session;return;}session=s.value;$('editor-back-game').href='game.php?session='+encodeURIComponent(session);load();};
-   const tracks=await L.loadTracks();for(const track of tracks.filter(x=>x.kind==='upload'))$('render-track').add(new Option(track.title,track.id));
+   const tracks=await L.loadTracks();availableSongs=tracks.filter(x=>x.kind==='upload');for(const track of availableSongs){$('render-track').add(new Option(track.title,track.id));$('timeline-music-select').add(new Option(track.title,track.id));}
    await load();
   }catch(e){inform(e.message,true);}
  }
