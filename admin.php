@@ -7,8 +7,8 @@ shellStart('Admin Studio','admin','admin-studio-page');
 <aside class="admin-console-sidebar" id="admin-console-sidebar" aria-label="Admin navigation">
  <div class="admin-console-brand"><span class="mini-label">LUCKY GAMES</span><h2>Control Center</h2><p>Manage your home gaming platform.</p></div>
  <nav class="platform-admin-tabs" aria-label="Admin Studio sections">
-  <button type="button" data-tab="games" class="selected" aria-current="page"><span class="admin-nav-symbol" aria-hidden="true">▦</span> Game catalog</button>
-  <button type="button" data-tab="prizes"><span class="admin-nav-symbol" aria-hidden="true">✦</span> Prizes & budgets</button>
+  <button type="button" data-tab="games"><span class="admin-nav-symbol" aria-hidden="true">▦</span> Game catalog</button>
+  <button type="button" data-tab="prizes" class="selected" aria-current="page"><span class="admin-nav-symbol" aria-hidden="true">✦</span> Prizes & budgets</button>
   <button type="button" data-tab="intro"><span class="admin-nav-symbol" aria-hidden="true">◈</span> Intro & theme</button>
   <button type="button" data-tab="music"><span class="admin-nav-symbol" aria-hidden="true">♫</span> Music library</button>
   <button type="button" data-tab="sessions"><span class="admin-nav-symbol" aria-hidden="true">▣</span> Game sessions</button>
@@ -20,7 +20,7 @@ shellStart('Admin Studio','admin','admin-studio-page');
 <div class="admin-console-workspace">
  <div class="admin-mobile-nav"><button type="button" id="admin-nav-toggle" class="btn btn-outline" aria-expanded="false" aria-controls="admin-console-sidebar">☰ Sections</button></div>
  <div class="platform-admin-layout">
-<section id="tab-games" class="surface platform-admin-panel" aria-label="Game catalog">
+<section id="tab-games" class="surface platform-admin-panel" aria-label="Game catalog" hidden>
  <div class="card-title-row"><div><p class="mini-label">LOCAL GAME LIBRARY</p><h2>Game catalog</h2></div><button id="catalog-new-game" type="button" class="btn btn-outline">+ Create draft listing</button></div>
  <p>Manage each game's artwork, publisher credits, supported players and controller capabilities. Draft listings are not playable until a compatible game module has been installed and approved. Game metadata and uploaded art live in persistent local storage, surviving HomeServer application upgrades.</p>
  <div class="game-catalog-workspace">
@@ -53,7 +53,7 @@ shellStart('Admin Studio','admin','admin-studio-page');
  </form>
  </div>
 </section>
-<section id="tab-prizes" class="surface platform-admin-panel" hidden><div class="card-title-row"><div><p class="mini-label">GAME 1 · SERVER PRIZES</p><h2>Prize packages</h2></div><button id="save-prizes" type="button" class="btn btn-primary">Save package changes</button></div><p>Use + to add a Draft package. Save its tiers, odds and awards, then Publish it to make it eligible for the next game. Only Published and enabled packages can be selected. Games already started retain their original prizes.</p>
+<section id="tab-prizes" class="surface platform-admin-panel"><div class="card-title-row"><div><p class="mini-label">GAME 1 · SERVER PRIZES</p><h2>Prize packages</h2></div><button id="save-prizes" type="button" class="btn btn-primary">Save package changes</button></div><p>Use + to add a Draft package. Save its tiers, odds and awards, then Publish it to make it eligible for the next game. Only Published and enabled packages can be selected. Games already started retain their original prizes.</p>
 <div class="prize-package-header"><div id="prize-package-tabs" class="prize-package-tabs" role="tablist" aria-label="Prize packages"></div><button type="button" id="add-package" class="btn btn-primary prize-package-add" aria-label="Create prize package" title="New prize package">+</button></div>
 <div class="prize-package-config"><label>Package name<input id="package-name" maxlength="100" aria-label="Selected package name"></label><label class="platform-checkbox"><input id="package-enabled" type="checkbox" checked> Enabled</label><label class="platform-checkbox"><input id="package-player-choice" type="checkbox" checked> Players can select</label><span id="package-publication-status" class="package-publication-status" role="status">Published</span><button id="package-publish" type="button" class="btn btn-outline">Move to Draft</button><button id="package-activate" type="button" class="btn btn-outline">Use for next game</button><button id="package-remove" type="button" class="btn btn-outline">Delete package</button><span id="package-selection-status" class="mini-label"></span></div>
 <div class="platform-tier-tabs"><button class="btn btn-outline selected" data-tier="tier1">Tier 1</button><button class="btn btn-outline" data-tier="tier2">Tier 2</button><button class="btn btn-outline" data-tier="bonus">Bonus</button></div>
