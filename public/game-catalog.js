@@ -79,5 +79,58 @@
    await reload(id);note('Draft game listing created. Install a game module before making it playable.');
   }catch(e){note(e.message,true);}
  };
+ 
+ let connected=false;
+ const updateMessage=(message,bad=false)=>{
+  const node=$('game-update-message');node.textContent=message;node.classList.toggle('platform-error',bad);
+ };
+ async function loadUpdateConnection(){
+  const result=await api('game_update_connection');const cfg=result.connection||{};
+  connected=!!cfg.connected;
+  $('game-update-connection-status').textContent=connected?'Connected · signed updates':'Not connected · offline';
+  $('game-update-check').disabled=!connected;
+  $('game-update-disconnect').disabled=!connected;
+  $('game-update-url').value=cfg.url||'';
+  if(connected)updateMessage('Verified-key fingerprint: '+cfg.keyFingerprint.slice(0,16)+'… The signing key and access token stay private.');
+  else updateMessage('No cloud requests will be made unless you connect and click Check for updates.');
+ }
+ $('game-update-connect-form').onsubmit=async ev=>{
+  ev.preventDefault();
+  const body={url:$('game-update-url').value.trim(),
+   publicKey:$('game-update-public-key').value.trim(),
+   token:$('game-update-token').value.trim()};
+  try{
+   updateMessage('Saving trusted update connection…');
+   await api('game_update_connect',{body});
+   $('game-update-public-key').value='';$('game-update-token').value='';
+   await loadUpdateConnection();
+  }catch(e){updateMessage(e.message,true);}
+ };
+ $('game-update-disconnect').onclick=async()=>{
+  if(!connected||!confirm('Disconnect from the cloud update feed? Local games remain available.'))return;
+  try{await api('game_update_disconnect',{body:{}});$('game-update-releases').replaceChildren();await loadUpdateConnection();}
+  catch(e){updateMessage(e.message,true);}
+ };
+ $('game-update-check').onclick=async()=>{
+  const control=$('game-update-check');control.disabled=true;
+  try{
+   updateMessage('Checking publisher signature and release metadata…');
+   const {updates}=await api('game_update_check',{body:{}});
+   const list=$('game-update-releases');list.replaceChildren();
+   const heading=text('p',updates.releases.length+' verified game release(s) · No download or installation performed.');
+   list.append(heading);
+   for(const release of updates.releases){
+    const item=text('article','','game-update-release');
+    item.append(text('strong',release.game+' · v'+release.version));
+    if(release.notes)item.append(text('p',release.notes));
+    item.append(text('small','SHA-256: '+release.sha256+' · '+Math.ceil(release.bytes/1024)+' KB'));
+    list.append(item);
+   }
+   updateMessage('Publisher signature verified. The HomeServer has not installed or executed anything.');
+  }catch(e){updateMessage(e.message,true);}
+  finally{control.disabled=!connected;}
+ };
+ loadUpdateConnection().catch(e=>updateMessage('Update settings unavailable: '+e.message,true));
+
  reload().catch(e=>note('Unable to load game catalog: '+e.message,true));
 })();
