@@ -181,7 +181,7 @@ try {
   success(['id'=>$id],201);
  }
  $in=jsonInput();
- if(in_array($action,['package_create','package_save','package_select','package_delete'],true)){
+ if(in_array($action,['package_create','package_save','package_select','package_delete','package_publish'],true)){
   $db->beginTransaction();
   try{
    if($action==='package_create'){
@@ -192,6 +192,10 @@ try {
      $in['name']??'',is_array($in['config']??null)?$in['config']:[],
      ($in['enabled']??false)===true,($in['playerSelectable']??false)===true);
     audit($db,'package.saved',null,['packageId'=>$out['id'],'version'=>$out['version']]);
+   }elseif($action==='package_publish'){
+    $out=PrizePackages::publish($db,PrizePackages::id($in['id']??null),
+     (int)($in['version']??0),($in['published']??null)===true);
+    audit($db,'package.publication_changed',null,['packageId'=>$out['id'],'status'=>$out['publicationStatus'],'version'=>$out['version']]);
    }elseif($action==='package_select'){
     $id=PrizePackages::id($in['id']??null);
     PrizePackages::select($db,$id);$out=['selected'=>$id];
