@@ -19,8 +19,13 @@ window.fetch=async(url,opts={})=>{
  if(act==='settings')return new Response(JSON.stringify({ok:true,settings:cfg}));
  if(act==='history')return new Response(JSON.stringify({ok:true,history:[]}));
  if(act==='sessions')return new Response(JSON.stringify({ok:true,sessions:__sessionRows}));
- if(['save_session','resume_saved','finish_saved','end','start'].includes(act)){
+ if(['save_session','resume_saved','finish_saved','end','start','delete_session'].includes(act)){
   const input=JSON.parse(opts.body||'{}');__sessionActions.push({act,input});
+  if(act==='delete_session'){
+   const index=__sessionRows.findIndex(x=>x.id===input.id);
+   if(index>=0)__sessionRows.splice(index,1);
+   return new Response(JSON.stringify({ok:true,deleted:true,removedFiles:0,cleanupWarnings:0}));
+  }
   if(act==='start'){
    const item={id:'d'.repeat(32),game:input.game,status:'active',version:1,createdAt:'2026-10-20 02:00:00',spins:0,claims:0,awardedCents:0};
    __sessionRows.unshift(item);return new Response(JSON.stringify({ok:true,data:{view:{id:item.id}}}));
@@ -56,6 +61,7 @@ async def main():
    await page.locator('[data-tab=sessions]').click()
    ck(f'{width}: sessions view opens',await page.locator('#tab-sessions').is_visible() and await page.locator('#tab-prizes').is_hidden())
    ck(f'{width}: active/saved/finished displayed',await page.locator('.admin-session-card').count()==3)
+   ck(f'{width}: every status has a delete action',await page.locator('[data-session-action=delete_session]').count()==3)
    await page.locator('[data-session-action=save_session]').first.click()
    await page.wait_for_function("document.querySelectorAll('.admin-session-status[data-status=saved]').length===2")
    ck(f'{width}: save action uses idempotent API',await page.evaluate("__sessionActions.some(x=>x.act==='save_session'&&x.input.id.length===32&&x.input.idempotencyKey.length>=12)"))
@@ -63,7 +69,11 @@ async def main():
    await page.locator('[data-session-action=resume_saved]').first.click()
    await page.wait_for_function("document.querySelectorAll('.admin-session-status[data-status=active]').length===1")
    ck(f'{width}: resume-saved action routed through engine',await page.evaluate("__sessionActions.some(x=>x.act==='resume_saved')"))
-   ck(f'{width}: finished session has no resume action',await page.locator('.admin-session-card').last.locator('button').count()==0)
+   ck(f'{width}: finished session has no resume action',await page.locator('.admin-session-card').last.locator('[data-session-action=resume_saved]').count()==0)
+   page.once('dialog',lambda dialog: asyncio.create_task(dialog.accept('DELETE '+'c'*32)))
+   await page.locator('.admin-session-card').last.locator('[data-session-action=delete_session]').click()
+   await page.wait_for_function("document.querySelectorAll('.admin-session-card').length===2")
+   ck(f'{width}: delete includes exact confirmation and version',await page.evaluate("__sessionActions.some(x=>x.act==='delete_session'&&x.input.confirmation==='DELETE '+ 'c'.repeat(32)&&x.input.expectedVersion===4)"))
    if width<=960:
     ck('mobile admin fits viewport without horizontal overflow',await page.evaluate("document.documentElement.scrollWidth<=innerWidth+2"))
    await page.close()

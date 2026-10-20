@@ -27,3 +27,12 @@ try{
  $remove=function(string $folder)use(&$remove):void{foreach(glob($folder.'/*')?:[] as $p){if(is_dir($p)){$remove($p);@rmdir($p);}else @unlink($p);}};
  if(is_dir($root)){$remove($root);@rmdir($root);}
 }
+
+/* Run the independent pixel/audio export parity suite in its own PHP process. */
+$parity=proc_open([PHP_BINARY,__DIR__.'/v5q17_export_parity.php'],
+ [0=>['file','/dev/null','r'],1=>['pipe','w'],2=>['pipe','w']],$streams,null,null,['bypass_shell'=>true]);
+if(!is_resource($parity))throw new RuntimeException('Could not launch parity verification.');
+$log=stream_get_contents($streams[1]);fclose($streams[1]);
+$err=stream_get_contents($streams[2]);fclose($streams[2]);
+echo $log;
+if(proc_close($parity)!==0)throw new RuntimeException('MP4 export parity failed: '.$err);
