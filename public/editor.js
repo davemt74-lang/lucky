@@ -22,7 +22,17 @@
  }
  function renderRuler(){const tickRoot=$('editor-ruler'),audio=$('editor-audio-lane');if(!tickRoot||!audio)return;tickRoot.replaceChildren();audio.replaceChildren();const total=clips.reduce((sum,c)=>sum+lengthMs(c),0),runtime=$('editor-runtime');if(runtime)runtime.textContent=`00:00 / ${clock(total)}`;
   let offset=0;const width=Math.max(500,clips.reduce((sum,c)=>sum+Math.max(95,Math.min(360,Math.round(lengthMs(c)/1000*16))),0));const ticks=Math.max(1,Math.ceil(total/30000));for(let i=0;i<=ticks;i++){const tick=document.createElement('span');tick.className='studio-ruler-tick';tick.style.width=`${width/(ticks+1)}px`;tick.textContent=clock(i*30000);tickRoot.append(tick);}
-  clips.forEach(c=>{const cell=document.createElement('div');cell.className='studio-audio-cell'+(c.kind==='photo'?' no-audio':'');cell.style.width=`${Math.max(95,Math.min(360,Math.round(lengthMs(c)/1000*16)))}px`;cell.textContent=c.kind==='photo'?'—':(c.kind==='audio'?'♫ Audio clip':'▥ Camera audio');audio.append(cell);});
+  clips.forEach(c=>{
+   const cell=document.createElement('button');cell.type='button';
+   cell.className='studio-audio-cell'+(c.kind==='photo'?' no-audio':'')+
+    ((c.audioMode==='muted')?' is-muted':'')+(c.audioMode==='detached'?' is-detached':'')+
+    (c.voiceoverId?' is-voice':'');
+   cell.style.width=`${Math.max(95,Math.min(360,Math.round(lengthMs(c)/1000*16)))}px`;
+   cell.textContent=c.voiceoverId?(c.voiceoverMuted?'🔇 Voice muted':'🎙 Voiceover attached'):
+    c.audioMode==='detached'?'↔ Detached camera audio':
+    c.audioMode==='muted'?'🔇 Muted':c.kind==='photo'?'—':(c.kind==='audio'?'♫ Audio':'▥ Camera audio');
+   cell.title='Click to edit audio for '+c.title;cell.onclick=()=>select(c.instanceId,true);audio.append(cell);
+  });
  }
 
  async function api(action,data={},post=false){
@@ -50,17 +60,31 @@
  }
  function reorder(from,to){if(from===to||from<0||to<0||from>=clips.length||to>=clips.length)return;const [part]=clips.splice(from,1);clips.splice(to,0,part);dirty=true;render();}
  function render(){const root=$('editor-timeline');root.replaceChildren();$('editor-count').textContent=`${clips.length} segments`;renderRuler();
-  if(!clips.length){root.textContent='Timeline empty. Add proof clips from the media bin or choose Auto cut.';select(null);return;}
+  if(!clips.length){root.textContent='Timeline empty. Add clips from the media bin.';select(null);return;}
   clips.forEach((c,i)=>{
-   const row=document.createElement('article');row.className='editor-clip';row.dataset.instanceId=c.instanceId;row.dataset.kind=c.kind;row.style.width=`${Math.max(95,Math.min(360,Math.round(lengthMs(c)/1000*16)))}px`;row.draggable=true;
+   const row=document.createElement('article');row.className='editor-clip'+(c.audioMode==='muted'?' is-muted':'')+(c.audioMode==='detached'?' is-detached':'');row.dataset.instanceId=c.instanceId;row.dataset.kind=c.kind;row.style.width=`${Math.max(95,Math.min(360,Math.round(lengthMs(c)/1000*16)))}px`;row.draggable=true;
    row.ondragstart=e=>{e.dataTransfer.setData('text/plain',c.instanceId);e.dataTransfer.effectAllowed='move';};
    row.ondragover=e=>e.preventDefault();row.ondrop=e=>{e.preventDefault();const sourceId=e.dataTransfer.getData('application/x-lucky-media-id');if(sourceId){addFromBin(sourceId);return;}reorder(clips.findIndex(x=>x.instanceId===e.dataTransfer.getData('text/plain')),i);};
-   const choose=document.createElement('button');choose.type='button';choose.className='editor-clip-select';choose.onclick=()=>select(c.instanceId);
+   const choose=document.createElement('button');choose.type='button';choose.className='editor-clip-select';choose.onclick=()=>select(c.instanceId,true);
    const info=document.createElement('span');info.className='mini-label';info.textContent=`${i+1} · ${c.kind.toUpperCase()} · ${clock(lengthMs(c))}`;
    const strong=document.createElement('strong');strong.textContent=c.title;choose.append(info,strong);
    const actions=document.createElement('div');actions.className='editor-clip-controls';
    for(const [text,delta] of [['↑',-1],['↓',1]]){const b=document.createElement('button');b.type='button';b.className='btn btn-outline';b.textContent=text;b.title=delta===-1?'Move earlier':'Move later';b.disabled=i+delta<0||i+delta>=clips.length;b.onclick=()=>reorder(i,i+delta);actions.append(b);}
    const view=document.createElement('button');view.type='button';view.className='btn btn-outline';view.textContent='Preview';view.onclick=()=>preview([c]);actions.append(view);
+   const more=document.createElement('button');more.type='button';more.className='btn btn-outline editor-clip-more';
+   more.textContent='⋯';more.title='Clip actions';more.setAttribute('aria-label','Actions for '+c.title);
+   more.onclick=e=>{e.stopPropagation();showContextMenu(c,more.getBoundingClientRect().left,more.getBoundingClientRect().bottom+5);};
+   actions.append(more);
+   row.addEventListener('contextmenu',e=>{e.preventDefault();showContextMenu(c,e.clientX,e.clientY);});
+   for(const side of ['start','end']){
+    const handle=document.createElement('button');handle.type='button';handle.className='editor-trim-handle '+side;
+    handle.setAttribute('aria-label',side==='start'?'Trim start of '+c.title:'Trim end of '+c.title);
+    handle.title=side==='start'?'Drag right to move In point':'Drag left to move Out point';
+    handle.textContent=side==='start'?'‹':'›';handle.disabled=(c.kind==='photo'&&side==='start')||(c.kind!=='photo'&&!(c.durationMs>0));
+    handle.onpointerdown=e=>beginTrim(e,c,side,row,info);
+    handle.onclick=e=>e.stopPropagation();
+    row.append(handle);
+   }
    row.append(choose,actions);root.append(row);
   });select(chosen?.instanceId||clips[0].instanceId);
  }
