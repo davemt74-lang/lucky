@@ -32,7 +32,7 @@ async def main():
     after=await page.locator('#studio-library').bounding_box()
     ok('pointer drag widens editor toolbox',after['width']>=before['width']+75)
     await page.locator('#studio-library-resizer').focus();await page.keyboard.press('ArrowLeft')
-    await page.wait_for_function("document.querySelector('#studio-library').getBoundingClientRect().width < 540")
+    await page.wait_for_function("(previous) => document.querySelector('#studio-library').getBoundingClientRect().width < previous-1",arg=after['width'])
     smaller=await page.locator('#studio-library').bounding_box()
     ok('keyboard divider width change',smaller['width']<after['width'])
     await page.locator('#studio-library-resizer').dblclick()
