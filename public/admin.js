@@ -138,6 +138,21 @@
     link.href=game.path+(game.path.includes('?')?'&':'?')+'session='+encodeURIComponent(session.id);
     actions.append(link);
    }
+   const remove=elem('button','Delete session','btn btn-outline admin-session-delete');
+   remove.type='button';remove.dataset.sessionAction='delete_session';remove.dataset.sessionId=session.id;
+   remove.setAttribute('aria-label','Delete session '+session.id);
+   remove.onclick=async()=>{
+    const request='DELETE '+session.id;
+    const answer=prompt('Permanently delete '+session.game+' session '+session.id+'? This removes its claims, proof recordings, video exports, and saved edits. This cannot be undone.\\n\\nType '+request+' to confirm:');
+    if(answer!==request)return;
+    remove.disabled=true;
+    try{
+     const response=await L.api('delete_session',{body:{id:session.id,expectedVersion:session.version,confirmation:answer}});
+     await Promise.all([refreshSessions(),refreshHistory()]);
+     status('Session deleted permanently.'+(response.cleanupWarnings?' '+response.cleanupWarnings+' media files require server cleanup.':''));
+    }catch(e){status(e.message,true);}finally{remove.disabled=false;}
+   };
+   actions.append(remove);
    card.append(head,meta,actions);container.append(card);
   }
  }
