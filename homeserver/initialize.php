@@ -34,7 +34,7 @@ $db=new PDO('mysql:host='.$host.';port='.$port.';dbname=lucky_games;charset=utf8
 foreach(MigrationSql::statements((string)file_get_contents($home.'/lib/schema.sql')) as $sql)$db->exec($sql);
 foreach(['v5n.sql','v5p.sql','v5p_sync.sql','v5q_claim_media.sql','v5q3_renders.sql',
          'v5q6_proof_revisions.sql','v5q13_capture_ui.sql','v5q15b_prize_decisions.sql',
-         'v5q15m_layers.sql','v5q15n_templates.sql'] as $migration){
+         'v5q15m_layers.sql','v5q15n_templates.sql','v5q20_prize_packages.sql'] as $migration){
     foreach(MigrationSql::statements((string)file_get_contents($home.'/lib/migrations/'.$migration)) as $sql)$db->exec($sql);
 }
 foreach(['source_label'=>"ALTER TABLE claim_media ADD COLUMN source_label VARCHAR(120) NOT NULL DEFAULT '' AFTER title",
