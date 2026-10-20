@@ -249,6 +249,75 @@
   }catch(e){inform(e.message,true);}
  }
 
+ function audioStatus(text){$('editor-audio-status').textContent=text;}
+ function disposeRecordedAudio(){
+  if(recorder&&recorder.state!=='inactive')recorder.stop();
+  recordStream?.getTracks().forEach(t=>t.stop());recordStream=null;recorder=null;
+  if(recordUrl){URL.revokeObjectURL(recordUrl);recordUrl='';}
+  recordBlob=null;$('editor-audio-preview').hidden=true;
+  $('editor-audio-preview').removeAttribute('src');
+  $('editor-audio-save').disabled=true;$('editor-audio-stop').disabled=true;
+  $('editor-audio-start').disabled=false;
+ }
+ function openAudioRecorder(clip){
+  if(!clip||clip.kind==='audio'||!clip.claimId)return inform('Select a claimed prize video or photo to record audio.',true);
+  if(!navigator.mediaDevices?.getUserMedia||typeof MediaRecorder==='undefined')
+   return inform('Audio recording requires a browser with microphone access on HTTPS or localhost.',true);
+  disposeRecordedAudio();recordTarget={instanceId:clip.instanceId,claimId:clip.claimId,session};
+  audioStatus('Press Start recording, speak into the microphone, then Stop. Review and Save to attach audio to this clip.');
+  $('editor-audio-dialog').showModal();
+ }
+ async function startAudioRecording(){
+  try{
+   recordStream=await navigator.mediaDevices.getUserMedia({audio:true,video:false});
+   const codecs=['audio/webm;codecs=opus','audio/webm','audio/mp4'];
+   const mime=codecs.find(v=>MediaRecorder.isTypeSupported?.(v))||'';
+   recorder=new MediaRecorder(recordStream,mime?{mimeType:mime}:{});
+   const chunks=[];const recording=recorder;const type=mime||recording.mimeType||'audio/webm';
+   recording.ondataavailable=e=>{if(e.data?.size)chunks.push(e.data);};
+   recording.onerror=()=>audioStatus('Microphone recording failed. Check browser permissions.');
+   recording.onstop=()=>{
+    recordStream?.getTracks().forEach(t=>t.stop());recordStream=null;
+    recordBlob=new Blob(chunks,{type});$('editor-audio-start').disabled=false;
+    $('editor-audio-stop').disabled=true;
+    if(!recordBlob.size){audioStatus('Recording was empty. Try again.');return;}
+    recordUrl=URL.createObjectURL(recordBlob);
+    const player=$('editor-audio-preview');player.src=recordUrl;player.hidden=false;
+    $('editor-audio-save').disabled=false;
+    audioStatus('Recording ready. Listen back and select Save to attach it to this clip.');
+   };
+   recording.start(250);audioStatus('● Recording audio…');
+   $('editor-audio-start').disabled=true;$('editor-audio-stop').disabled=false;
+  }catch(e){recordStream?.getTracks().forEach(t=>t.stop());recordStream=null;audioStatus('Microphone unavailable: '+e.message);}
+ }
+ async function saveRecordedAudio(){
+  if(!recordBlob||!recordTarget)return;
+  if(session!==recordTarget.session)return audioStatus('Game changed. Discard this recording and try again.');
+  const target=clips.find(c=>c.instanceId===recordTarget.instanceId);
+  if(!target||target.claimId!==recordTarget.claimId)return audioStatus('Selected prize changed. Recording not attached.');
+  const button=$('editor-audio-save');button.disabled=true;
+  audioStatus('Saving audio to this prize…');
+  try{
+   const me=await L.getMe();const form=new FormData();
+   form.append('session',session);form.append('claim',recordTarget.claimId);
+   const extension=recordBlob.type.startsWith('audio/mp4')?'m4a':'webm';
+   form.append('media',recordBlob,'voiceover.'+extension);
+   form.append('sourceLabel','Studio microphone');
+   form.append('title','Voiceover · '+target.title);
+   form.append('durationMs',String(Math.round(($('editor-audio-preview').duration||0)*1000)||0));
+   const res=await fetch('api/claim-media.php?action=upload',{
+    method:'POST',credentials:'same-origin',headers:{'X-CSRF-Token':me.csrf},body:form
+   });
+   const body=await res.json();if(!res.ok||!body.ok)throw Error(body.error||'Audio upload failed.');
+   if(!body.clip||body.clip.kind!=='audio'||body.clip.claimId!==target.claimId)
+    throw Error('Server returned an unexpected audio clip.');
+   target.voiceoverId=body.clip.id;target.voiceoverMuted=false;target.voiceoverOffsetMs=0;
+   const listing=await media('list');source=listing.clips||[];renderBin();
+   dirty=true;render();audioStatus('Audio attached. Save the edit to retain this voiceover.');
+   $('editor-audio-dialog').close();disposeRecordedAudio();
+   inform('Microphone audio attached to '+target.title+'. Save the edit to keep the change.');
+  }catch(e){audioStatus('Audio save failed: '+e.message);button.disabled=false;}
+ }
  async function updateCaptureClaims(){
   const picker=$('studio-proof-claim');if(!picker)return;
   picker.replaceChildren(new Option('Select a claimed prize',''));
