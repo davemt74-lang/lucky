@@ -44,9 +44,11 @@ async def main():
    check(f'{width}px no horizontal overflow',await page.evaluate('document.documentElement.scrollWidth<=innerWidth+2'))
    if width==375:await page.close();continue
    await page.locator('.editor-clip-select').first.click()
+   check('inspector opens as a slide-out',await page.locator('#clip-inspector').evaluate('(e)=>e.classList.contains("is-open")'))
    await page.locator('#editor-trim-end').fill('5')
    await page.locator('#editor-split').click();await page.wait_for_timeout(60)
    check('split makes two non-destructive video segments',await page.locator('.editor-clip').count()==3)
+   await page.locator('#editor-close-inspector').click()
    await page.locator('#editor-save-project').click()
    check('save edit project includes split segments',await page.evaluate('demo.saved?.length===3 && demo.saved[0].id===demo.saved[1].id'))
    await page.wait_for_function('demo.saved !== null');await page.locator('#open-render-dialog').click();await page.locator('#render-track').select_option('d'*32)
@@ -58,7 +60,9 @@ async def main():
    check('render listed as queued',await page.get_by_text('queued',exact=False).count()>0)
    await page.locator('#close-render-dialog').click()
    check('modal closes and main editor controls regain focus',await page.locator('#render-dialog').is_hidden())
-   await page.locator('#editor-auto').click()
+   check('Auto cut removed from header',await page.locator('#editor-auto').count()==0)
+   check('Session claims removed from header',await page.locator('#editor-session-claims').count()==0)
+   check('Back button replaces Studio logo',await page.locator('#editor-back-game').is_visible() and await page.locator('.studio-identity').count()==0)
    # A replacement confirmation appears after changes; accept it.
    await page.wait_for_timeout(20)
    check('auto assembly initiated',await page.evaluate('demo.auto>=0'))
