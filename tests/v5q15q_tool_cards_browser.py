@@ -52,17 +52,18 @@ async def main():
   ok('selected V1 preview shows active T1 title',await page.locator('#editor-preview .studio-timeline-preview-title').count()==1)
   await page.evaluate("""() => {
     const original=window.fetch;
+    window.failedSaves=0;
     window.fetch=async(...args)=>{
-      if(String(args[0]).includes('action=save_project'))return new Response(JSON.stringify({ok:false,error:'Database unavailable'}),{status:409,headers:{'Content-Type':'application/json'}});
+      if(String(args[0]).includes('action=save_project')){window.failedSaves++;return new Response(JSON.stringify({ok:false,error:'Database unavailable'}),{status:409,headers:{'Content-Type':'application/json'}});}
       return original(...args);
     };
   }""")
   await page.locator('[data-studio-pane="filters"]').click()
   await page.locator('[data-look-preset="vivid"]').click()
-  baseline=await page.evaluate("demo.calls.filter(x=>x==='save_project').length")
+  baseline=await page.evaluate("window.failedSaves")
   await page.locator('#open-render-dialog').click()
   await page.locator('#render-queue').click()
-  await page.wait_for_function("(n)=>demo.calls.filter(x=>x==='save_project').length>n",arg=baseline)
+  await page.wait_for_function("(n)=>window.failedSaves>n",arg=baseline)
   await page.wait_for_function("document.querySelector('#render-feedback')?.textContent?.includes('Could not save')")
   ok('failed project save blocks MP4 queue',await page.evaluate("demo.queued===null && !demo.calls.includes('queue')"))
   ok('export dialog visibly reports failed save',await page.locator('#render-feedback').is_visible() and 'Could not save' in await page.locator('#render-feedback').inner_text())
