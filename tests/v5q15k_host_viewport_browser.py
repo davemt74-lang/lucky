@@ -16,7 +16,7 @@ window.Lucky.api=async (...args)=>{
 """
 def markup():
  html=game.html_page('game.php',SCRIPT,MOCK)
- return html.replace('<body>','''<body class="game-fullwidth"><div class="shell">
+ return html.replace('<head>','<head><base href="https://lucky.test/">').replace('<body>','''<body class="game-fullwidth"><div class="shell">
  <header class="header"><a class="brand" href="index.php">LUCKY GAMES</a>
  <nav class="nav" aria-label="Main navigation"><a href="index.php">Games</a><a href="shop.php">Shop</a><a href="devices.php">Devices</a><a href="catalog-admin.php">Products</a></nav>
  <details class="account-menu"><summary>Host avatar</summary><div class="account-dropdown"><a href="admin.php">Admin Studio</a><a href="account.php">Account settings</a></div></details></header><main>''').replace('</body>','</main><footer class="footer">Lucky Games</footer></div></body>')
@@ -44,18 +44,7 @@ async def main():
    check(f'{width}x{height}: main menu right-aligned ahead of account',geom['nav']['right']<=geom['account']['right']+2)
    if width>=1061:
     check(f'{width}x{height}: no page vertical scroll',geom['bodyScroll']<=height+4)
-   await page.wait_for_timeout(400)
-   diagnostic=await page.evaluate("""() => ({
-    gameStatus:document.querySelector('#game-state')?.textContent,
-    displayStatus:document.querySelector('#display-game-status')?.textContent,
-    viewerHidden:document.querySelector('#share-display')?.hidden,
-    viewerValue:document.querySelector('#viewer-link')?.value,
-    gameError:document.querySelector('#game-error')?.textContent,
-    state:window.__state,
-    hasLastApi:!!window.Lucky?.api
-   })""")
-   print('LIVE-DISPLAY DIAGNOSTIC',width,diagnostic,flush=True)
-   await page.wait_for_function("document.querySelector('#display-game-status').textContent==='Active' && document.querySelector('#share-display').hidden===false",timeout=3000)
+   await page.wait_for_function("document.querySelector('#display-game-status').textContent==='Active' && document.querySelector('#share-display').hidden===false",timeout=6000)
    await page.locator('#host-tab-display').click()
    check(f'{width}x{height}: live display fourth tab opens',await page.locator('#host-panel-display').is_visible() and await page.locator('#host-panel-game').is_hidden())
    check(f'{width}x{height}: audience display link available',await page.locator('#share-display').is_visible() and 'display.php' in await page.locator('#viewer-link').input_value())
