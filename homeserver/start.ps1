@@ -76,7 +76,8 @@ log-error=$($logs.Replace('\','/'))/mariadb-error.log
  function Launch([string]$binary,[string[]]$arguments,[string]$name){
   Record ("Starting "+$name)
   $quoted=@($arguments|ForEach-Object {if($_ -match '[\s"]'){'"'+($_ -replace '"','\"')+'"'}else{$_}})
-  $p=Start-Process -FilePath $binary -ArgumentList ($quoted -join ' ') -PassThru -WindowStyle Hidden
+  $slug=($name -replace '[^A-Za-z0-9-]','-').ToLowerInvariant()
+  $p=Start-Process -FilePath $binary -ArgumentList ($quoted -join ' ') -PassThru -WindowStyle Hidden -RedirectStandardError (Join-Path $logs "$slug.stderr.log") -RedirectStandardOutput (Join-Path $logs "$slug.stdout.log")
   $script:processes+=@($p)
   return $p
  }
@@ -139,13 +140,13 @@ date.timezone=UTC
  [IO.File]::WriteAllText($caddyfile,$spec,(New-Object System.Text.UTF8Encoding($false)))
  $caddyProc=Launch $caddy @('run','--config',$caddyfile,'--adapter','caddyfile') 'Caddy HTTPS'
  $ready=$false
- for($i=0;$i -lt 90;$i++){
+ for($i=0;$i -lt 35;$i++){
   Start-Sleep -Milliseconds 500
   if($phpProc.HasExited -or $caddyProc.HasExited){throw 'Local web server exited during startup.'}
   try{
    $response=Invoke-WebRequest -Uri $startupAddress -UseBasicParsing -TimeoutSec 3
    if($response.StatusCode -eq 200 -or $response.StatusCode -eq 302){$ready=$true;break}
-  }catch{}
+  }catch{if($i -eq 0 -or $i % 8 -eq 7){Record ("HTTP startup probe "+$i+": "+$_.Exception.Message)}}
  }
  if(!$ready){throw 'Local game page did not become ready.'}
  Record ("Local HomeServer ready: "+$startupAddress+ $(if($ip){" LAN https://$($ip):8843"}else{''}))
