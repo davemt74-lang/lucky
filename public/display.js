@@ -1,18 +1,19 @@
 (() => {
  'use strict';const L=Lucky,$=L.$,wheel=new LuckyWheel($('live-wheel'));
- const body=document.body,id=body.dataset.session,token=body.dataset.token;let lastSpin=0,lastVersion=0,animating=false,initialized=false;
+ const body=document.body,id=body.dataset.session,token=body.dataset.token;let lastSpin=0,lastVersion=0,animating=false,initialized=false,wheelOutcome=null;
  const render=v=>{
   if($('display-pair-phone'))$('display-pair-phone').hidden=!['active','paused'].includes(v.status);
   $('display-state').textContent=v.status==='active'?`LIVE · ${v.spinCount} SPINS`:v.status==='paused'?'GAME PAUSED':'GAME ENDED';
-  $('display-latest').textContent=v.pendingBonus?'✧ BONUS ROUND':v.claims.length?`Most recent: ${v.claims[v.claims.length-1].name}`:'Spin for the first prize!';
-  const list=$('display-claims');list.replaceChildren();v.claims.slice(-8).reverse().forEach(c=>{const e=document.createElement('div');e.className='platform-claim';e.textContent=`${c.name} — ${L.money(c.cents)}`;list.append(e);});
-  if(!animating){const slices=v.pendingBonus?(v.bonusSlices||[]):v.slots.map(s=>({name:s.name,cents:s.value,tier:s.tier,kind:s.tier?'prize':'empty'}));
-    if(!v.pendingBonus&&v.bonusEnabled&&(v.bonusSlices||[]).length)slices.push({name:'BONUS ROUND',tier:'bonus',kind:'trigger'});wheel.setSlices(slices);}
+  const claims=v.spinPending&&v.lastSpin?.type==='award'?v.claims.slice(0,-1):v.claims;
+  $('display-latest').textContent=v.spinPending?'Wheel spinning…':v.pendingBonus?'✧ BONUS ROUND':claims.length?`Most recent: ${claims[claims.length-1].name}`:'Spin for the first prize!';
+  const list=$('display-claims');list.replaceChildren();claims.slice(-8).reverse().forEach(c=>{const e=document.createElement('div');e.className='platform-claim';e.textContent=`${c.name} — ${L.money(c.cents)}`;list.append(e);});
+  if(!animating){const slices=(wheelOutcome&&wheelOutcome.spinCount===v.lastSpin?.spinCount)?wheelOutcome.slices:v.spinPending&&v.lastSpin?.slices?v.lastSpin.slices:v.pendingBonus?(v.bonusSlices||[]):v.slots.map(s=>({name:s.name,cents:s.value,tier:s.tier,kind:s.tier?'prize':'empty'}));
+    if(!wheelOutcome&&!v.spinPending&&!v.pendingBonus&&v.bonusEnabled&&(v.bonusSlices||[]).length)slices.push({name:'BONUS ROUND',tier:'bonus',kind:'trigger'});wheel.setSlices(slices);}
  };
  async function tick(){try{const r=await L.api('watch',{query:{id,token}}),v=r.view;
    if(!initialized){initialized=true;lastSpin=v.lastSpin?.spinCount||0;lastVersion=v.version;render(v);return;}
    if(v.version!==lastVersion){lastVersion=v.version;
-     if(v.lastSpin && v.lastSpin.spinCount!==lastSpin){lastSpin=v.lastSpin.spinCount;animating=true;
+     if(v.lastSpin && v.lastSpin.spinCount!==lastSpin){lastSpin=v.lastSpin.spinCount;animating=true;wheelOutcome={spinCount:lastSpin,slices:v.lastSpin.slices};
       await wheel.spinTo(v.lastSpin.index,v.lastSpin.slices,matchMedia('(prefers-reduced-motion: reduce)').matches?250:3800);
       animating=false;if(v.lastSpin.type==='award')L.beep('win');else L.beep('bonus');}
      render(v);}
