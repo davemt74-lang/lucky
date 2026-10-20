@@ -48,6 +48,8 @@ async def main():
    await page.locator('#host-tab-music').press('ArrowRight')
    ok(f'{width} arrows navigate to phone connector tab',await page.locator('#host-panel-phones').is_visible())
    await page.locator('#host-tab-phones').press('ArrowRight')
+   ok(f'{width} fourth arrow opens Live Display tab',await page.locator('#host-panel-display').is_visible())
+   await page.locator('#host-tab-display').press('ArrowRight')
    ok(f'{width} arrows wrap back to game tab',await page.locator('#host-panel-game').is_visible())
    ok(f'{width} no horizontal overflow',await page.evaluate('document.documentElement.scrollWidth <= innerWidth+1'))
    await page.close()
