@@ -28,7 +28,7 @@ async def main():
     check('game page restores phone pairing as dedicated tab', 'pairingWidget()' in game and 'host-panel-phones' in game and 'host-tab-phones' in game)
     check('game page retains exact-session claims link', 'id="claims-page-link"' in game)
     check('editor Back to game keeps the selected game session', "'game.php?session='+encodeURIComponent(session)" in editor)
-     check('editor no longer exposes Session claims in header', 'editor-session-claims' not in editor)
+    check('editor no longer exposes Session claims in header', 'editor-session-claims' not in editor)
     errors=[]
     async with async_playwright() as pw:
         browser=await pw.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox'])
