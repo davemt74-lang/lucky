@@ -103,7 +103,12 @@
   if(data?.viewerToken){
     const url=new URL('display.php',document.baseURI);url.searchParams.set('session',view.id);url.searchParams.set('token',data.viewerToken);
     viewerUrl=url.href;$('share-display').hidden=false;$('viewer-link').value=viewerUrl;$('open-viewer').href=viewerUrl;
-  }else $('share-display').hidden=true;
+  }else {viewerUrl='';$('share-display').hidden=true;}
+  $('display-game-status').textContent=!view?'No game started':view.status==='active'?'Active':view.status==='paused'?'Paused':view.status==='ended'?'Finished':'Waiting';
+  $('display-spin-count').textContent=String(view?.spinCount||0);
+  $('display-screen-status').textContent=viewerUrl?'Link ready':'Awaiting session';
+  $('display-help').hidden=!!viewerUrl;
+  queueWheelFit();
  }
  async function updateProofStates(){const session=data?.view?.id;if(!session){proofStates={};proofSessionId='';return;}
   if(proofPending)return;proofPending=true;try{const r=await fetch('api/claim-proof.php?action=summary&session='+encodeURIComponent(session),{credentials:'same-origin'});const out=await r.json();if(out.ok&&data?.view?.id===session){proofStates=out.states||{};proofSessionId=session;render();}}catch(_){/* Optional proof status recovers on next refresh. */}finally{proofPending=false;}}
@@ -305,13 +310,44 @@
      default:return false;
    }
  }
- const hostTabs=['game','music','phones'];
+ const hostTabs=['game','music','phones','display'];
+ // Put the existing accessible tabs directly into the on-screen page header.
+ // Standalone UI fixtures without the server header retain the same controls.
+ const topBar=document.querySelector('body.game-fullwidth .header');
+ const tabs=document.querySelector('.host-main-tabs');
+ if(topBar&&tabs){
+  const nav=topBar.querySelector('.nav');
+  if(nav)topBar.insertBefore(tabs,nav);else topBar.append(tabs);
+  tabs.classList.add('host-header-tabs');
+  document.querySelector('.host-compact-top')?.remove();
+ }
+ let wheelFitScheduled=false;
+ function fitWheelViewport(){
+  wheelFitScheduled=false;
+  const wrap=document.querySelector('#host-panel-game .platform-wheel-wrap');
+  if(!wrap||$('host-panel-game')?.hidden)return;
+  const controls=$('spin-game')?.closest('.platform-control-row');
+  const top=wrap.getBoundingClientRect().top;
+  const controlsHeight=controls?.getBoundingClientRect().height||54;
+  const offer=$('prize-offer-stage');
+  const offerHeight=offer&&!offer.hidden?offer.getBoundingClientRect().height+12:0;
+  const available=Math.floor(innerHeight-top-controlsHeight-offerHeight-76);
+  const width=wrap.parentElement?.clientWidth||innerWidth;
+  wrap.style.setProperty('--wheel-viewport-size',Math.max(160,Math.min(available,width-20,780))+'px');
+ }
+ function queueWheelFit(){
+  if(wheelFitScheduled)return;
+  wheelFitScheduled=true;
+  requestAnimationFrame(fitWheelViewport);
+ }
+ window.addEventListener('resize',queueWheelFit);
  function setHostTab(which,{focus=false}={}){
    if(!hostTabs.includes(which))return false;
    for(const option of hostTabs){const active=option===which,tab=$('host-tab-'+option),panel=$('host-panel-'+option);
      tab.setAttribute('aria-selected',String(active));tab.tabIndex=active?0:-1;panel.hidden=!active;
    }
    if(focus)$('host-tab-'+which).focus();
+   if(which==='game')queueWheelFit();
    return true;
  }
  for(const option of hostTabs){const tab=$('host-tab-'+option);
@@ -323,6 +359,7 @@
    };
  }
  window.LuckyHostTabs=Object.freeze({activate:setHostTab,items:hostTabs});
+ queueWheelFit();
  
  window.addEventListener('lucky:paired-phones',e=>{const count=$('host-phone-count');if(count)count.textContent=Number(e.detail?.count||0)>0?String(e.detail.count):'';});
  window.LuckyHostRemote=remoteCommand;
