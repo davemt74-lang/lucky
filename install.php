@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require __DIR__.'/lib/Bootstrap.php';
+require_once __DIR__.'/lib/MigrationSql.php';
 headerSecurity();
 if(installed()){header('Location: index.php',true,302);exit;}
 $error='';
@@ -18,12 +19,19 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
   if(installed())throw new RuntimeException('The installation is already complete.');
   $pdo=new PDO('mysql:host='.$host.';port='.$port.';dbname='.$name.';charset=utf8mb4',$user,$pass,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_EMULATE_PREPARES=>false]);
   $schema=file_get_contents(__DIR__.'/lib/schema.sql');
-  foreach(array_filter(array_map('trim',explode(';',$schema))) as $sql)$pdo->exec($sql);
-  // Fresh installs need the same claim-media schema as upgraded installations.
-  foreach(array_filter(array_map('trim',explode(';',file_get_contents(__DIR__.'/lib/migrations/v5q_claim_media.sql')))) as $statement)$pdo->exec($statement);
-  foreach(array_filter(array_map('trim',explode(';',file_get_contents(__DIR__.'/lib/migrations/v5q3_renders.sql')))) as $statement)$pdo->exec($statement);
-  foreach(array_filter(array_map('trim',explode(';',file_get_contents(__DIR__.'/lib/migrations/v5q6_proof_revisions.sql')))) as $statement)$pdo->exec($statement);
-  foreach(array_filter(array_map('trim',explode(';',file_get_contents(__DIR__.'/lib/migrations/v5q15b_prize_decisions.sql')))) as $statement)$pdo->exec($statement);
+  if($schema===false)throw new RuntimeException('Bundled database schema is missing.');
+  foreach(MigrationSql::statements($schema) as $statement)$pdo->exec($statement);
+  // Fresh installs use the same comment-safe SQL parser as upgrades.
+  foreach([
+   'lib/migrations/v5q_claim_media.sql',
+   'lib/migrations/v5q3_renders.sql',
+   'lib/migrations/v5q6_proof_revisions.sql',
+   'lib/migrations/v5q15b_prize_decisions.sql'
+  ] as $migrationFile){
+   $migration=file_get_contents(__DIR__.'/'.$migrationFile);
+   if($migration===false)throw new RuntimeException('Bundled migration is missing: '.$migrationFile);
+   foreach(MigrationSql::statements($migration) as $statement)$pdo->exec($statement);
+  }
   $q=$pdo->prepare('INSERT INTO admins(username,password_hash) VALUES (?,?)');
   $existing=(int)$pdo->query('SELECT COUNT(*) FROM admins')->fetchColumn();
   if($existing!==0)throw new RuntimeException('Existing administrators detected. Use a clean database for first-time setup.');
