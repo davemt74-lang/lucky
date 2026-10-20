@@ -48,6 +48,20 @@ async def main():
   await page.locator('#timeline-title-duration').fill('2')
   await page.locator('#timeline-add-title').click()
   ok('T1 timed title block works above V1',await page.locator('#editor-titles-lane .studio-title-block').count()==1)
+  await page.locator('.editor-clip-select').first.click()
+  ok('selected V1 preview shows active T1 title',await page.locator('#editor-preview .studio-timeline-preview-title').count()==1)
+  await page.evaluate("""() => {
+    const original=window.fetch;
+    window.fetch=async(...args)=>{
+      if(String(args[0]).includes('action=save_project'))return new Response(JSON.stringify({ok:false,error:'Database unavailable'}),{status:409,headers:{'Content-Type':'application/json'}});
+      return original(...args);
+    };
+  }""")
+  await page.locator('#open-render-dialog').click()
+  await page.locator('#render-queue').click()
+  ok('failed project save prevents stale MP4 queue',await page.evaluate("demo.queued===null && !demo.calls.includes('queue')"))
+  ok('editor reports blocked render clearly','Could not save' in await page.locator('#editor-feedback').inner_text())
+  await page.locator('#close-render-dialog').click()
   ok('no browser errors',not errors)
   # The TV/desktop wheel stage stays clear while fallback host controls remain reachable.
   from pathlib import Path
