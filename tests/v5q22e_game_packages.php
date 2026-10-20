@@ -56,7 +56,7 @@ try{
  ok22e(is_file($storage.'/table-trivia/versions/1.0.0/host.html'),'Old version survives upgrade');
  ok22e(!is_file($storage.'/table-trivia/active.json'),'Staging must not enable executable game');
  makeZip22e($zip,$assets,['id'=>'spin-wheel']);
- reject22e(fn()=>GamePackageInstaller::install($zip,$storage),'Bundled wheel protected');
+ reject22e(fn()=>GamePackageInstaller::install($zip,$storage),'Unsigned built-in Wheel update rejected');
  makeZip22e($zip,$assets,['version'=>'1.2.0','files'=>[
   'host.html'=>str_repeat('f',64),'phone.html'=>hash22e($assets['phone.html']),
   'assets/game.js'=>hash22e($assets['assets/game.js'])]]);
@@ -79,6 +79,11 @@ try{
  $other=openssl_pkey_new(['private_key_type'=>OPENSSL_KEYTYPE_RSA,'private_key_bits'=>2048]);
  makeZip22e($zip,$assets,['version'=>'2.1.0'],$other);
  reject22e(fn()=>GamePackageInstaller::install($zip,$storage,$public),'Incorrect publisher signature');
- ok22e(count(GamePackageInstaller::listing($storage))===3,'Only accepted releases listed');
+ makeZip22e($zip,$assets,['id'=>'spin-wheel','version'=>'5.23.0'],$key);
+ $wheel=GamePackageInstaller::install($zip,$storage,$public);
+ ok22e($wheel['builtIn']===true&&$wheel['signatureVerified']===true&&$wheel['status']==='staged',
+   'Wheel accepts signed staged update but stays bundled/undeletable');
+ ok22e(GameRegistry::module('spin-wheel')->id()==='spin-wheel','Bundled runtime not overwritten');
+ ok22e(count(GamePackageInstaller::listing($storage))===4,'Only accepted releases listed');
  echo "V5Q.22E: validated ZIP staging, versioned assets, signature protection, rollback-safe failures, optional phone passed\n";
 }finally{cleanup22e($base);}
