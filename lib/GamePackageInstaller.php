@@ -149,7 +149,7 @@ final class GamePackageInstaller {
    // Reject a substituted archive before any private version folder is created.
    if(($expectedGame!==null&&$id!==$expectedGame)||($expectedVersion!==null&&$version!==$expectedVersion))
     throw new DomainException('Game package identity does not match the selected release.',403);
-   $builtIn=isset(GameRegistry::modules()[$id]);
+   $builtIn=GameRegistry::isBuiltIn($id);
    $expected=['manifest.json'=>true];
    if(isset($entries['manifest.sig']))$expected['manifest.sig']=true;
    foreach($manifest['files'] as $file=>$hash)$expected[$file]=true;
