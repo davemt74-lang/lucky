@@ -74,7 +74,7 @@
   const recording=phase==='recording',processing=phase==='processing',saving=phase==='saving',saved=phase==='saved';
   const consent=$('phone-proof-consent');if(consent){consent.checked=!!proofState.consent;consent.disabled=recording||processing||saving;}
   const label=$('phone-proof-phase');
-  if(label)label.textContent=recording?'● Recording…':processing?'Processing video…':reviewing?'Review recorded video · Save when ready':saving?'Saving video to the timeline…':saved?'✓ Video saved to the editor timeline':'Live camera ready · Recording consent required';
+  if(label)label.textContent=recording?'● Recording…':processing?'Processing video…':reviewing?'Review recorded video · Save when ready':saving?'Saving video to the timeline…':saved?'✓ Video saved to the editor timeline':phase==='upgrade'?'Host upgrade required: run upgrade.php before recording.':'Live camera ready · Recording consent required';
   const record=$('phone-proof-recording');if(record)record.hidden=reviewing||processing||saving||saved;
   const review=$('phone-proof-review');if(review)review.hidden=!reviewing;
   const recordButton=document.querySelector('[data-phone="proof-record"]');
