@@ -41,4 +41,20 @@ final class MontageVisuals {
   $y=match($pos){'top'=>'h*0.08','center'=>'(h-text_h)/2',default=>'h-text_h-h*0.08'};
   return 'drawtext=textfile='.$escaped.':fontcolor=white:fontsize='.$font.':box=1:boxcolor=black@0.58:boxborderw=12:x=(w-text_w)/2:y='.$y;
  }
+ /** Overlay T1 titles at their own times, independently of V1 clip boundaries. */
+ public static function timelineOverlays(array $clip,string $tempDir,int $clipIndex,int $width):array {
+  $out=[];
+  foreach($clip['timeline_titles']??[] as $index=>$t){
+   if(!is_array($t)||$index>=24)throw new DomainException('Too many T1 titles per segment.',422);
+   $start=(int)($t['startMs']??0);$end=(int)($t['endMs']??0);
+   if($start<0||$end<=$start)throw new DomainException('Invalid title timeline range.',422);
+   $record=['look_preset'=>'none','overlay_text'=>(string)$t['text'],'overlay_position'=>(string)$t['position'],'overlay_size'=>(string)$t['size']];
+   self::validate('none',$record['overlay_text'],$record['overlay_position'],$record['overlay_size']);
+   $filter=self::overlay($record,$tempDir,1000+$clipIndex*24+$index,$width);
+   $startSec=number_format($start/1000,3,'.','');$endSec=number_format($end/1000,3,'.','');
+   $out[]=$filter.':enable=between(t\\,'.$startSec.'\\,'.$endSec.')';
+  }
+  return $out;
+ }
+
 }

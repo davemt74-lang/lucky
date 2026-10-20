@@ -19,7 +19,8 @@ if(($_SERVER['REQUEST_METHOD']??'')==='POST'){
    'lib/migrations/v5q3_renders.sql',
    'lib/migrations/v5q6_proof_revisions.sql',
    'lib/migrations/v5q13_capture_ui.sql',
-   'lib/migrations/v5q15b_prize_decisions.sql'
+   'lib/migrations/v5q15b_prize_decisions.sql',
+   'lib/migrations/v5q15m_layers.sql'
   ];
   foreach($migrationFiles as $migrationFile){
    foreach(MigrationSql::statements(sql($migrationFile)) as $statement)$db->exec($statement);
@@ -37,7 +38,7 @@ if(($_SERVER['REQUEST_METHOD']??'')==='POST'){
   if(!$db->query("SHOW COLUMNS FROM controller_proof_state LIKE 'capture_phase'")->fetch())
     $db->exec("ALTER TABLE controller_proof_state ADD COLUMN capture_phase VARCHAR(12) NOT NULL DEFAULT 'live' AFTER consent_ack");
   audit($db,'platform.upgrade-v5q3');
-  $message='Database upgrade complete, including V5Q.15F phone proof consent and recording state. Refresh the phone controller.';
+  $message='Database upgrade complete, including T1 text and B1 background audio timeline tracks. Refresh the editor and phone.';
  }catch(Throwable $e){$failed=true;$message='Upgrade did not complete: '.$e->getMessage();error_log('Lucky migration: '.$e->getMessage());}
 }
 shellStart('Upgrade Platform');

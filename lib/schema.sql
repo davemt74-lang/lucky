@@ -61,3 +61,6 @@ CREATE TABLE IF NOT EXISTS controller_proof_state (
  FOREIGN KEY fk_controller_proof_host (host_admin_id) REFERENCES admins(id) ON DELETE CASCADE,
  FOREIGN KEY fk_controller_proof_session (session_id) REFERENCES game_sessions(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- V5Q.15M independent video timelines; maintains legacy claim-aware edit_json.
+CREATE TABLE IF NOT EXISTS montage_timeline_layers (session_id CHAR(32) NOT NULL PRIMARY KEY, layers_json LONGTEXT NOT NULL, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, FOREIGN KEY fk_timeline_layers_session(session_id) REFERENCES game_sessions(id) ON DELETE CASCADE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

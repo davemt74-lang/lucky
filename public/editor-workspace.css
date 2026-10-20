@@ -317,3 +317,25 @@ body.editor-workspace .studio-track .editor-trim-handle:focus-visible{
 body.editor-workspace .studio-track .editor-clip.is-trimming{
  outline:2px solid #f2c773;outline-offset:1px
 }
+
+/* V5Q.15M: independent T1 / B1 lanes, share V1's actual time-to-pixel projection. */
+body.editor-workspace .media-editor-studio{grid-template-rows:54px minmax(0,1fr) minmax(245px,36vh)}
+body.editor-workspace .studio-sequence-scroll{min-height:0;overflow:auto}
+body.editor-workspace .studio-layer-track{min-height:43px;height:43px;position:relative;flex:1 0 auto;background:repeating-linear-gradient(90deg,#13283e,#13283e 14px,#172d45 14px,#172d45 16px)}
+body.editor-workspace .studio-sequence-lane.studio-titles-lane{background:#182943;min-height:43px}
+body.editor-workspace .studio-sequence-lane.studio-music-lane{background:#172f3b;min-height:43px}
+body.editor-workspace .studio-layer-block{position:absolute;top:4px;height:34px;min-width:14px;display:block;
+ border:1px solid #dda4df;border-radius:7px;background:#5e3d79;color:#fff;z-index:1;
+ padding:5px 14px 5px 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+ font-size:11px;font-weight:700;text-align:left;cursor:grab;touch-action:none;user-select:none}
+body.editor-workspace .studio-title-block.is-selected{outline:2px solid #f6dbfb}
+body.editor-workspace .studio-background-block{background:#22545b;border-color:#83cecc;color:#ebffff}
+body.editor-workspace .studio-layer-block:focus-visible{outline:2px solid #ffe09b;outline-offset:2px}
+body.editor-workspace .studio-layer-edge{position:absolute;right:0;top:0;bottom:0;width:11px;cursor:ew-resize;background:#e9c9f2b9;touch-action:none}
+body.editor-workspace .studio-background-block .studio-layer-edge{background:#b5ece6b9}
+body.editor-workspace #studio-background-section .studio-tool-hint{color:#a9bacb}
+@media(max-width:800px){
+ body.editor-workspace .media-editor-studio{grid-template-rows:none}
+ body.editor-workspace .studio-sequence{min-height:250px}
+ body.editor-workspace .studio-sequence-scroll{max-height:35vh;overflow:auto}
+}
