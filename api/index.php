@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-require __DIR__.'/../lib/Bootstrap.php';require_once __DIR__.'/../lib/ProductCatalog.php';require_once __DIR__.'/../lib/ControllerGame.php';require_once __DIR__.'/../lib/PrizeDecision.php';require_once __DIR__.'/../lib/GameSessionLifecycle.php';headerSecurity();
+require __DIR__.'/../lib/Bootstrap.php';require_once __DIR__.'/../lib/GameCatalog.php';require_once __DIR__.'/../lib/ProductCatalog.php';require_once __DIR__.'/../lib/ControllerGame.php';require_once __DIR__.'/../lib/PrizeDecision.php';require_once __DIR__.'/../lib/GameSessionLifecycle.php';headerSecurity();
 $action=strval($_GET['action']??'');$method=$_SERVER['REQUEST_METHOD']??'GET';
 function setting(PDO $db,string $game='spin-wheel'):array {
  $q=$db->prepare('SELECT * FROM game_settings WHERE game_id=?');$q->execute([$game]);$r=$q->fetch();
@@ -50,11 +50,19 @@ function streamPrizeImage(PDO $db,string $id):never {
 try {
  if(!installed())throw new DomainException('Run setup first.',503);
  $db=db();
+ if($action==='game_art'&&$method==='GET'){
+  $art=GameCatalog::artwork(strval($_GET['id']??''),strval($_GET['file']??''));
+  header('Content-Type: '.$art['mime']);header('Content-Length: '.$art['bytes']);
+  header('Cache-Control: public, max-age=86400, immutable');readfile($art['path']);exit;
+ }
  if($action==='prize_image'&&$method==='GET')streamPrizeImage($db,strval($_GET['id']??''));
  if($action==='track'&&in_array($method,['GET','HEAD'],true))streamTrack($db,strval($_GET['id']??''));
  if($method==='GET'){
   if($action==='health')success(['service'=>'Lucky Game Hub','installed'=>true,'database'=>'connected','build'=>'5P']);
   if($action==='manifest')success(['games'=>GameRegistry::manifest()]);
+  if($action==='game_catalog'){
+   requireAdmin();success(['games'=>GameCatalog::all()]);
+  }
   if($action==='catalog'||$action==='catalog_admin'){
    if($action==='catalog_admin')requireAdmin();
    $query=$action==='catalog_admin'
@@ -127,6 +135,19 @@ try {
  if($action==='login')throw new DomainException('Use the sign-in page.',400);
  requireAdmin();
  if($action==='logout') {session_unset();session_destroy();success(['loggedOut'=>true]);}
+ if($action==='game_art_upload'){
+  $id=GameCatalog::slug($_POST['id']??null);$slot=strval($_POST['slot']??'');
+  $file=$_FILES['image']??null;
+  if(!is_array($file)||($file['error']??-1)!==UPLOAD_ERR_OK||!is_uploaded_file((string)($file['tmp_name']??'')))
+   throw new DomainException('Select a JPG, PNG, or WebP game image.',422);
+  $result=GameCatalog::saveImage($id,$slot,$file['tmp_name']);
+  audit($db,'game.artwork',null,['game'=>$id,'slot'=>$slot]);success($result,201);
+ }
+ if($action==='game_catalog_save'){
+  $data=jsonInput();$id=GameCatalog::slug($data['id']??null);
+  $game=GameCatalog::save($id,$data);
+  audit($db,'game.catalog_save',null,['game'=>$id]);success(['game'=>$game]);
+ }
  if($action==='spin_revealed'){
    $input=jsonInput();$session=(string)($input['session']??'');$spinCount=(int)($input['spinCount']??0);
    if($spinCount<1)throw new DomainException('Invalid spin number.',400);
