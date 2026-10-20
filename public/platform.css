@@ -575,3 +575,11 @@ body.game-fullwidth .console-host-wheel-controls .platform-control-row{display:g
 body.game-fullwidth .console-host-wheel-controls .platform-control-row .btn{min-width:0;white-space:normal}
 body.game-fullwidth .console-dialog .postgame-review{margin:10px 0}
 @media(max-width:540px){body.game-fullwidth .console-host-wheel-controls .platform-control-row{grid-template-columns:1fr}}
+
+/* V5Q.15R: the Game view is a fixed-size wheel stage, not an inner scroller.
+   Music, Phones and Live Display keep their existing scroll behavior. */
+@media(min-width:1061px) and (min-height:580px){
+ body.game-fullwidth .host-workspace-panels.is-wheel-active{overflow:hidden}
+ body.game-fullwidth .host-workspace-panels.is-wheel-active #host-panel-game{height:100%;min-height:0}
+ body.game-fullwidth .host-workspace-panels.is-wheel-active .platform-wheel-card{height:100%;box-sizing:border-box}
+}

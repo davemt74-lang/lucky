@@ -322,13 +322,27 @@
  let wheelFitScheduled=false;
  function fitWheelViewport(){
   wheelFitScheduled=false;
-  const wrap=document.querySelector('#host-panel-game .platform-wheel-wrap');
-  if(!wrap||$('host-panel-game')?.hidden)return;
-  // Host controls live in the Game menu, not underneath the wheel.
-  const top=wrap.getBoundingClientRect().top;
-  const available=Math.floor(innerHeight-top-34);
-  const width=wrap.parentElement?.clientWidth||innerWidth;
-  wrap.style.setProperty('--wheel-viewport-size',Math.max(160,Math.min(available,width-20,780))+'px');
+  const panel=$('host-panel-game'),wrap=panel?.querySelector('.platform-wheel-wrap');
+  const workspace=panel?.parentElement,card=wrap?.closest('.platform-wheel-card');
+  if(!wrap||!workspace||!card||panel.hidden)return;
+  // Measure the inner bottom of the game panel rather than the viewport alone.
+  // Header height, workspace padding and the wheel's own margins all matter.
+  const workspaceStyle=getComputedStyle(workspace);
+  const cardStyle=getComputedStyle(card);
+  const wrapStyle=getComputedStyle(wrap);
+  const panelBottom=workspace.getBoundingClientRect().bottom
+   -(parseFloat(workspaceStyle.paddingBottom)||0)
+   -(parseFloat(workspaceStyle.borderBottomWidth)||0);
+  const error=$('game-error'),errorHeight=error&&!error.hidden?error.getBoundingClientRect().height:0;
+  const bottomRoom=(parseFloat(wrapStyle.marginBottom)||0)
+   +(parseFloat(cardStyle.paddingBottom)||0)+errorHeight+24;
+  const available=Math.floor(Math.min(window.innerHeight-8,panelBottom)
+   -wrap.getBoundingClientRect().top-bottomRoom);
+  const width=Math.floor(card.clientWidth
+   -(parseFloat(cardStyle.paddingLeft)||0)
+   -(parseFloat(cardStyle.paddingRight)||0));
+  const next=Math.max(120,Math.min(780,width,available));
+  wrap.style.setProperty('--wheel-viewport-size',next+'px');
  }
  function queueWheelFit(){
   if(wheelFitScheduled)return;
@@ -336,12 +350,19 @@
   requestAnimationFrame(fitWheelViewport);
  }
  window.addEventListener('resize',queueWheelFit);
+ // Header wrapping and responsive panel changes can also change available height.
+ const wheelPanel=document.querySelector('.host-workspace-panels');
+ if(wheelPanel&&typeof ResizeObserver!=='undefined'){
+  const observer=new ResizeObserver(queueWheelFit);
+  observer.observe(wheelPanel);
+ }
  function setHostTab(which,{focus=false}={}){
    if(!hostTabs.includes(which))return false;
    for(const option of hostTabs){const active=option===which,tab=$('host-tab-'+option),panel=$('host-panel-'+option);
      tab.setAttribute('aria-selected',String(active));tab.tabIndex=active?0:-1;panel.hidden=!active;
    }
    if(focus)$('host-tab-'+which).focus();
+   wheelPanel?.classList.toggle('is-wheel-active',which==='game');
    if(which==='game')queueWheelFit();
    return true;
  }
@@ -354,6 +375,7 @@
    };
  }
  window.LuckyHostTabs=Object.freeze({activate:setHostTab,items:hostTabs});
+ wheelPanel?.classList.toggle('is-wheel-active',!$('host-panel-game').hidden);
  queueWheelFit();
  
  window.addEventListener('lucky:paired-phones',e=>{const count=$('host-phone-count');if(count)count.textContent=Number(e.detail?.count||0)>0?String(e.detail.count):'';});
