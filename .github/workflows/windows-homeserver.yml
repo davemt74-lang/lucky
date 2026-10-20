@@ -16,6 +16,8 @@ jobs:
           persist-credentials: false
       - name: Compile self-contained Windows installer
         shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           & .\homeserver\build-windows.ps1 -OutputDir $env:RUNNER_TEMP
           if($LASTEXITCODE -ne 0){exit 1}
