@@ -8,6 +8,7 @@ if (PHP_SAPI!=='cli' || getenv('LUCKY_BOOTSTRAP')!=='homeserver')
     {fwrite(STDERR,"Local HomeServer CLI only.\n");exit(3);}
 require_once __DIR__.'/../lib/MigrationSql.php';
 require_once __DIR__.'/../lib/GameEngine.php';
+require_once __DIR__.'/../lib/PrizePublicationMigration.php';
 $home=realpath(__DIR__.'/..');
 if(!$home)throw new RuntimeException('Application directory not found.');
 $host='127.0.0.1';
@@ -37,6 +38,7 @@ foreach(['v5n.sql','v5p.sql','v5p_sync.sql','v5q_claim_media.sql','v5q3_renders.
          'v5q15m_layers.sql','v5q15n_templates.sql','v5q20_prize_packages.sql'] as $migration){
     foreach(MigrationSql::statements((string)file_get_contents($home.'/lib/migrations/'.$migration)) as $sql)$db->exec($sql);
 }
+PrizePublicationMigration::ensure($db);
 foreach(['source_label'=>"ALTER TABLE claim_media ADD COLUMN source_label VARCHAR(120) NOT NULL DEFAULT '' AFTER title",
          'angle_label'=>"ALTER TABLE claim_media ADD COLUMN angle_label VARCHAR(80) NOT NULL DEFAULT '' AFTER source_label",
          'angle_index'=>"ALTER TABLE claim_media ADD COLUMN angle_index TINYINT UNSIGNED NOT NULL DEFAULT 0 AFTER angle_label"] as $column=>$ddl){
