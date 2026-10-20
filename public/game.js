@@ -30,6 +30,14 @@
  }
 
  let data=null,busy=false,stopVoice=null,lastVersion=0,activeId='',viewerUrl='',syncedSpin=0,initialSync=true,syncPending=false;
+ let returningToDashboard=false;
+ const endedRemotely=(before,after)=>before?.id&&before.id===after?.id&&
+  ['active','paused'].includes(before.status)&&after.status==='ended';
+ function returnToDashboard(){
+  if(returningToDashboard)return;
+  returningToDashboard=true;
+  location.assign('index.php');
+ }
  let prizePackageOptions=[],chosenPackage='';
  function paintGamePackages(){
   const input=$('host-package-select');if(!input)return;
@@ -107,7 +115,7 @@
     const row=document.createElement('div');row.className='platform-claim claim-proof-row';row.dataset.claimId=c.id;
     const thumb=thumbSession===view?.id?thumbs.get(c.id):null;
     if(validId(thumb)){
-     const preview=document.createElement('video');preview.className='claim-video-thumbnail';
+     const preview=document.createElement('video');preview.className='claim-video-thumbnail claim-proof-media';
      preview.muted=true;preview.defaultMuted=true;preview.playsInline=true;
      preview.preload='metadata';preview.setAttribute('aria-label',c.name+' recorded prize video');
      preview.src='api/claim-media.php?action=stream&id='+encodeURIComponent(thumb);
@@ -116,9 +124,12 @@
        try{preview.currentTime=Math.min(0.15,preview.duration/2);}catch(_){}
       }
      },{once:true});row.append(preview);
+    }else{
+     const placeholder=document.createElement('span');placeholder.className='claim-proof-media claim-proof-placeholder';
+     placeholder.textContent='✦';placeholder.setAttribute('aria-hidden','true');row.append(placeholder);
     }
     const info=document.createElement('div');info.className='claim-proof-info';const name=document.createElement('strong');name.textContent=c.name;
-    const amount=document.createElement('span');amount.textContent=`${c.tier.toUpperCase()} · ${L.money(c.cents)}`;info.append(name,amount);
+    const amount=document.createElement('span');amount.className='claim-proof-meta';amount.textContent=`${c.tier.toUpperCase()} · ${L.money(c.cents)}`;info.append(name,amount);
     const state=proofStates[c.id];if(state?.needsRevision){const flag=document.createElement('span');flag.className='proof-revision-needed';flag.textContent='Needs revision';info.append(flag);}
     else if(state?.latestRevision){const flag=document.createElement('span');flag.textContent=`Proof v${state.latestRevision}`;info.append(flag);}
     const edit=document.createElement('a');if(!validId(c.id)){edit.textContent='Proof unavailable';edit.className='btn btn-outline';edit.setAttribute('aria-disabled','true');row.append(info,edit);root.append(row);continue;}
@@ -158,8 +169,16 @@
  }
  async function syncGame(){if(busy||syncPending||initialSync)return;syncPending=true;
   try{
-   const requested=new URL(location.href).searchParams.get('session');const result=requested&&/^[a-f0-9]{32}$/.test(requested)?{data:await L.api('session',{query:{id:requested}})}:await L.api('last'),fresh=result.data||null,view=fresh?.view;
+   const requested=new URL(location.href).searchParams.get('session');
+   const pinned=validId(activeId)&&['active','paused'].includes(data?.view?.status)?activeId:'';
+   const id=validId(requested)?requested:pinned;
+   // Pin the current live session: 'last' may prefer an unrelated saved game
+   // after this session is ended on the phone, masking the terminal transition.
+   const result=id?{data:await L.api('session',{query:{id}})}:await L.api('last'),fresh=result.data||null,view=fresh?.view;
    if(!view){if(data){data=null;activeId='';syncedSpin=0;lastVersion=0;render();}return;}
+   // End Game on a phone is already committed to the server; host must follow.
+   // Only redirect a currently live session, never historical finished sessions.
+   if(endedRemotely(data?.view,view)){returnToDashboard();return;}
    const changedId=view.id!==activeId;
    if(!changedId&&view.version===lastVersion)return;
    const spin=view.lastSpin;
@@ -218,7 +237,7 @@
     }
    }
    if(currentOffer?.status==='declined'&&data.view.status!=='ended'){
-    data=await L.api('session',{query:{id:data.view.id}});render();msg('Prize declined. Game ended.');
+    const fresh=await L.api('session',{query:{id:data.view.id}});if(endedRemotely(data.view,fresh.view)){returnToDashboard();return;}data=fresh;render();msg('Prize declined. Game ended.');
    }
    render();
   }catch(e){if(!/Unknown endpoint|not available/.test(e.message))msg('Prize acceptance sync: '+e.message,true);}
@@ -250,8 +269,8 @@
   catch(e){msg(e.message,true);}finally{busy=false;render();}}
  async function end(){if(busy||!data||!['active','paused'].includes(data.view.status))return;
   if(!confirm('End this game? Claimed prizes remain in session history.'))return;
-  busy=true;render();try{const id=data.view.id;await L.api('end',{body:{id,idempotencyKey:L.idempotency()}});data=await L.api('session',{query:{id}});lastVersion=data.view.version;msg('Game ended. Prizes are preserved in the session archive.');L.speak('Game over. Thanks for playing!');}
-  catch(e){msg(e.message,true);}finally{busy=false;render();}
+  busy=true;render();try{const id=data.view.id;await L.api('end',{body:{id,idempotencyKey:L.idempotency()}});L.speak('Game over. Thanks for playing!');returnToDashboard();}
+  catch(e){msg(e.message,true);}finally{busy=false;if(!returningToDashboard)render();}
  }
  async function voiceInput(text){
   const phrase=text.toLowerCase().trim();
