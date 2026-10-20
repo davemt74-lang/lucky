@@ -3,9 +3,9 @@
 param([switch]$Smoke,[switch]$NoBrowser)
 $ErrorActionPreference='Stop'
 $ProgressPreference='SilentlyContinue'
-$home=Split-Path -Parent $PSScriptRoot
-$app=Join-Path $home 'app'
-$runtime=Join-Path $home 'runtime'
+$installRoot=Split-Path -Parent $PSScriptRoot
+$app=Join-Path $installRoot 'app'
+$runtime=Join-Path $installRoot 'runtime'
 $data=Join-Path $env:LOCALAPPDATA 'LuckyGameHub'
 $storage=Join-Path $data 'storage'
 $dbdata=Join-Path $data 'db'
