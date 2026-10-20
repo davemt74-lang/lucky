@@ -80,6 +80,7 @@ jobs:
           python tests/v5q15h_claim_thumbnails_browser.py
           python tests/v5q15i_editor_tools_browser.py
           python tests/v5q15j_editor_visuals_browser.py
+          python tests/v5q15k_host_viewport_browser.py
       - name: Phone controller regressions
         run: |
           python tests/v5p2_navigation_voice.py
