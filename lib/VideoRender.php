@@ -42,6 +42,8 @@ final class VideoRender {
    $input=LUCKY_ROOT.'/storage/claim-media/'.$id.'.bin';
    if(!is_file($input))throw new RuntimeException('The source clip for this render no longer exists.');
    $kind=$c['kind'];$duration=0;$start=0;$meta=[];
+   $audioMode=(string)($c['audio_mode']??'normal');$voiceoverId=(string)($c['voiceover_id']??'');
+   $voiceMuted=($c['voiceover_muted']??false)===true;
    if($kind==='photo'){$duration=(int)$c['photo_duration_ms']/1000;$meta=['video'=>true,'audio'=>false,'duration'=>$duration];}
    else {
     $meta=$this->probe($input,$tempDir.'/probe-'.$i.'.log');
@@ -58,20 +60,54 @@ final class VideoRender {
    $vf="scale={$size['width']}:{$size['height']}:force_original_aspect_ratio=decrease,pad={$size['width']}:{$size['height']}:(ow-iw)/2:(oh-ih)/2:color=0x141e32,setsar=1,fps=30,format=yuv420p";
    if($kind==='photo'){
     $argv=[$this->ffmpeg,'-hide_banner','-nostdin','-v','error','-y','-loop','1','-framerate','30','-i',$input,'-f','lavfi','-i','anullsrc=channel_layout=stereo:sample_rate=48000'];
-    $videoInput='0:v:0';$audioInput='1:a:0';
+    $videoInput='0:v:0';$audioInput='1:a:0';$nextInput=2;
    }elseif($kind==='audio'){
     $argv=[$this->ffmpeg,'-hide_banner','-nostdin','-v','error','-y','-f','lavfi','-i',"color=c=0x141e32:s={$size['width']}x{$size['height']}:r=30",'-ss',sprintf('%.3f',$start),'-i',$input];
-    $videoInput='0:v:0';$audioInput='1:a:0';
+    $videoInput='0:v:0';$audioInput='1:a:0';$nextInput=2;
+    if($audioMode==='muted'){$argv=array_merge($argv,['-f','lavfi','-i','anullsrc=channel_layout=stereo:sample_rate=48000']);$audioInput='2:a:0';$nextInput=3;}
    }else{
     $argv=[$this->ffmpeg,'-hide_banner','-nostdin','-v','error','-y','-ss',sprintf('%.3f',$start),'-i',$input];
-    $videoInput='0:v:0';$audioInput='0:a:0';
-    if(!$meta['audio']){$argv=array_merge($argv,['-f','lavfi','-i','anullsrc=channel_layout=stereo:sample_rate=48000']);$audioInput='1:a:0';}
+    $videoInput='0:v:0';$audioInput='0:a:0';$nextInput=1;
+    if(!$meta['audio']||$audioMode!=='normal'){
+     $argv=array_merge($argv,['-f','lavfi','-i','anullsrc=channel_layout=stereo:sample_rate=48000']);
+     $audioInput='1:a:0';$nextInput=2;
+    }
+   }
+   $detached=$kind==='video'&&$audioMode==='detached'&&!empty($meta['audio']);
+   $voiceInput=null;
+   if($voiceoverId!==''&&!$voiceMuted){
+    if(!ClaimMedia::validId($voiceoverId))throw new RuntimeException('Invalid voiceover ID.');
+    $voiceFile=LUCKY_ROOT.'/storage/claim-media/'.$voiceoverId.'.bin';
+    if(!is_file($voiceFile))throw new RuntimeException('Selected clip voiceover is missing.');
+    $voiceMeta=$this->probe($voiceFile,$tempDir.'/voice-probe-'.$i.'.log');
+    if(!$voiceMeta['audio'])throw new RuntimeException('Selected recording has no audio.');
+    $voiceInput=$nextInput++;
+    $argv=array_merge($argv,['-i',$voiceFile]);
+   }
+   $audioMap=$audioInput;$filters=[];$mix=[];
+   if($detached||$voiceInput!==null){
+    $filters[]="[{$audioInput}]aformat=channel_layouts=stereo:sample_rates=48000[base]";
+    $mix[]='[base]';
+    if($detached){
+     $offset=(int)($c['detached_offset_ms']??0);
+     $filters[]="[0:a:0]aformat=channel_layouts=stereo:sample_rates=48000,adelay={$offset}:all=1[detached]";
+     $mix[]='[detached]';
+    }
+    if($voiceInput!==null){
+     $offset=(int)($c['voiceover_offset_ms']??0);
+     $filters[]="[{$voiceInput}:a:0]aformat=channel_layouts=stereo:sample_rates=48000,adelay={$offset}:all=1[voice]";
+     $mix[]='[voice]';
+    }
+    $n=count($mix);$dur=number_format($duration,3,'.','');
+    $filters[]=implode('',$mix)."amix=inputs={$n}:duration=first:dropout_transition=0,atrim=duration={$dur},asetpts=N/SR/TB[mixed]";
+    $audioMap='[mixed]';
    }
    if(($c['transition']??'fade')==='fade'&&$duration>=0.6){
     $fadeAt=number_format(max(0,$duration-0.18),3,'.','');
     $vf.=',fade=t=in:st=0:d=0.18,fade=t=out:st='.$fadeAt.':d=0.18';
    }
-   $argv=array_merge($argv,['-t',sprintf('%.3f',$duration),'-map',$videoInput,'-map',$audioInput,'-vf',$vf,'-c:v','libx264','-preset','veryfast','-crf',(string)$size['crf'],'-pix_fmt','yuv420p','-r','30','-c:a','aac','-ac','2','-ar','48000','-b:a','128k','-shortest','-movflags','+faststart',$dest]);
+   if($filters)$argv=array_merge($argv,['-filter_complex',implode(';',$filters)]);
+   $argv=array_merge($argv,['-t',sprintf('%.3f',$duration),'-map',$videoInput,'-map',$audioMap,'-vf',$vf,'-c:v','libx264','-preset','veryfast','-crf',(string)$size['crf'],'-pix_fmt','yuv420p','-r','30','-c:a','aac','-ac','2','-ar','48000','-b:a','128k','-shortest','-movflags','+faststart',$dest]);
    $this->runProcess($argv,$tempDir.'/segment-'.$i.'.log',180);
    if(!is_file($dest)||filesize($dest)===0)throw new RuntimeException('Video segment was not created.');
    $segments[]=$dest;
