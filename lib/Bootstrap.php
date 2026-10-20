@@ -59,8 +59,18 @@ function sessionRow(PDO $db,string $id,bool $lock=false):array {
 }
 function stateFromRow(array $row):array{$s=json_decode($row['state_json'],true,512,JSON_THROW_ON_ERROR);return $s;}
 function saveState(PDO $db,array $s):void {
+ // Keep the module's original ISO timestamp in its JSON state, but normalize
+ // to MariaDB DATETIME for the indexed ended_at column. Without this, End
+ // Game could fail to commit after a phone/desktop action.
+ $endedSql=null;$ended=$s['endedAt']??null;
+ if($ended!==null){
+  if(!is_string($ended)||trim($ended)==='')throw new DomainException('Invalid game end timestamp.',422);
+  try{$datetime=new DateTimeImmutable($ended,new DateTimeZone('UTC'));}
+  catch(Throwable $e){throw new DomainException('Invalid game end timestamp.',422);}
+  $endedSql=$datetime->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s');
+ }
  $q=$db->prepare('UPDATE game_sessions SET state_json=?, status=?, version=?, updated_at=UTC_TIMESTAMP(),ended_at=? WHERE id=? AND version=?');
- $q->execute([json_encode($s,JSON_THROW_ON_ERROR),$s['status'],$s['version'],$s['endedAt'],$s['id'],$s['version']-1]);
+ $q->execute([json_encode($s,JSON_THROW_ON_ERROR),$s['status'],$s['version'],$endedSql,$s['id'],$s['version']-1]);
  if($q->rowCount()!==1)throw new RuntimeException('Concurrent session update conflict.');
  if(($s['status']??'')==='ended'){
   try{require_once __DIR__.'/MontageAutoDraft.php';MontageAutoDraft::ensure($db,(string)$s['id']);}

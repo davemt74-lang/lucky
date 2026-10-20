@@ -102,6 +102,23 @@ jobs:
             throw
           }
           Write-Host 'WINDOWS_OFFLINE_INSTALL_AND_RESTART_PASS'
+      - name: Certify installed Windows ZIP packages and isolated recovery
+        shell: pwsh
+        run: |
+          $installation=Join-Path $env:RUNNER_TEMP 'LuckyHomeServerInstalled'
+          $php=Join-Path $installation 'runtime\php\php.exe'
+          $ini=Join-Path $env:LOCALAPPDATA 'LuckyGameHub\php.ini'
+          $test=Join-Path $installation 'app\tests\v5q23a_activation_recovery.php'
+          $sourceTest=Join-Path (Get-Location).Path 'tests\v5q23a_activation_recovery.php'
+          if(!(Test-Path $php) -or !(Test-Path $ini) -or !(Test-Path $sourceTest)){throw 'Installed certification runtime incomplete'}
+          # Tests are deliberately excluded from the product installer. Copy
+          # this fixture into the temporary CI installation only, after the
+          # application source-parity and clean-install checks have passed.
+          New-Item -ItemType Directory -Force -Path (Split-Path -Parent $test) | Out-Null
+          Copy-Item -LiteralPath $sourceTest -Destination $test -Force
+          & $php -c $ini $test
+          if($LASTEXITCODE -ne 0){throw 'Installed game recovery certification failed'}
+          Write-Host 'WINDOWS_GAME_RECOVERY_CERTIFIED'
       - name: Upload Windows installer and verification manifest
         uses: actions/upload-artifact@v4
         with:

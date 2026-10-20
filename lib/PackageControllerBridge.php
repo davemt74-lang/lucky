@@ -33,6 +33,13 @@ final class PackageControllerBridge {
    throw new DomainException('Invalid game input.',422);
   return ['verb'=>'input','payload'=>['name'=>$key,'value'=>$value]];
  }
+ /** First delivery must match the state the phone actually displayed. */
+ public static function assertFreshVersion(mixed $expected,int $stored):void {
+  if(!is_int($expected)||$expected<1||$expected>4294967295)
+   throw new DomainException('Missing phone session version; refresh the controller.',409);
+  if($expected!==$stored)
+   throw new DomainException('The game changed while this phone was offline. Refresh before retrying.',409);
+ }
  public static function key(string $pairId,string $nonce):string {
   return hash('sha256','lucky-package-phone:'.$pairId.':'.$nonce);
  }

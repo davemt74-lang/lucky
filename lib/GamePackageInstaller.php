@@ -15,7 +15,15 @@ final class GamePackageInstaller {
  private const MAX_ENTRIES=150;
  private const FILE_EXT=['html','js','css','json','png','jpg','jpeg','webp','mp3','m4a','ogg','wav','webm','woff2'];
  public static function base(?string $root=null):string {
-  return $root??dirname(__DIR__).'/storage/game-packages';
+  if($root!==null)return $root;
+  // Allow the certification harness to exercise the actual registry without
+  // touching a user's installation. Ignored outside explicit test processes.
+  if(defined('LUCKY_TESTING')&&LUCKY_TESTING===true){
+   $test=getenv('LUCKY_TEST_GAME_PACKAGES');
+   if(is_string($test)&&str_starts_with($test,sys_get_temp_dir().DIRECTORY_SEPARATOR))
+    return $test;
+  }
+  return dirname(__DIR__).'/storage/game-packages';
  }
  private static function ensureDir(string $path):void {
   if(is_link($path))throw new DomainException('Package storage is unsafe.',403);
@@ -141,7 +149,7 @@ final class GamePackageInstaller {
    // Reject a substituted archive before any private version folder is created.
    if(($expectedGame!==null&&$id!==$expectedGame)||($expectedVersion!==null&&$version!==$expectedVersion))
     throw new DomainException('Game package identity does not match the selected release.',403);
-   $builtIn=isset(GameRegistry::modules()[$id]);
+   $builtIn=GameRegistry::isBuiltIn($id);
    $expected=['manifest.json'=>true];
    if(isset($entries['manifest.sig']))$expected['manifest.sig']=true;
    foreach($manifest['files'] as $file=>$hash)$expected[$file]=true;

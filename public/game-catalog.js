@@ -89,9 +89,16 @@
  async function loadPackages(){
   const result=await api('game_packages');
   const rows=Array.isArray(result.packages)?result.packages:[];
+  const issues=Array.isArray(result.issues)?result.issues:[];
+  const warning=$('game-package-health');
+  warning.hidden=issues.length===0;
+  warning.textContent=issues.length?
+    'Some game packages need attention: '+issues.map(i=>i.game).join(', ')+
+    '. The affected game is disabled until you repair its installation. Other games remain available.':'';
   const area=$('game-package-list');area.replaceChildren();
   if(!rows.length){area.append(text('p','No game packages uploaded yet. Spin the Wheel is already bundled.'));return;}
   const active=result.active||{};
+  const damaged=new Set(issues.filter(i=>i.reason==='invalid_activation').map(i=>i.game));
   for(const game of rows){
    const card=text('article','','game-update-release');
    const now=active[game.id]?.version||null;
@@ -100,7 +107,23 @@
     ' · '+(game.signatureVerified?'Publisher signature verified':'Locally uploaded game')));
    card.append(text('small','Imported '+game.installedAt+' · '+game.fileCount+' files · '+
     (game.builtIn?'Protected built-in game update':now===game.version?'Currently active':'Available for activation')));
-   if(!game.builtIn){
+   if(!game.builtIn&&damaged.has(game.id)){
+    const repair=document.createElement('button');
+    repair.className='btn btn-outline';repair.type='button';
+    repair.textContent='Recover using v'+game.version;
+    repair.onclick=async()=>{
+     if(!confirm('This game\'s active-version record is damaged. Restore v'+game.version+
+       ' from its locally staged package? The damaged record will be preserved and other games unaffected.'))return;
+     repair.disabled=true;
+     try{
+      const out=await api('game_package_recover',{body:{game:game.id,version:game.version,confirm:true}});
+      packageNote(out.recovery.game+' recovered to v'+out.recovery.version+'.');
+      await loadPackages();await reload(game.id);
+     }catch(e){packageNote(e.message,true);repair.disabled=false;}
+    };
+    card.append(repair);
+   }
+   if(!game.builtIn&&!damaged.has(game.id)){
     const activate=document.createElement('button');
     activate.className='btn btn-outline';activate.type='button';
     activate.textContent=now===game.version?'Active version':(now?'Switch / Roll back to this version':'Activate game version');

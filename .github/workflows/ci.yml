@@ -34,6 +34,8 @@ jobs:
           php tests/v5q22f_cloud_download.php
           php tests/v5q22g_activation.php
           php tests/v5q22h_phone_bridge.php
+          php tests/v5q23a_activation_recovery.php
+          php tests/v5q23a_phone_version.php
           php tests/v5q16_session_lifecycle.php
           php tests/v5q18_foundation.php
           php tests/spin_reveal.php
@@ -78,6 +80,7 @@ jobs:
         run: |
           php tests/v5q20_packages_db.php
           php tests/v5q21_migration_db.php
+          php tests/v5q23a_real_mariadb.php
   browsers:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -132,6 +135,7 @@ jobs:
           python tests/v5q22d_phone_end_game_browser.py
           python tests/v5q22g_package_browser.py
           python tests/v5q22h_phone_browser.py
+          python tests/v5q23a_phone_fault_browser.py
       - name: Phone controller regressions
         run: |
           python tests/v5p2_navigation_voice.py
