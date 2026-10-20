@@ -1,5 +1,5 @@
 (() => {
- 'use strict';const L=Lucky,$=L.$;let settings=null,activeTier='tier1',editIntroGame='spin-wheel',introConfig=null,history=[];
+ 'use strict';const L=Lucky,$=L.$;let settings=null,activeTier='tier1',editIntroGame='spin-wheel',introConfig=null,history=[],sessions=[],readyGames=[];
  const amount=s=>{const n=Number(s);if(!Number.isFinite(n)||n<0||n>10000000)throw Error('Invalid dollar amount.');return Math.round(n*100);};
  const cents=c=>(Number(c||0)/100).toFixed(2);
  const elem=(tag,txt='',cls='')=>{const e=document.createElement(tag);if(txt)e.textContent=txt;if(cls)e.className=cls;return e;};
@@ -93,12 +93,82 @@
  $('music-add-url').onsubmit=async e=>{e.preventDefault();const f=e.currentTarget;try{await L.api('track_add',{body:{title:f.elements.title.value.trim(),url:f.elements.url.value.trim()}});
   f.reset();await refreshMusic();status('Hosted track saved.');}catch(err){status(err.message,true);}};
  async function refreshHistory(){const r=await L.api('history');history=r.history;const list=$('history-items');list.replaceChildren();
-  for(const item of history){const row=elem('div','','platform-claim');row.append(elem('strong',item.id.slice(0,8)+' · '+item.claims+' claims'),
+  for(const item of history){const row=elem('div','','platform-claim');row.append(elem('strong',(item.game||'Game')+' · '+item.id.slice(0,8)+' · '+item.claims+' claims'),
     elem('span',`${L.money(item.awardedCents)} awarded · ${item.spins} spins · ${item.endedAt||'Ended'}`));list.append(row);}
   if(!history.length)list.append(elem('p','No completed sessions yet.'));
  }
  $('refresh-history').onclick=()=>refreshHistory().catch(e=>status(e.message,true));
- $('export-history').onclick=()=>{const rows=[['Session','Started','Ended','Spins','Claims','Awarded USD'],...history.map(h=>[h.id,h.createdAt,h.endedAt,h.spins,h.claims,cents(h.awardedCents)])];
+
+ function makeSessionButton(label,kind,item){
+  const b=elem('button',label,'btn btn-outline');b.type='button';b.dataset.sessionAction=kind;b.dataset.sessionId=item.id;
+  b.onclick=async()=>{
+   if(b.disabled)return;
+   if(['end','finish_saved'].includes(kind)&&!confirm('Finish this session permanently? Finished sessions are archived and cannot be resumed.'))return;
+   b.disabled=true;
+   try{
+    await L.api(kind,{body:{id:item.id,idempotencyKey:L.idempotency()}});
+    status('Session '+(kind==='save_session'?'saved':kind==='resume_saved'?'resumed':'finished')+'.');
+    await refreshSessions();if(['end','finish_saved'].includes(kind))await refreshHistory();
+   }catch(e){status(e.message,true);}
+   finally{b.disabled=false;}
+  };
+  return b;
+ }
+ function renderSessions(){
+  const container=$('admin-session-list'),filter=$('session-game-filter').value;
+  container.replaceChildren();
+  const rows=sessions.filter(x=>!filter||x.game===filter);
+  if(!rows.length){container.append(elem('p','No sessions for this game yet. Select a ready game and choose Start game.'));return;}
+  for(const session of rows){
+   const game=readyGames.find(x=>x.id===session.game);
+   const card=elem('article','','admin-session-card');
+   const head=elem('header'),title=elem('strong',(game?.name||session.game)+' · '+session.id.slice(0,8));
+   const state=elem('span',session.status==='ended'?'Finished':session.status,'admin-session-status');state.dataset.status=session.status;
+   head.append(title,state);
+   const meta=elem('div',session.spins+' spins · '+session.claims+' claims · '+L.money(session.awardedCents)+' awarded · '+session.createdAt,'admin-session-metadata');
+   const actions=elem('div','','admin-session-actions');
+   if(['active','paused'].includes(session.status)){
+    actions.append(makeSessionButton('Save session','save_session',session),makeSessionButton('Finish game','end',session));
+   }
+   if(session.status==='saved'){
+    actions.append(makeSessionButton('Resume saved','resume_saved',session),makeSessionButton('Finish game','finish_saved',session));
+   }
+   if(game?.path&&session.status!=='ended'){
+    const link=elem('a','Open game ↗','btn btn-outline');
+    link.href=game.path+(game.path.includes('?')?'&':'?')+'session='+encodeURIComponent(session.id);
+    actions.append(link);
+   }
+   card.append(head,meta,actions);container.append(card);
+  }
+ }
+ async function refreshSessions(){
+  const results=await Promise.all([L.api('manifest'),L.api('sessions')]);
+  readyGames=(results[0].games||[]).filter(x=>x.status==='ready'&&typeof x.id==='string'&&x.path);
+  sessions=results[1].sessions||[];
+  const select=$('session-game-filter'),old=select.value||'spin-wheel';
+  select.replaceChildren(new Option('All games',''));
+  const ids=new Set([...readyGames.map(x=>x.id),...sessions.map(x=>x.game)]);
+  for(const id of ids){const game=readyGames.find(x=>x.id===id);select.add(new Option(game?.name||id,id));}
+  select.value=ids.has(old)?old:'';
+  updateStartButton();renderSessions();
+ }
+ function updateStartButton(){
+  const id=$('session-game-filter').value;
+  $('start-selected-game').disabled=!readyGames.some(x=>x.id===id);
+ }
+ $('session-game-filter').onchange=()=>{updateStartButton();renderSessions();};
+ $('refresh-sessions').onclick=()=>refreshSessions().catch(e=>status(e.message,true));
+ $('start-selected-game').onclick=async()=>{
+  const game=$('session-game-filter').value;
+  if(!readyGames.some(x=>x.id===game))return status('Choose a ready game first.',true);
+  const button=$('start-selected-game');button.disabled=true;
+  try{
+   await L.api('start',{body:{game}});
+   await refreshSessions();status('New '+game+' session started.');
+  }catch(e){status(e.message,true);}finally{updateStartButton();}
+ };
+
+ $('export-history').onclick=()=>{const rows=[['Game','Session','Started','Ended','Spins','Claims','Awarded USD'],...history.map(h=>[h.game,h.id,h.createdAt,h.endedAt,h.spins,h.claims,cents(h.awardedCents)])];
   const csv=rows.map(row=>row.map(value=>{const s=String(value??'');return '"'+(/^[=+@\-]/.test(s)?"'":'')+s.replaceAll('"','""')+'"';}).join(',')).join('\r\n');
   const a=elem('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='lucky-session-history.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);};
  $('import-legacy').onclick=async()=>{try{const raw=JSON.parse(localStorage.getItem('lucky-spin-v3')||'null');if(!raw?.pools)throw Error('No prior V5 prize pools found in this browser.');
@@ -110,12 +180,18 @@
   if((raw.claims||[]).length){await L.api('import_legacy',{body:{sourceGameId:raw.gameId||'legacy-'+raw.createdAt,legacy:{pools,odds:settings.config.odds,claims:raw.claims}}});}
   await loadSettings();await refreshHistory();status(`Imported browser prize pools and ${(raw.claims||[]).length} archived claims.`);
  }catch(e){status(e.message,true);}};
- $('logout').onclick=async()=>{try{await L.api('logout',{body:{}});location.href='login.php';}catch(e){status(e.message,true);}};
+ // Account logout is handled by the shared CSRF-protected user dropdown.
  document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{const tab=b.dataset.tab;
-   document.querySelectorAll('[data-tab]').forEach(item=>item.classList.toggle('selected',item===b));
+   document.querySelectorAll('[data-tab]').forEach(item=>{item.classList.toggle('selected',item===b);if(item===b)item.setAttribute('aria-current','page');else item.removeAttribute('aria-current');});
    document.querySelectorAll('.platform-admin-panel').forEach(el=>el.hidden=el.id!=='tab-'+tab);
+   document.querySelector('.admin-console')?.classList.remove('nav-open');
+   $('admin-nav-toggle')?.setAttribute('aria-expanded','false');
  });
- const initialTab=new URLSearchParams(location.search).get('tab');if(['prizes','intro','music','history','migration'].includes(initialTab))document.querySelector(`[data-tab="${initialTab}"]`)?.click();
+ $('admin-nav-toggle').onclick=()=>{
+  const open=document.querySelector('.admin-console').classList.toggle('nav-open');
+  $('admin-nav-toggle').setAttribute('aria-expanded',String(open));
+ };
+ const initialTab=new URLSearchParams(location.search).get('tab');if(['prizes','intro','music','sessions','history','migration'].includes(initialTab))document.querySelector(`[data-tab="${initialTab}"]`)?.click();
  try{const legacy=JSON.parse(localStorage.getItem('lucky-spin-v3')||'null');$('legacy-status').textContent=legacy?.pools?'Legacy prize pools found. You can import their definitions.':'No V5 game configuration found in this browser.';}catch(_){$('legacy-status').textContent='No readable V5 game data found.';}
- Promise.all([loadSettings(),refreshMusic(),refreshHistory(),L.api('last')]).then(async ([_,__,___,last])=>{window.__lastSession=last.data;await loadIntro();status('Admin settings loaded.');}).catch(e=>status(e.message,true));
+ Promise.all([loadSettings(),refreshMusic(),refreshHistory(),refreshSessions(),L.api('last')]).then(async ([_,__,___,____,last])=>{window.__lastSession=last.data;await loadIntro();status('Admin settings loaded.');}).catch(e=>status(e.message,true));
 })();
