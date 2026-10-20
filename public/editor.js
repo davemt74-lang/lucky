@@ -58,6 +58,92 @@
   document.querySelectorAll('.editor-clip').forEach(el=>el.classList.toggle('is-selected',el.dataset.instanceId===instanceId));
   if(openPanel)setInspector(true);
  }
+ function setInspector(open){
+  inspectorOpen=!!open;
+  const panel=$('clip-inspector'),back=$('editor-inspector-backdrop'),toggle=$('editor-open-inspector');
+  panel.classList.toggle('is-open',inspectorOpen);panel.inert=!inspectorOpen;
+  panel.setAttribute('aria-hidden',String(!inspectorOpen));back.hidden=!inspectorOpen;
+  toggle.setAttribute('aria-expanded',String(inspectorOpen));
+  if(inspectorOpen){if(!chosen&&clips.length)select(clips[0].instanceId);$('editor-close-inspector').focus();}
+  else toggle.focus();
+ }
+ function closeContextMenu(){
+  const el=$('clip-context-menu');el.hidden=true;el.replaceChildren();clipMenuFor=null;
+ }
+ function showContextMenu(clip,x,y){
+  closeContextMenu();select(clip.instanceId);clipMenuFor=clip.instanceId;
+  const menu=$('clip-context-menu');menu.hidden=false;
+  const item=(label,fn,disabled=false,danger=false)=>{
+   const b=document.createElement('button');b.type='button';b.setAttribute('role','menuitem');
+   b.textContent=label;b.disabled=disabled;b.className=danger?'is-danger':'';
+   b.onclick=()=>{closeContextMenu();Promise.resolve().then(fn).catch(e=>inform(e.message,true));};
+   menu.append(b);
+  };
+  item('▶ Preview clip',()=>preview([clip]));
+  item('☷ Open clip inspector',()=>setInspector(true));
+  item(clip.audioMode==='muted'?'♫ Unmute audio':'🔇 Mute audio',()=>{
+   clip.audioMode=clip.audioMode==='muted'?'normal':'muted';dirty=true;render();
+   inform((clip.audioMode==='muted'?'Muted':'Unmuted')+' original audio. Save the edit to retain this.');
+  },clip.kind==='photo');
+  item(clip.audioMode==='detached'?'↩ Reattach audio':'↔ Detach audio to A1',()=>{
+   clip.audioMode=clip.audioMode==='detached'?'normal':'detached';dirty=true;render();
+   inform(clip.audioMode==='detached'?'Audio detached into the editable A1 lane.':'Original audio reattached.');
+  },clip.kind!=='video');
+  item('● Record audio',()=>openAudioRecorder(clip),clip.kind==='audio'||!clip.claimId);
+  if(clip.voiceoverId)item(clip.voiceoverMuted?'🎙 Unmute voiceover':'🔇 Mute voiceover',()=>{
+   clip.voiceoverMuted=!clip.voiceoverMuted;dirty=true;render();
+  });
+  item('✂ Split clip',()=>{select(clip.instanceId,true);inform('Set an Out point in the inspector, then select Split.');},clip.kind==='photo');
+  item('↺ Reset trim',()=>{clip.trimStartMs=0;clip.trimEndMs=0;clip.photoDurationMs=4000;dirty=true;render();});
+  item('🗑 Delete clip from timeline',()=>{select(clip.instanceId);remove();},false,true);
+  const width=menu.offsetWidth||220,height=menu.offsetHeight||330;
+  menu.style.left=Math.max(6,Math.min(x,innerWidth-width-8))+'px';
+  menu.style.top=Math.max(6,Math.min(y,innerHeight-height-8))+'px';
+  menu.querySelector('button')?.focus();
+ }
+ function beginTrim(event,clip,side,row,info){
+  if(event.button!==0)return;
+  event.preventDefault();event.stopPropagation();closeContextMenu();
+  const handle=event.currentTarget,photo=clip.kind==='photo',full=photo?20000:Number(clip.durationMs||0);
+  if(full<=0)return;
+  const origStart=Number(clip.trimStartMs||0),origEnd=photo?Number(clip.photoDurationMs||4000):Number(clip.trimEndMs||0)||full;
+  const origLength=Math.max(500,origEnd-origStart),span=Math.max(40,row.getBoundingClientRect().width);
+  const unit=origLength/span,x0=event.clientX;
+  const beforeDrag=row.draggable;row.draggable=false;
+  row.classList.add('is-trimming');
+  handle.setPointerCapture(event.pointerId);
+  let moved=false;
+  const move=e=>{
+   const shift=Math.round((e.clientX-x0)*unit/100)*100;
+   if(Math.abs(e.clientX-x0)>2)moved=true;
+   if(photo){
+    const length=Math.max(1000,Math.min(20000,origEnd+shift));
+    clip.photoDurationMs=length;
+   }else if(side==='start'){
+    clip.trimStartMs=Math.max(0,Math.min(origEnd-500,origStart+shift));
+   }else{
+    const end=Math.max(origStart+500,Math.min(full,origEnd+shift));
+    clip.trimEndMs=end===full?0:end;
+   }
+   const t=lengthMs(clip);
+   row.style.width=Math.max(95,Math.min(360,Math.round(t/1000*16)))+'px';
+   info.textContent='TRIM · '+clock(t)+' · In '+secs(clip.trimStartMs)+'s · Out '+secs(clip.trimEndMs||full)+'s';
+  };
+  const finish=()=>{
+   handle.removeEventListener('pointermove',move);handle.removeEventListener('pointerup',finish);
+   handle.removeEventListener('pointercancel',cancel);
+   if(handle.hasPointerCapture(event.pointerId))handle.releasePointerCapture(event.pointerId);
+   row.draggable=beforeDrag;row.classList.remove('is-trimming');
+   if(moved){dirty=true;render();inform('Trim updated: '+clip.title+'. Save edit to keep your change.');}
+   else render();
+  };
+  const cancel=()=>{
+   clip.trimStartMs=origStart;clip.trimEndMs=photo?clip.trimEndMs:(origEnd===full?0:origEnd);
+   if(photo)clip.photoDurationMs=origEnd;
+   finish();
+  };
+  handle.addEventListener('pointermove',move);handle.addEventListener('pointerup',finish);handle.addEventListener('pointercancel',cancel);
+ }
  function reorder(from,to){if(from===to||from<0||to<0||from>=clips.length||to>=clips.length)return;const [part]=clips.splice(from,1);clips.splice(to,0,part);dirty=true;render();}
  function render(){const root=$('editor-timeline');root.replaceChildren();$('editor-count').textContent=`${clips.length} segments`;renderRuler();
   if(!clips.length){root.textContent='Timeline empty. Add clips from the media bin.';select(null);return;}
