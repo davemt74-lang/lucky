@@ -2,12 +2,13 @@
 (() => {
  'use strict';const $=id=>document.getElementById(id),L=window.Lucky;
  let source=[],clips=[],chosen=null,session='',playToken=0,previewMedia=null,previewTimer=0,dirty=false,mediaFilter='all',cameraSession='',cameraClaim='';
+ let inspectorOpen=false,clipMenuFor=null,recorder=null,recordStream=null,recordBlob=null,recordUrl='',recordTarget=null,overlayPlayers=[];
  const inform=(s,bad=false)=>{const n=$('editor-feedback');n.textContent=s;n.classList.toggle('platform-error',bad);};
  const secs=ms=>(Number(ms||0)/1000).toFixed(1),ms=s=>Math.round(Number(s||0)*1000);
  const fresh=()=>window.crypto?.randomUUID?.()||('seg-'+Math.random().toString(36).slice(2));
  const name=c=>`${c.kind.toUpperCase()} · ${c.angleIndex?`View ${c.angleIndex}: `:''}${c.angleLabel||c.sourceLabel||'Imported'} · ${c.prize||'Prize'}`;
- const fields=c=>({id:c.id,instanceId:c.instanceId,title:c.title,trimStartMs:c.trimStartMs,trimEndMs:c.trimEndMs,photoDurationMs:c.photoDurationMs,transition:c.transition||'fade'});
- const cloneSource=(c)=>({...c,instanceId:fresh()});
+ const fields=c=>({id:c.id,instanceId:c.instanceId,title:c.title,trimStartMs:c.trimStartMs,trimEndMs:c.trimEndMs,photoDurationMs:c.photoDurationMs,transition:c.transition||'fade',audioMode:c.audioMode||'normal',detachedOffsetMs:c.detachedOffsetMs||0,voiceoverId:c.voiceoverId||'',voiceoverOffsetMs:c.voiceoverOffsetMs||0,voiceoverMuted:c.voiceoverMuted===true});
+ const cloneSource=(c)=>({...c,instanceId:fresh(),audioMode:c.audioMode||'normal',detachedOffsetMs:Number(c.detachedOffsetMs||0),voiceoverId:c.voiceoverId||'',voiceoverOffsetMs:Number(c.voiceoverOffsetMs||0),voiceoverMuted:c.voiceoverMuted===true});
  const lengthMs=c=>c.kind==='photo'?Number(c.photoDurationMs)||4000:Math.max(500,(Number(c.trimEndMs)||Number(c.durationMs)||5000)-(Number(c.trimStartMs)||0));
  const clock=millis=>{const t=Math.max(0,Math.floor(millis/1000));return `${String(Math.floor(t/60)).padStart(2,'0')}:${String(t%60).padStart(2,'0')}`;};
  function addFromBin(id){const c=source.find(x=>x.id===id);if(!c)return;if(clips.length>=80)return inform('Maximum 80 segments in an edit.',true);const added=cloneSource(c);clips.push(added);dirty=true;render();select(added.instanceId);inform(`${c.title} added to the edit. Save to keep this change.`);}
@@ -35,10 +36,17 @@
   else url+='&session='+encodeURIComponent(session);
   const res=await fetch(url,opts),body=await res.json();if(!res.ok||!body.ok)throw Error(body.error||'Clip operation failed.');return body;
  }
- function stop(){playToken++;clearTimeout(previewTimer);if(previewMedia){previewMedia.pause();previewMedia.src='';previewMedia=null;}$('editor-preview').replaceChildren();$('editor-caption').textContent='Preview stopped.';}
- function select(instanceId){chosen=clips.find(c=>c.instanceId===instanceId)||null;const c=chosen;$('editor-form').hidden=!c;$('editor-selected').textContent=c?name(c):'Select a clip to edit';
-  if(c){$('editor-title').value=c.title;$('editor-source').value=c.sourceLabel||'Unspecified';$('editor-trim-start').value=secs(c.trimStartMs);$('editor-trim-end').value=secs(c.trimEndMs);$('editor-photo-seconds').value=secs(c.photoDurationMs);$('editor-photo-seconds').disabled=c.kind!=='photo';$('editor-transition').value=c.transition||'fade';$('editor-split').disabled=c.kind==='photo';}
+ function stop(){playToken++;clearTimeout(previewTimer);for(const item of overlayPlayers){item.pause();item.removeAttribute('src');item.load?.();}overlayPlayers=[];if(previewMedia){previewMedia.pause();previewMedia.removeAttribute('src');previewMedia=null;}$('editor-preview').replaceChildren();$('editor-caption').textContent='Preview stopped.';}
+ function select(instanceId,openPanel=false){chosen=clips.find(c=>c.instanceId===instanceId)||null;const c=chosen;$('editor-form').hidden=!c;$('editor-selected').textContent=c?name(c):'Select a clip to edit';
+  if(c){$('editor-title').value=c.title;$('editor-source').value=c.sourceLabel||'Unspecified';$('editor-trim-start').value=secs(c.trimStartMs);$('editor-trim-end').value=secs(c.trimEndMs);$('editor-photo-seconds').value=secs(c.photoDurationMs);$('editor-photo-seconds').disabled=c.kind!=='photo';$('editor-transition').value=c.transition||'fade';$('editor-split').disabled=c.kind==='photo';
+   $('editor-audio-mode').value=c.audioMode||'normal';$('editor-audio-mode').disabled=c.kind==='photo'||c.kind==='audio'&&false;
+   $('editor-detached-offset').value=secs(c.detachedOffsetMs||0);$('editor-detached-offset').disabled=c.audioMode!=='detached';
+   $('editor-voice-offset').value=secs(c.voiceoverOffsetMs||0);$('editor-voice-offset').disabled=!c.voiceoverId;
+   $('editor-voice-mute').checked=c.voiceoverMuted===true;$('editor-voice-mute').disabled=!c.voiceoverId;
+   $('editor-record-audio').disabled=c.kind==='audio'||!c.claimId;
+  }
   document.querySelectorAll('.editor-clip').forEach(el=>el.classList.toggle('is-selected',el.dataset.instanceId===instanceId));
+  if(openPanel)setInspector(true);
  }
  function reorder(from,to){if(from===to||from<0||to<0||from>=clips.length||to>=clips.length)return;const [part]=clips.splice(from,1);clips.splice(to,0,part);dirty=true;render();}
  function render(){const root=$('editor-timeline');root.replaceChildren();$('editor-count').textContent=`${clips.length} segments`;renderRuler();
@@ -73,7 +81,11 @@
   const start=ms($('editor-trim-start').value),end=ms($('editor-trim-end').value),photo=ms($('editor-photo-seconds').value);
   if(!Number.isFinite(start)||!Number.isFinite(end)||start<0||end<0||(end!==0&&end<=start)||photo<1000||photo>20000||chosen.durationMs>0&&(start>=chosen.durationMs||end>chosen.durationMs))return inform('Trim boundaries or photo duration are invalid.',true);
   chosen.title=$('editor-title').value.trim();if(!chosen.title||chosen.title.length>120)return inform('Enter a clip title shorter than 120 characters.',true);
-  chosen.trimStartMs=start;chosen.trimEndMs=end;chosen.photoDurationMs=photo;chosen.transition=$('editor-transition').value;dirty=true;render();inform('Clip edits applied. Save timeline to keep them.');
+  chosen.trimStartMs=start;chosen.trimEndMs=end;chosen.photoDurationMs=photo;chosen.transition=$('editor-transition').value;
+  chosen.audioMode=$('editor-audio-mode').value;chosen.detachedOffsetMs=ms($('editor-detached-offset').value);
+  chosen.voiceoverOffsetMs=ms($('editor-voice-offset').value);chosen.voiceoverMuted=$('editor-voice-mute').checked;
+  if([chosen.detachedOffsetMs,chosen.voiceoverOffsetMs].some(n=>!Number.isFinite(n)||n<0||n>120000))return inform('Audio offsets must be between 0 and 120 seconds.',true);
+  dirty=true;render();inform('Clip edits applied. Save timeline to keep them.');
  }
  function split(){if(!chosen||chosen.kind==='photo')return;const pos=ms($('editor-trim-end').value);
   const end=chosen.trimEndMs||chosen.durationMs;
@@ -82,7 +94,7 @@
   const second={...chosen,instanceId:fresh(),trimStartMs:pos,trimEndMs:end,title:chosen.title+' · Part 2'};
   chosen.trimEndMs=pos;clips.splice(clips.findIndex(x=>x.instanceId===chosen.instanceId)+1,0,second);dirty=true;render();inform('Clip split into two editable parts. The original file is untouched.');
  }
- function remove(){if(!chosen)return;clips=clips.filter(c=>c.instanceId!==chosen.instanceId);chosen=null;dirty=true;render();inform('Removed from montage; original recording is retained.');}
+ function remove(){if(!chosen)return;const target=chosen;clips=clips.filter(c=>c.instanceId!==target.instanceId);chosen=null;dirty=true;closeContextMenu();render();inform('Removed '+target.title+' from this edit. The original recording and revisions remain intact.');}
  async function permanentDelete(){if(!chosen||!confirm('Permanently delete this ORIGINAL recording and all timeline uses?'))return;
   const id=chosen.id;try{await media('delete',{id},true);source=source.filter(c=>c.id!==id);clips=clips.filter(c=>c.id!==id);chosen=null;dirty=true;render();await save();inform('Original recording deleted.');}
   catch(e){inform(e.message,true);}
