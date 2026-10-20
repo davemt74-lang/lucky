@@ -7,11 +7,12 @@
  function selectTier(tier){activeTier=tier;document.querySelectorAll('[data-tier]').forEach(b=>b.classList.toggle('selected',b.dataset.tier===tier));renderTier();}
  function setBudget(){settings.config.pools[activeTier].budgetCents=amount($('tier-budget').value);}
  function renderTier(){const pool=settings.config.pools[activeTier],list=$('prize-items');list.replaceChildren();$('tier-budget').value=cents(pool.budgetCents);
-  for(const p of pool.prizes){const row=elem('div','','platform-prize-item');const name=elem('input'),value=elem('input'),url=elem('input'),image=elem('input'),upload=elem('input'),remove=elem('button','✕','btn btn-outline');
+  for(const p of pool.prizes){const row=elem('div','','platform-prize-item');const name=elem('input'),value=elem('input'),url=elem('input'),video=elem('input'),image=elem('input'),upload=elem('input'),remove=elem('button','✕','btn btn-outline');
    name.value=p.name;name.maxLength=80;name.setAttribute('aria-label','Prize name');name.onchange=()=>p.name=name.value.trim();
    value.type='number';value.min=0;value.step='0.01';value.value=cents(p.cents);value.setAttribute('aria-label',p.name+' dollar amount');
    value.onchange=()=>{try{p.cents=amount(value.value);}catch(e){status(e.message,true);}};
    url.type='url';url.placeholder='Optional prize URL';url.value=p.url||'';url.onchange=()=>p.url=url.value.trim();
+   video.type='url';video.placeholder='Prize video URL (YouTube, Vimeo, MP4)';video.value=p.video||'';video.setAttribute('aria-label','Video URL for '+p.name);video.onchange=()=>p.video=video.value.trim();
    image.type='url';image.placeholder='Optional image URL';image.value=p.image||'';image.onchange=()=>p.image=image.value.trim();
    upload.type='file';upload.accept='image/png,image/jpeg,image/webp';upload.setAttribute('aria-label','Upload image for '+p.name);
    upload.onchange=async()=>{if(!upload.files?.[0])return;try{const form=new FormData();form.append('image',upload.files[0]);
@@ -40,7 +41,7 @@
     paintAngles();status(`${p.name}: matched ${sources.length} camera views. Save prize settings to publish.`);
    }catch(e){status('Could not detect cameras: '+e.message,true);}};
    proof.append(summary,explanatory,sync,angleList);paintAngles();
-   row.append(name,value,url,image,upload,remove,proof);list.append(row);
+   row.append(name,value,url,video,image,upload,remove,proof);list.append(row);
   }
  }
  async function loadSettings(){const r=await L.api('settings',{query:{game:'spin-wheel'}});settings=r.settings;
@@ -58,7 +59,7 @@
    const id='p'+(crypto.randomUUID?.().replace(/-/g,'')||Math.random().toString(36).slice(2)+Date.now());
    let imageUrl=f.elements.image.value.trim();
    if(f.elements.imagefile.files?.[0]){const form=new FormData();form.append('image',f.elements.imagefile.files[0]);const uploaded=await L.api('image_upload',{body:form});imageUrl=new URL(uploaded.path,document.baseURI).href;}
-   pool.prizes.push({id,name,cents:amount(f.elements.value.value),url:f.elements.url.value.trim(),image:imageUrl,proofAngles:[]});
+   pool.prizes.push({id,name,cents:amount(f.elements.value.value),url:f.elements.url.value.trim(),video:f.elements.video.value.trim(),image:imageUrl,proofAngles:[]});
    f.reset();renderTier();status('Prize added. Select Save all prize settings to publish.');
  }catch(err){status(err.message,true);}};
  $('auto-split').onclick=()=>{try{setBudget();const pool=settings.config.pools[activeTier],claimed=new Set((window.__lastSession?.session?.claims||[]).map(c=>c.prizeId));
@@ -102,7 +103,7 @@
   const a=elem('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='lucky-session-history.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);};
  $('import-legacy').onclick=async()=>{try{const raw=JSON.parse(localStorage.getItem('lucky-spin-v3')||'null');if(!raw?.pools)throw Error('No prior V5 prize pools found in this browser.');
   if(!confirm('Replace server prize definitions with this browser\'s saved tier lists? Current server game claims will NOT be overwritten.'))return;
-  const pools={};for(const tier of ['tier1','tier2','bonus']){const p=raw.pools[tier];pools[tier]={budgetCents:p.budgetCents,prizes:p.prizes.map(x=>({id:x.id,name:x.name,cents:x.cents,url:x.url||'',image:(x.image||'').startsWith('data:')?'':x.image||'',proofAngles:x.proofAngles||[]}))};}
+  const pools={};for(const tier of ['tier1','tier2','bonus']){const p=raw.pools[tier];pools[tier]={budgetCents:p.budgetCents,prizes:p.prizes.map(x=>({id:x.id,name:x.name,cents:x.cents,url:x.url||'',video:x.video||'',image:(x.image||'').startsWith('data:')?'':x.image||'',proofAngles:x.proofAngles||[]}))};}
   settings.config.pools=pools;
   if(raw.odds)for(const k of Object.keys(settings.config.odds))if(Number.isFinite(raw.odds[k]))settings.config.odds[k]=raw.odds[k];
   await L.api('settings_save',{body:{game:'spin-wheel',...settings}});
