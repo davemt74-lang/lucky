@@ -27,6 +27,7 @@ jobs:
       - name: PHP and browser-independent tests
         run: |
           php tests/engine.php
+          php tests/v5q22_phone_controller_contract.php
           php tests/v5q16_session_lifecycle.php
           php tests/v5q18_foundation.php
           php tests/spin_reveal.php

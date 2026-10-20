@@ -1,9 +1,16 @@
 <?php
 declare(strict_types=1);
-require_once __DIR__.'/../GameModule.php';require_once __DIR__.'/../GameEngine.php';
-final class SpinWheel implements GameModule {
+require_once __DIR__.'/../GameModule.php';require_once __DIR__.'/../PhoneControllerProvider.php';require_once __DIR__.'/../GameEngine.php';
+final class SpinWheel implements GameModule, PhoneControllerProvider {
  public function id():string{return 'spin-wheel';}
  public function manifest():array{return ['id'=>$this->id(),'name'=>'Spin the Wheel','description'=>'Tier 1 → Tier 2 → Bonus','status'=>'ready','path'=>'game.php?game=spin-wheel'];}
+ public function phoneController():array {
+  return ['game'=>$this->id(),'mode'=>'custom','layout'=>'spin-wheel',
+   'actions'=>['start','spin','pause','resume','end','select','prize-accept','prize-decline',
+    'menu','back','up','down','left','right','music-on','music-off','music-next',
+    'volume-down','volume-up','mute','unmute','proof-record','proof-stop',
+    'proof-play','proof-save','proof-rerecord','proof-delete']];
+ }
  public function defaults():array{return GameEngine::defaults();}
  public function validateSettings(array $settings):array{return GameEngine::validateConfig($settings);}
  public function createSession(array $settings,string $id):array{return GameEngine::newSession($settings,$id);}
