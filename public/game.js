@@ -30,6 +30,38 @@
  }
 
  let data=null,busy=false,stopVoice=null,lastVersion=0,activeId='',viewerUrl='',syncedSpin=0,initialSync=true,syncPending=false;
+ let prizePackageOptions=[],chosenPackage='';
+ function paintGamePackages(){
+  const input=$('host-package-select');if(!input)return;
+  const live=['active','paused'].includes(data?.view?.status);
+  $('host-package-picker').hidden=live;
+  const sig=JSON.stringify(prizePackageOptions.map(p=>[p.id,p.name,p.enabled]));
+  if(input.dataset.signature!==sig){
+   input.dataset.signature=sig;input.replaceChildren();
+   for(const p of prizePackageOptions)if(p.enabled)input.add(new Option(p.name,p.id));
+  }
+  if(chosenPackage&&[...input.options].some(o=>o.value===chosenPackage))input.value=chosenPackage;
+  input.disabled=busy||live||input.options.length<2;
+  $('host-package-status').textContent=live?
+   'Current game uses '+(data.session?.prizePackage?.name||'its original prizes'):
+   'Choose which enabled package starts the next game.';
+ }
+ async function refreshGamePackages(){
+  try{
+   const result=await L.api('prize_packages');
+   if(!Array.isArray(result.packages))return;
+   prizePackageOptions=result.packages;chosenPackage=result.selected;
+   paintGamePackages();
+  }catch(_){const picker=$('host-package-picker');if(picker)picker.hidden=true;}
+ }
+ $('host-package-select').addEventListener('change',async e=>{
+  if(['active','paused'].includes(data?.view?.status))return;
+  const next=e.target.value;
+  try{await L.api('package_select',{body:{id:next}});chosenPackage=next;paintGamePackages();
+   msg('Prize package selected for the next game.');}
+  catch(err){msg(err.message,true);paintGamePackages();}
+ });
+
  const msg=(s,bad=false)=>{if(!bad)$('game-message').dataset.highlight=String(s.startsWith('🎉')||s.startsWith('✧ BONUS'));L.note(bad?'game-error':'game-message',s,bad);};
  function toSlices(view){
    if(view?.pendingBonus)return (data?.session?.pools?.bonus?.prizes||[]).filter(p=>p.cents>0 && !(data?.session?.claims||[]).some(c=>c.prizeId===p.id)).map(p=>({...p,tier:'bonus',kind:'prize'}));
@@ -108,6 +140,7 @@
   $('display-spin-count').textContent=String(view?.spinCount||0);
   $('display-screen-status').textContent=viewerUrl?'Link ready':'Awaiting session';
   $('display-help').hidden=!!viewerUrl;
+  paintGamePackages();
   queueWheelFit();
  }
  async function updateProofStates(){const session=data?.view?.id;if(!session){proofStates={};proofSessionId='';return;}
@@ -157,7 +190,7 @@
     stream.getTracks().forEach(t=>t.stop());try{sessionStorage.setItem('lucky-cameras-authorized','1');}catch(_){}
    }).catch(()=>{/* Permission can still be granted from the proof page. */});}
   busy=true;render();
-  try{const r=await L.api('start',{body:{game:'spin-wheel'}});data=r.data;if(new URL(location.href).searchParams.has('session'))history.replaceState(null,'','game.php?session='+encodeURIComponent(data.view.id));activeId=data.view.id;lastVersion=data.view.version;syncedSpin=0;proofStates={};updateProofStates();refreshThumbs(true);msg('Game started! Spin whenever you are ready.');L.beep('bonus');L.speak('Welcome to Spin the Wheel. Start spinning!');}
+  try{const r=await L.api('start',{body:{game:'spin-wheel'}});data=r.data;if(new URL(location.href).searchParams.has('session'))history.replaceState(null,'','game.php?session='+encodeURIComponent(data.view.id));activeId=data.view.id;lastVersion=data.view.version;syncedSpin=0;proofStates={};updateProofStates();refreshThumbs(true);msg('Game started with '+(data.session?.prizePackage?.name||'the selected prizes')+'! Spin whenever you are ready.');L.beep('bonus');L.speak('Welcome to Spin the Wheel. Start spinning!');}
   catch(e){msg(e.message,true);}finally{busy=false;render();}}
  async function decideOffer(choice){
   if(!currentOffer||currentOffer.status!=='pending'||!data?.view?.id)return;
@@ -385,7 +418,7 @@
  $('copy-viewer').onclick=()=>{navigator.clipboard?.writeText(viewerUrl).then(()=>msg('Display link copied.')).catch(()=>{$('viewer-link').select();});};
  $('voice-toggle').onclick=()=>{if(stopVoice){stopVoice();stopVoice=null;$('voice-toggle').textContent='🎙 Enable listening';L.note('voice-status','Microphone off.');return;}
    stopVoice=L.listen(text=>voiceInput(text).catch(e=>L.note('voice-status',e.message,true)),m=>L.note('voice-status',m));$('voice-toggle').textContent='⏹ Stop listening';};
- Promise.all([refresh(),L.loadTracks()]).then(()=>{
+ Promise.all([refresh(),L.loadTracks(),refreshGamePackages()]).then(()=>{
   L.bindMusic();
   const params=new URLSearchParams(location.search);
   if(params.get('spin')==='1'){
@@ -393,7 +426,7 @@
    if(data?.view?.status==='active')spin();
   }
  }).catch(e=>msg(e.message,true));
- setInterval(syncGame,900);setInterval(pollOffer,800);
+ setInterval(syncGame,900);setInterval(pollOffer,800);setInterval(refreshGamePackages,5000);
  setInterval(refreshThumbs,8000);
  window.addEventListener('focus',()=>refreshThumbs(true));
  document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshThumbs(true);});
