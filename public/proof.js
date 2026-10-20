@@ -28,9 +28,10 @@
 
  let busy=false,proofBusy=false,leaving=false;
  async function publishProof(){if(leaving||proofBusy||!/^[a-f0-9]{32}$/.test(session)||!/^[a-f0-9]{32}$/.test(claim))return;
-  proofBusy=true;try{const me=await L.getMe();await fetch('api/controller.php?action=proof_state',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF-Token':me.csrf},body:JSON.stringify({session,claim,open:true,reviewCount:window.LuckyCapture?.reviewCount?.()||0})});}catch(_){/* Basic editing still available without the pairing upgrade. */}finally{proofBusy=false;}}
+  proofBusy=true;try{const me=await L.getMe();await fetch('api/controller.php?action=proof_state',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF-Token':me.csrf},body:JSON.stringify({session,claim,open:true,reviewCount:window.LuckyCapture?.reviewCount?.()||0,phase:window.LuckyCapture?.phase?.()||'live',consent:window.LuckyCapture?.consent?.()||false})});}catch(_){/* Basic editing still available without the pairing upgrade. */}finally{proofBusy=false;}}
  window.addEventListener('lucky:proof-review',publishProof);
- setInterval(()=>{if(!leaving&&document.visibilityState==='visible'&&window.LuckyCapture?.hasClaim?.())publishProof();},2500);
+ window.addEventListener('lucky:proof-phase',publishProof);
+ setInterval(()=>{if(!leaving&&document.visibilityState==='visible'&&window.LuckyCapture?.hasClaim?.())publishProof();},950);
  window.addEventListener('pagehide',()=>{const data=JSON.stringify({session,claim,open:false});L.getMe().then(me=>fetch('api/controller.php?action=proof_state',{method:'POST',credentials:'same-origin',keepalive:true,headers:{'Content-Type':'application/json','X-CSRF-Token':me.csrf},body:data})).catch(()=>{});});
 
  function feedback(message,bad=false){const e=$('proof-errors');e.hidden=!bad;e.textContent=bad?message:'';$('proof-state').textContent=message;}
