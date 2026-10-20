@@ -20,7 +20,7 @@ async def main():
     if(action==='templates')return new Response(JSON.stringify({ok:true,templates:demo.templates}));
     if(action==='save_template'){
      const body=JSON.parse(opts.body);demo.savedTemplatePayload=body.template;
-     const row={id:'f'*32,name:body.name,template:body.template};demo.templates.push(row);
+     const row={id:'f'.repeat(32),name:body.name,template:body.template};demo.templates.push(row);
      return new Response(JSON.stringify({ok:true,template:row}));
     }
     if(action==='delete_template'){demo.templates=[];return new Response(JSON.stringify({ok:true,deleted:true}));}
