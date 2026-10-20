@@ -31,7 +31,7 @@ final class PrizePackages {
   if($config===false)throw new DomainException('Game configuration is missing.',409);
   $legacy=GameEngine::validateConfig(json_decode($config,true,512,JSON_THROW_ON_ERROR));
   $default=hash('md5','lucky:spin-wheel:default');
-  $q=$db->prepare('SELECT id FROM prize_packages WHERE game_id=? ORDER BY created_at,id LIMIT 1');
+  $q=$db->prepare('SELECT id FROM prize_packages WHERE game_id=? ORDER BY sort_order,id LIMIT 1');
   $q->execute([$game]);$existing=$q->fetchColumn();
   if($existing===false){
    $insert=$db->prepare('INSERT IGNORE INTO prize_packages(id,game_id,name,config_json,enabled,player_selectable) VALUES (?,?,?, ?,1,1)');
@@ -42,7 +42,7 @@ final class PrizePackages {
  }
  public static function rows(PDO $db,string $game='spin-wheel',bool $admin=false):array {
   self::requireReady($db);
-  $q=$db->prepare('SELECT id,name,enabled,player_selectable,version,config_json FROM prize_packages WHERE game_id=?'.($admin?'': ' AND enabled=1 AND player_selectable=1'). ' ORDER BY created_at ASC,id ASC');
+  $q=$db->prepare('SELECT id,name,enabled,player_selectable,version,config_json FROM prize_packages WHERE game_id=?'.($admin?'': ' AND enabled=1 AND player_selectable=1'). ' ORDER BY sort_order ASC,id ASC');
   $q->execute([$game]);$rows=[];
   foreach($q as $r){
    $item=['id'=>$r['id'],'name'=>$r['name'],'enabled'=>(bool)$r['enabled'],
@@ -95,8 +95,8 @@ final class PrizePackages {
   if($count>=16)throw new DomainException('Maximum 16 prize packages.',422);
   $cfg=self::currentConfig($db);
   $id=bin2hex(random_bytes(16));
-  $q=$db->prepare("INSERT INTO prize_packages (id,game_id,name,config_json,enabled,player_selectable) VALUES (?,'spin-wheel',?,?,1,1)");
-  $q->execute([$id,$name,json_encode($cfg['config'],JSON_THROW_ON_ERROR)]);
+  $q=$db->prepare("INSERT INTO prize_packages (id,game_id,name,config_json,enabled,player_selectable,sort_order) VALUES (?,'spin-wheel',?,?,1,1,?)");
+  $q->execute([$id,$name,json_encode($cfg['config'],JSON_THROW_ON_ERROR),$count]);
   return ['id'=>$id,'name'=>$name,'enabled'=>true,'playerSelectable'=>true,'version'=>1,'config'=>$cfg['config']];
  }
  public static function save(PDO $db,string $id,int $version,string $name,array $cfg,bool $enabled,bool $player):array {
