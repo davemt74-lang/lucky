@@ -29,7 +29,7 @@ RestartApplications=no
 SetupLogging=yes
 ChangesEnvironment=no
 DisableReadyPage=yes
-LicenseFile={#StageDir}\homeserver\OFFLINE_NOTICE.txt
+LicenseFile={#StageDir}\app\homeserver\OFFLINE_NOTICE.txt
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
