@@ -262,6 +262,38 @@ try {
   }catch(Throwable $e){$db->rollBack();throw $e;}
   success(['data'=>['session'=>$s,'viewerToken'=>$viewToken,'view'=>GameRegistry::module($s['game'])->publicView($s)]],201);
  }
+ if($action==='delete_session'){
+  require_once __DIR__.'/../lib/GameSessionDeletion.php';
+  $id=(string)($in['id']??'');$version=(int)($in['expectedVersion']??-1);
+  if(!GameSessionDeletion::confirm($id,(string)($in['confirmation']??'')))throw new DomainException('Type DELETE and the complete session ID to confirm.',422);
+  $db->beginTransaction();
+  try {
+   $row=sessionRow($db,$id,true);
+   if($version!==(int)$row['version'])throw new DomainException('Session changed. Refresh and try again.',409);
+   $q=$db->prepare('SELECT id,status FROM montage_renders WHERE session_id=? FOR UPDATE');
+   $q->execute([$id]);$renders=$q->fetchAll();
+   foreach($renders as $render)if(in_array($render['status'],['running','queued'],true))
+    throw new DomainException('Finish or cancel the pending export before deleting.',409);
+   $q=$db->prepare('SELECT id FROM claim_media WHERE session_id=? FOR UPDATE');$q->execute([$id]);
+   $mediaIds=$q->fetchAll(PDO::FETCH_COLUMN);$renderIds=array_column($renders,'id');
+   $q=$db->prepare('DELETE rc FROM claim_proof_revision_clips rc INNER JOIN claim_proof_revisions rev ON rev.id=rc.revision_id WHERE rev.session_id=?');
+   $q->execute([$id]);
+   $q=$db->prepare('DELETE FROM game_sessions WHERE id=? AND version=?');$q->execute([$id,$version]);
+   if($q->rowCount()!==1)throw new DomainException('Session already changed or removed.',409);
+   audit($db,'session.deleted',$id,['game'=>$row['game_id'],'clips'=>count($mediaIds),'exports'=>count($renderIds)]);
+   $db->commit();
+  }catch(Throwable $e){$db->rollBack();throw $e;}
+  $removed=0;$warnings=0;
+  foreach([['claim-media',$mediaIds,'.bin'],['renders',$renderIds,'.mp4']] as [$folder,$ids,$suffix]){
+   foreach($ids as $fileId){
+    if(!is_string($fileId)||!preg_match('/^[a-f0-9]{32}$/D',$fileId))continue;
+    $file=LUCKY_ROOT.'/storage/'.$folder.'/'.$fileId.$suffix;
+    if(is_file($file)){if(@unlink($file))$removed++;else $warnings++;}
+   }
+  }
+  if($warnings)error_log('Session cleanup: '.$warnings.' private media files could not be removed.');
+  success(['deleted'=>true,'removedFiles'=>$removed,'cleanupWarnings'=>$warnings]);
+ }
  if(in_array($action,['save_session','resume_saved','finish_saved'],true)){
   $id=strval($in['id']??'');$key=strval($in['idempotencyKey']??'');
   if(!preg_match('/^[A-Za-z0-9_-]{12,80}$/D',$key))throw new DomainException('Missing unique request key.',400);
