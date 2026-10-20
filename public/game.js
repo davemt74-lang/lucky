@@ -169,7 +169,12 @@
  }
  async function syncGame(){if(busy||syncPending||initialSync)return;syncPending=true;
   try{
-   const requested=new URL(location.href).searchParams.get('session');const result=requested&&/^[a-f0-9]{32}$/.test(requested)?{data:await L.api('session',{query:{id:requested}})}:await L.api('last'),fresh=result.data||null,view=fresh?.view;
+   const requested=new URL(location.href).searchParams.get('session');
+   const pinned=validId(activeId)&&['active','paused'].includes(data?.view?.status)?activeId:'';
+   const id=validId(requested)?requested:pinned;
+   // Pin the current live session: 'last' may prefer an unrelated saved game
+   // after this session is ended on the phone, masking the terminal transition.
+   const result=id?{data:await L.api('session',{query:{id}})}:await L.api('last'),fresh=result.data||null,view=fresh?.view;
    if(!view){if(data){data=null;activeId='';syncedSpin=0;lastVersion=0;render();}return;}
    // End Game on a phone is already committed to the server; host must follow.
    // Only redirect a currently live session, never historical finished sessions.
