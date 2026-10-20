@@ -72,8 +72,18 @@ try {
    $proof=null;
    if($status==='paired'){
     if(!SchemaGuard::missing($db,['controller_proof_state'])){
-    $q=$db->prepare("SELECT s.session_id,s.claim_id,s.is_open,s.review_count,s.consent_ack,s.capture_phase FROM controller_proof_state s WHERE s.host_admin_id=? AND s.is_open=1 AND s.updated_at>UTC_TIMESTAMP()-INTERVAL 12 SECOND ORDER BY s.updated_at DESC LIMIT 1");
-    $current=ControllerGame::snapshot($db);$q->execute([(int)$p['host_admin_id']]);$proof=$q->fetch()?:null;
+    $current=ControllerGame::snapshot($db);$legacyProof=false;
+    try{
+     $q=$db->prepare("SELECT s.session_id,s.claim_id,s.is_open,s.review_count,s.consent_ack,s.capture_phase FROM controller_proof_state s WHERE s.host_admin_id=? AND s.is_open=1 AND s.updated_at>UTC_TIMESTAMP()-INTERVAL 12 SECOND ORDER BY s.updated_at DESC LIMIT 1");
+     $q->execute([(int)$p['host_admin_id']]);$proof=$q->fetch()?:null;
+    }catch(PDOException $e){
+     if($e->getCode()!=='42S22')throw $e;
+     // Old installed schema: keep pairing status healthy until upgrade.php runs.
+     $legacyProof=true;
+     $q=$db->prepare("SELECT s.session_id,s.claim_id,s.is_open,s.review_count FROM controller_proof_state s WHERE s.host_admin_id=? AND s.is_open=1 AND s.updated_at>UTC_TIMESTAMP()-INTERVAL 12 SECOND ORDER BY s.updated_at DESC LIMIT 1");
+     $q->execute([(int)$p['host_admin_id']]);$proof=$q->fetch()?:null;
+    }
+    if($legacyProof&&$proof){$proof['capture_phase']='upgrade';$proof['consent_ack']=0;}
     if($proof && !SchemaGuard::missing($db,['claim_media'])){
      $media=$db->prepare('SELECT COUNT(*) FROM claim_media WHERE claim_id=? AND session_id=?');
      $media->execute([$proof['claim_id'],$proof['session_id']]);$proof['saved_count']=(int)$media->fetchColumn();
@@ -161,6 +171,7 @@ try {
  requireAdmin();assertCsrf();$adminId=(int)$_SESSION['admin_id'];
  if($action==='proof_state'){
   SchemaGuard::require($db,['controller_proof_state'],'Live prize proof controls');
+  if(!$db->query("SHOW COLUMNS FROM controller_proof_state LIKE 'consent_ack'")->fetch())throw new DomainException('Run upgrade.php to activate V5Q.15F phone recording consent.',409);
   $session=(string)($in['session']??'');$claim=(string)($in['claim']??'');$open=($in['open']??false)===true;$reviewCount=max(0,min(4,(int)($in['reviewCount']??0)));$consent=$open&&($in['consent']??false)===true;$phase=$open?(string)($in['phase']??'live'):'live';if(!in_array($phase,['live','recording','processing','review','saving','saved'],true))throw new DomainException('Invalid recording phase.',422); 
   ControllerPairing::checkId($session);
   sessionRow($db,$session);
