@@ -42,7 +42,7 @@ async def main():
    await page.wait_for_timeout(280)
    ok(f'{width}: editor has compact session toolbar',await page.locator('.studio-session').is_visible())
    ok(f'{width}: editor omits page-intro',await page.locator('.page-intro').count()==0)
-   ok(f'{width}: timeline and inspector usable',await page.locator('#editor-timeline').is_visible() and await page.locator('#editor-form').is_visible())
+   ok(f'{width}: timeline and inspector usable',await page.locator('#editor-timeline').is_visible() and await page.locator('#editor-open-inspector').is_visible())
    ok(f'{width}: editor full width',await page.evaluate("document.querySelector('.media-editor-studio').getBoundingClientRect().width >= innerWidth-30"))
    ok(f'{width}: no horizontal overflow',await page.evaluate('document.documentElement.scrollWidth <= innerWidth + 2'))
    ok(f'{width}: editor phone navigation callback',await page.evaluate("window.LuckyHostRemote('down').then(x=>x===true)"))

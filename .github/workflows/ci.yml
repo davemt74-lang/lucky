@@ -34,6 +34,7 @@ jobs:
           php tests/migration_sql.php
           php tests/proof_config.php
           php tests/montage.php
+          php tests/timeline_audio.php
           php tests/auto_draft.php
           php tests/proof_revisions.php
           node tests/proof_plan.js
@@ -76,6 +77,7 @@ jobs:
           python tests/v5q15e_wheel_reveal_browser.py
           python tests/v5q15f_phone_recording_browser.py
           python tests/v5q15h_claim_thumbnails_browser.py
+          python tests/v5q15i_editor_tools_browser.py
       - name: Phone controller regressions
         run: |
           python tests/v5p2_navigation_voice.py
@@ -95,5 +97,6 @@ jobs:
         run: |
           ffmpeg -hide_banner -v error -y -f lavfi -i color=c=blue:s=320x180:r=30 -f lavfi -i anullsrc -t 1 -c:v libx264 -c:a aac -shortest /tmp/lucky-smoke.mp4
           ffprobe -hide_banner -v error /tmp/lucky-smoke.mp4
+          php tests/timeline_audio_render.php
           php tests/montage.php
           php tests/auto_draft.php

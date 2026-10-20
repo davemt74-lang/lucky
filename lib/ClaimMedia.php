@@ -17,6 +17,22 @@ final class ClaimMedia {
   if($kind==='photo'&&(!$dimensions||$dimensions[0]<1||$dimensions[1]<1||$dimensions[0]>8000||$dimensions[1]>8000))throw new DomainException('Invalid photo dimensions.',422);
   return $kind;
  }
+ /** PHP fileinfo reports audio-only WebM as video/webm on many hosts.
+  *  Permit a claimed mic recording only when the WebM track codec IDs are audio
+  *  and no recognized video track codec occurs in the EBML track header. */
+ public static function captureKind(string $mime,int $bytes,?array $dimensions,string $claimedKind,string $temporaryFile):string {
+  $kind=self::validateUpload($mime,$bytes,$dimensions);
+  if($mime==='video/webm'&&$claimedKind==='audio'){
+   $header=@file_get_contents($temporaryFile,false,null,0,65536);
+   if(!is_string($header)||!preg_match('/A_(?:OPUS|VORBIS|AAC)/',$header)||
+      preg_match('/V_(?:VP8|VP9|AV1|MPEG4|THEORA)/',$header))
+    throw new DomainException('This WebM file does not contain an audio-only microphone recording.',422);
+   return 'audio';
+  }
+  if($claimedKind!==''&&$claimedKind!==$kind)
+   throw new DomainException('Recorded media type does not match the file.',422);
+  return $kind;
+ }
  public static function validId(string $id):bool{return (bool)preg_match('/^[a-f0-9]{32}$/D',$id);}
  public static function edit(array $existing,array $in):array {
   $title=trim((string)($in['title']??$existing['title']));

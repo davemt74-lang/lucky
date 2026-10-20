@@ -24,6 +24,17 @@ final class MontagePlan {
    if(isset($seen[$clip['instanceId']??$clip['id']]))throw new DomainException('Duplicate timeline segment in the edit.',422);
    $seen[$clip['instanceId']??$clip['id']]=1;
    if(!in_array($clip['kind']??null,['photo','video','audio'],true))throw new DomainException('Invalid clip type.',422);
+   $mode=(string)($clip['audio_mode']??$clip['audioMode']??'normal');
+   if(!in_array($mode,['normal','muted','detached'],true))throw new DomainException('Invalid segment audio mode.',422);
+   if($mode==='detached'&&($clip['kind']??'')!=='video')throw new DomainException('Only video audio can be detached.',422);
+   foreach(['detached_offset_ms','voiceover_offset_ms'] as $key){
+    $camel=$key==='detached_offset_ms'?'detachedOffsetMs':'voiceoverOffsetMs';
+    $value=$clip[$key]??$clip[$camel]??0;
+    if(!is_numeric($value)||(float)$value<0||(float)$value>120000)throw new DomainException('Audio offset must be between 0 and 120 seconds.',422);
+   }
+   $voice=(string)($clip['voiceover_id']??$clip['voiceoverId']??'');
+   if($voice!==''&&(!preg_match('/^[a-f0-9]{32}$/D',$voice)||($clip['kind']??'')==='audio'))
+    throw new DomainException('Invalid voiceover reference.',422);
    $duration=self::ms($clip);
    if($clip['kind']==='photo'&&($duration<1000||$duration>20000))throw new DomainException('Photo duration out of range.',422);
    if($duration>120000)throw new DomainException('Individual clips are limited to 120 seconds for rendered videos.',422);
@@ -66,6 +77,24 @@ final class MontagePlan {
    $name=trim((string)($edit['title']??$item['title']));if($name===''||strlen($name)>120)throw new DomainException('Invalid clip title.',422);
     $transition=(string)($edit['transition']??'fade');
    if(!in_array($transition,['cut','fade'],true))throw new DomainException('Unsupported transition.',422);
+   $audioMode=(string)($edit['audioMode']??'normal');
+   if(!in_array($audioMode,['normal','muted','detached'],true)||($audioMode==='detached'&&$item['kind']!=='video'))
+    throw new DomainException('Invalid segment audio mode.',422);
+   $detachedOffset=$edit['detachedOffsetMs']??0;$voiceOffset=$edit['voiceoverOffsetMs']??0;
+   foreach([$detachedOffset,$voiceOffset] as $offset)
+    if(!is_numeric($offset)||(float)$offset<0||(float)$offset>120000)
+     throw new DomainException('Audio offsets must be 0–120 seconds.',422);
+   $voiceId=(string)($edit['voiceoverId']??'');
+   if($voiceId!==''){
+    if(!preg_match('/^[a-f0-9]{32}$/D',$voiceId)||$item['kind']==='audio'||!isset($source[$voiceId])||
+       $source[$voiceId]['kind']!=='audio'||$source[$voiceId]['claim_id']!==$item['claim_id'])
+     throw new DomainException('The recorded voiceover must belong to the same claimed prize.',403);
+   }
+   $item['audio_mode']=$audioMode;
+   $item['detached_offset_ms']=(int)$detachedOffset;
+   $item['voiceover_id']=$voiceId;
+   $item['voiceover_offset_ms']=(int)$voiceOffset;
+   $item['voiceover_muted']=($edit['voiceoverMuted']??false)===true;
    $item['transition']=$transition;
    $item['trim_start_ms']=$start;$item['trim_end_ms']=$end;$item['photo_duration_ms']=(int)$photo;$item['title']=$name;
    $out[]=$item;

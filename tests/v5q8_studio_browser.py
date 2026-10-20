@@ -18,7 +18,7 @@ async def run():
    await page.wait_for_timeout(260)
    ok(f'{width}: no document title block',await page.locator('.page-intro').count()==0)
    ok(f'{width}: media bin contains sources',await page.locator('.studio-media-item').count()==2)
-   ok(f'{width}: preview and clip inspector',await page.locator('.studio-monitor').is_visible() and await page.locator('.studio-inspector').is_visible())
+   ok(f'{width}: preview and clip inspector',await page.locator('.studio-monitor').is_visible() and await page.locator('#editor-open-inspector').is_visible())
    ok(f'{width}: horizontal time ruler and sequence lane',await page.locator('.studio-ruler-tick').count()>0 and await page.locator('.studio-track .editor-clip').count()==2)
    ok(f'{width}: audio lane mirrors sequence',await page.locator('.studio-audio-cell').count()==2)
    ok(f'{width}: no horizontal document overflow',await page.evaluate('document.documentElement.scrollWidth <= innerWidth + 2'))
