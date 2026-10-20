@@ -36,9 +36,9 @@ async def main():
         await page.wait_for_function("document.querySelector('#game').contentWindow!==null")
         await frame.locator('#cover').evaluate('img => img.decode()')
         ck('Image decodes completely offline',await frame.locator('#cover').evaluate('img => img.naturalWidth===1'))
-        ck('Audio is embedded rather than fetched',await frame.locator('#sound').get_attribute('src').startswith('data:audio/wav;base64,'))
-        ck('Video and poster are offline',await frame.locator('#movie').get_attribute('src').startswith('data:video/webm;base64,') and
-           await frame.locator('#movie').get_attribute('poster').startswith('data:image/png;base64,'))
+        ck('Audio is embedded rather than fetched',(await frame.locator('#sound').get_attribute('src')).startswith('data:audio/wav;base64,'))
+        ck('Video and poster are offline',(await frame.locator('#movie').get_attribute('src')).startswith('data:video/webm;base64,') and
+           (await frame.locator('#movie').get_attribute('poster')).startswith('data:image/png;base64,'))
         ck('Font CSS is embedded in the isolated document',await frame.locator('style').first.evaluate("s => s.textContent.includes('data:font/woff2;base64,')"))
         ck('Iframe has an opaque origin',await frame.locator('body').evaluate('() => window.origin==="null"'))
         ck('SDK initialized before game script',await frame.locator('body').evaluate('() => typeof LuckyGameSDK?.onState==="function"'))
