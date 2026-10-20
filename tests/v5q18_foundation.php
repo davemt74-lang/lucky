@@ -14,8 +14,8 @@ final class ExampleGameTwo implements GameModule {
   return ['id'=>$id,'game'=>'game-2','status'=>'active','version'=>1,'round'=>0,'rounds'=>$settings['rounds'],'endedAt'=>null];
  }
  public function applySettings(array &$s,array $settings):void {$s['rounds']=$settings['rounds'];$s['version']++;}
- public function action(array &$s,string $verb):array {
-  if($verb==='next_round'&&$s['status']==='active'){$s['round']++;$s['version']++;return ['type'=>'round_advanced','version'=>$s['version']];}
+ public function action(array &$s,string $verb,array $payload=[]):array {
+  if($verb==='next_round'&&$s['status']==='active'&&($payload['answer']??'yes')==='yes'){$s['round']++;$s['version']++;return ['type'=>'round_advanced','version'=>$s['version']];}
   if($verb==='pause'&&$s['status']==='active'){$s['status']='paused';$s['version']++;return ['type'=>'paused'];}
   if($verb==='resume'&&$s['status']==='paused'){$s['status']='active';$s['version']++;return ['type'=>'resumed'];}
   if($verb==='end'&&in_array($s['status'],['active','paused'],true)){$s['status']='ended';$s['endedAt']=gmdate('c');$s['version']++;return ['type'=>'ended'];}
@@ -27,7 +27,7 @@ $example=new ExampleGameTwo();
 $id=str_repeat('a',32);
 $state=$example->createSession($example->validateSettings($example->defaults()),$id);
 GameFoundation::checkSession($example,$state,$id);yes(true,'Game 2 module can start using shared session contract');
-$round=$example->action($state,'next_round');
+$round=$example->action($state,'next_round',['answer'=>'yes']);
 yes($round['type']==='round_advanced'&&$state['version']===2&&$state['round']===1,'independent game-specific round action increments version');
 $example->action($state,'pause');
 yes($state['status']==='paused','Game 2 can pause without wheel logic');
