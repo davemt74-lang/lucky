@@ -65,7 +65,7 @@ async def run():
   ck('preview requires no capture consent',not await page2.locator('#capture-consent').is_checked())
   await page2.locator('#capture-photo').click()
   ck('capture blocked before consent', 'consent' in (await page2.locator('#capture-feedback').inner_text()).lower())
-  await page2.locator('#capture-consent').check()
+  await page2.evaluate("LuckyCapture.phoneAction('proof-consent-on')")
   await page2.locator('#capture-photo').click()
   await page2.wait_for_function('window.__mediaUploads.length === 2')
   uploads=await page2.evaluate('window.__mediaUploads')
