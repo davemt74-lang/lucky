@@ -53,7 +53,7 @@ async def main():
   tests.append(('phone switches immediately to opening editor after acceptance',await phone.locator('#phone-proof-mode').is_visible() and await phone.locator('#phone-gameplay-shell').is_hidden()))
   tests.append(('recording consent blocked until desktop editor opens',await phone.locator('#phone-proof-consent').is_disabled()))
   phone_proof['phase']='live'
-  await phone.wait_for_function("document.querySelector('#phone-proof-phase').textContent.includes('consent') && document.querySelector('#phone-proof-consent').disabled===false",timeout=5000)
+  await phone.wait_for_function("document.querySelector('#phone-proof-phase').textContent.includes('Live camera ready') && document.querySelector('#phone-proof-consent').disabled===false",timeout=5000)
   tests.append(('phone starts proof controls after desktop editor opens',await phone.locator('#phone-proof-consent').is_enabled()))
   await phone.close();await b.close()
  tests.append(('browser has no errors',not errors))
