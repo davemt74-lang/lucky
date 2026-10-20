@@ -44,6 +44,28 @@ jobs:
           php tests/auto_draft.php
           php tests/proof_revisions.php
           node tests/proof_plan.js
+  prize-packages-db:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      mariadb:
+        image: mariadb:11.8
+        env:
+          MARIADB_ROOT_PASSWORD: luckytestpassword
+          MARIADB_DATABASE: lucky_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_mysql,mbstring
+      - name: Certify prize packages with real local MariaDB
+        run: php tests/v5q20_packages_db.php
   browsers:
     runs-on: ubuntu-latest
     timeout-minutes: 20
