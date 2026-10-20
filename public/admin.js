@@ -292,7 +292,7 @@
   const open=document.querySelector('.admin-console').classList.toggle('nav-open');
   $('admin-nav-toggle').setAttribute('aria-expanded',String(open));
  };
- const initialTab=new URLSearchParams(location.search).get('tab');if(['prizes','intro','music','sessions','history','migration'].includes(initialTab))document.querySelector(`[data-tab="${initialTab}"]`)?.click();
+ const initialTab=new URLSearchParams(location.search).get('tab');if(['games','prizes','intro','music','sessions','history','migration'].includes(initialTab))document.querySelector(`[data-tab="${initialTab}"]`)?.click();
  try{const legacy=JSON.parse(localStorage.getItem('lucky-spin-v3')||'null');$('legacy-status').textContent=legacy?.pools?'Legacy prize pools found. You can import their definitions.':'No V5 game configuration found in this browser.';}catch(_){$('legacy-status').textContent='No readable V5 game data found.';}
  Promise.all([loadSettings(),refreshMusic(),refreshHistory(),refreshSessions(),L.api('last')]).then(async ([_,__,___,____,last])=>{window.__lastSession=last.data;await loadIntro();status('Admin settings loaded.');}).catch(e=>status(e.message,true));
 })();

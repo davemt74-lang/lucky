@@ -7,6 +7,7 @@ shellStart('Admin Studio','admin','admin-studio-page');
 <aside class="admin-console-sidebar" id="admin-console-sidebar" aria-label="Admin navigation">
  <div class="admin-console-brand"><span class="mini-label">LUCKY GAMES</span><h2>Control Center</h2><p>Manage your home gaming platform.</p></div>
  <nav class="platform-admin-tabs" aria-label="Admin Studio sections">
+  <button type="button" data-tab="games"><span class="admin-nav-symbol" aria-hidden="true">▦</span> Game catalog</button>
   <button type="button" data-tab="prizes" class="selected" aria-current="page"><span class="admin-nav-symbol" aria-hidden="true">✦</span> Prizes & budgets</button>
   <button type="button" data-tab="intro"><span class="admin-nav-symbol" aria-hidden="true">◈</span> Intro & theme</button>
   <button type="button" data-tab="music"><span class="admin-nav-symbol" aria-hidden="true">♫</span> Music library</button>
@@ -19,6 +20,39 @@ shellStart('Admin Studio','admin','admin-studio-page');
 <div class="admin-console-workspace">
  <div class="admin-mobile-nav"><button type="button" id="admin-nav-toggle" class="btn btn-outline" aria-expanded="false" aria-controls="admin-console-sidebar">☰ Sections</button></div>
  <div class="platform-admin-layout">
+<section id="tab-games" class="surface platform-admin-panel" aria-label="Game catalog" hidden>
+ <div class="card-title-row"><div><p class="mini-label">LOCAL GAME LIBRARY</p><h2>Game catalog</h2></div><button id="catalog-new-game" type="button" class="btn btn-outline">+ Create draft listing</button></div>
+ <p>Manage each game's artwork, publisher credits, supported players and controller capabilities. Draft listings are not playable until a compatible game module has been installed and approved. Game metadata and uploaded art live in persistent local storage, surviving HomeServer application upgrades.</p>
+ <div class="game-catalog-workspace">
+ <div class="game-catalog-list" id="catalog-game-list" aria-label="Installed games"><p>Loading games…</p></div>
+ <form id="catalog-editor" class="platform-form game-catalog-editor" hidden>
+  <h3 id="catalog-editor-heading">Game details</h3><p id="catalog-execution-status" class="mini-label"></p>
+  <div class="game-catalog-fields">
+   <label>Game ID<input id="catalog-id" readonly></label>
+   <label>Game title<input id="catalog-title" maxlength="120" required></label>
+   <label>Tagline<input id="catalog-tagline" maxlength="180"></label>
+   <label>Publisher<input id="catalog-publisher" maxlength="160"></label>
+   <label>Publisher website<input id="catalog-publisher-website" type="url" placeholder="https://..." maxlength="2048"></label>
+   <label>Category<input id="catalog-category" maxlength="80"></label>
+   <label>Release version<input id="catalog-version" maxlength="40"></label>
+   <label>Age rating<input id="catalog-age" maxlength="40" placeholder="Everyone"></label>
+   <label>Minimum players<input id="catalog-min" type="number" min="1" max="64"></label>
+   <label>Maximum players<input id="catalog-max" type="number" min="1" max="64"></label>
+   <label>Phone controller<select id="catalog-controller"><option value="custom">Game-specific controller</option><option value="none">No phone controller</option></select></label>
+   <label class="platform-checkbox"><input id="catalog-enabled" type="checkbox"> Enabled in catalog</label>
+  </div>
+  <label>Game description<textarea id="catalog-description" rows="4" maxlength="3000"></textarea></label>
+  <div class="game-catalog-art">
+   <div><h4>Cover image</h4><img id="catalog-cover-preview" alt="Game cover preview" hidden><input type="file" accept="image/jpeg,image/png,image/webp" data-game-art="cover"></div>
+   <div><h4>Hero / banner image</h4><img id="catalog-hero-preview" alt="Game banner preview" hidden><input type="file" accept="image/jpeg,image/png,image/webp" data-game-art="hero"></div>
+   <div><h4>Game logo</h4><img id="catalog-logo-preview" alt="Game logo preview" hidden><input type="file" accept="image/jpeg,image/png,image/webp" data-game-art="logo"></div>
+  </div>
+  <h4>Game gallery</h4><div id="catalog-gallery" class="game-catalog-gallery"></div>
+  <label>Add gallery image (up to 8)<input type="file" accept="image/jpeg,image/png,image/webp" data-game-art="gallery"></label>
+  <div class="platform-control-row"><button class="btn btn-primary" type="submit">Save game profile</button><span id="catalog-save-status" class="mini-label" role="status" aria-live="polite"></span></div>
+ </form>
+ </div>
+</section>
 <section id="tab-prizes" class="surface platform-admin-panel"><div class="card-title-row"><div><p class="mini-label">GAME 1 · SERVER PRIZES</p><h2>Prize packages</h2></div><button id="save-prizes" type="button" class="btn btn-primary">Save package changes</button></div><p>Use + to add a Draft package. Save its tiers, odds and awards, then Publish it to make it eligible for the next game. Only Published and enabled packages can be selected. Games already started retain their original prizes.</p>
 <div class="prize-package-header"><div id="prize-package-tabs" class="prize-package-tabs" role="tablist" aria-label="Prize packages"></div><button type="button" id="add-package" class="btn btn-primary prize-package-add" aria-label="Create prize package" title="New prize package">+</button></div>
 <div class="prize-package-config"><label>Package name<input id="package-name" maxlength="100" aria-label="Selected package name"></label><label class="platform-checkbox"><input id="package-enabled" type="checkbox" checked> Enabled</label><label class="platform-checkbox"><input id="package-player-choice" type="checkbox" checked> Players can select</label><span id="package-publication-status" class="package-publication-status" role="status">Published</span><button id="package-publish" type="button" class="btn btn-outline">Move to Draft</button><button id="package-activate" type="button" class="btn btn-outline">Use for next game</button><button id="package-remove" type="button" class="btn btn-outline">Delete package</button><span id="package-selection-status" class="mini-label"></span></div>
@@ -36,4 +70,4 @@ shellStart('Admin Studio','admin','admin-studio-page');
 <section id="tab-history" class="surface platform-admin-panel" hidden><h2>Finished-game archive</h2><p>Completed games are preserved with their audit records, prizes, and session timestamps.</p><button class="btn btn-outline" id="refresh-history">↻ Refresh</button><div id="history-items" class="platform-claim-list"></div><button class="btn btn-outline" id="export-history">Export history CSV</button></section>
 <section id="tab-migration" class="surface platform-admin-panel" hidden><h2>Import a V5 browser configuration</h2><p>The older game stored prizes and music in one browser. You can import its Tier 1, Tier 2, and Bonus prize definitions here. This does not erase the old browser copy. Existing claimed prizes are imported into a separate completed historical session, never into an active game. Duplicate imports of the same game are blocked.</p><p id="legacy-status" class="voice-status">Checking this browser…</p><button id="import-legacy" class="btn btn-outline">Import prizes and archived claims</button></section>
 </div><p id="admin-status" class="voice-status" role="status" aria-live="polite"></p></div></div>
-<script src="public/client.js" defer></script><script src="public/admin.js?v=5q21" defer></script><?php shellEnd(); ?>
+<script src="public/client.js" defer></script><script src="public/admin.js?v=5q22" defer></script><script src="public/game-catalog.js?v=5q22" defer></script><?php shellEnd(); ?>
