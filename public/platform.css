@@ -715,3 +715,15 @@ body.admin-studio-page #package-publish:not(:disabled){border-color:#8da07c}
 .game-catalog-gallery{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.6rem}
 .game-catalog-gallery img{width:100%;height:108px;object-fit:cover;border-radius:8px}
 @media(max-width:820px){.game-catalog-workspace{grid-template-columns:1fr}.game-catalog-list{display:flex;overflow-x:auto;padding:3px}.game-catalog-card{min-width:195px;max-width:230px}.game-catalog-fields{grid-template-columns:1fr}.game-catalog-art{grid-template-columns:1fr 1fr}.game-catalog-gallery{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+
+/* V5Q.22C: manual, signed cloud update connection */
+.game-update-connection{margin-top:1.4rem;padding:1.15rem;border:1px solid var(--border-color,#485369);border-radius:14px;background:rgba(255,255,255,.025)}
+.game-update-connection .platform-form{display:grid;gap:.85rem}
+.game-update-connection label{display:grid;gap:.35rem}
+.game-update-connection input,.game-update-connection textarea{width:100%;min-width:0}
+.game-update-connection .platform-control-row{display:flex;gap:.55rem;flex-wrap:wrap}
+.game-update-releases{display:grid;gap:.75rem}
+.game-update-release{border:1px solid var(--border-color,#485369);border-radius:10px;padding:.8rem;display:grid;gap:.35rem;overflow-wrap:anywhere}
+.game-update-release p{margin:.2rem 0}
+.game-update-release small{opacity:.7;font-family:monospace;overflow-wrap:anywhere}
