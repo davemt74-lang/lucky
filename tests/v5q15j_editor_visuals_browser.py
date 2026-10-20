@@ -34,7 +34,7 @@ async def main():
     await page.locator('.editor-clip-select').first.click()
     await page.locator('#editor-close-inspector').click()
     await page.locator('[data-studio-pane="filters"]').click()
-     await page.locator('#editor-look').select_option('mono')
+    await page.locator('#editor-look').select_option('mono')
     await page.locator('#editor-apply-look').click()
     ok('filter applied to selected timeline clip',await page.locator('#editor-look').input_value()=='mono')
     await page.locator('[data-studio-pane="overlays"]').click()
