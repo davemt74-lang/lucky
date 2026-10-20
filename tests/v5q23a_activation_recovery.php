@@ -58,5 +58,15 @@ try {
  v23check(count($backups)===1&&file_get_contents($backups[0])==='{corrupted','Damaged pointer retained for diagnostics.');
  v23reject(fn()=>GamePackageActivation::recover($one,'1.0.0',true,$root),'Recovery may not replace healthy activation.');
  v23check(GamePackageActivation::active($two,$root)['version']==='1.0.0','Unrelated game state preserved.');
+ $receiptPath=$root.'/'.$two.'/versions/1.0.0/receipt.json';
+ $previousReceipt=file_get_contents($receiptPath);
+ $brokenReceipt=json_decode($previousReceipt,true,16,JSON_THROW_ON_ERROR);
+ unset($brokenReceipt['title']);
+ file_put_contents($receiptPath,json_encode($brokenReceipt,JSON_THROW_ON_ERROR));
+ $isolated=GamePackageActivation::inspect($root);
+ v23check(isset($isolated['active'][$one])&&!isset($isolated['active'][$two])
+   &&count($isolated['issues'])===1,'Corrupted package metadata cannot damage unrelated game registry.');
+ file_put_contents($receiptPath,$previousReceipt);
+ v23check(count(GamePackageActivation::all($root))===2,'Restoring receipt repairs game discovery without reinstall.');
  echo "V5Q.23A: isolated game failures, explicit recovery, retained evidence and no-phone games PASSED\n";
 }finally{v23clean($temporary);}
