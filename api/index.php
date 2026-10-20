@@ -326,6 +326,9 @@ try {
   if(!preg_match('/^[a-z][a-z0-9_-]{0,39}$/D',$verb)
      ||in_array($verb,['start','save_session','resume_saved','finish_saved','delete_session'],true))
    throw new DomainException('Invalid gameplay action.',400);
+  $payload=$action==='game_action'?($in['payload']??[]):[];
+  if(!is_array($payload)||count($payload)>32||strlen(json_encode($payload,JSON_THROW_ON_ERROR))>16384)
+   throw new DomainException('Gameplay payload is too large or malformed.',400);
   $id=strval($in['id']??'');$key=strval($in['idempotencyKey']??'');
   if(!preg_match('/^[A-Za-z0-9_-]{12,80}$/D',$key))throw new DomainException('Missing unique request key.',400);
   $db->beginTransaction();try{
@@ -335,7 +338,7 @@ try {
    $s=stateFromRow($r);$module=GameRegistry::module($s['game']);
    if($s['game']==='spin-wheel'&&$verb==='spin'){ControllerGame::spinReady($s);PrizeDecision::assertReady($db,$id);}
    $beforeVersion=(int)($s['version']??0);
-   $result=$module->action($s,$verb);
+   $result=$module->action($s,$verb,$payload);
    $type=(string)($result['type']??'');
    if(!preg_match('/^[a-z][a-z0-9_-]{0,39}$/D',$type)||($s['version']??0)!==$beforeVersion+1)
     throw new DomainException('Game module returned an invalid action or state version.',422);
