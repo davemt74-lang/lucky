@@ -72,6 +72,9 @@ try {
    if(!isAdmin())$cfg=['intro'=>$cfg['intro'],'theme'=>$cfg['theme']];
    success(['settings'=>$cfg]);
   }
+  if($action==='prize_packages'){
+   success(PrizePackages::read($db,isAdmin()));
+  }
   if($action==='tracks'){
    $list=$db->query('SELECT id,title,kind,source,mime,bytes FROM media_tracks ORDER BY created_at DESC')->fetchAll();
    foreach($list as &$t){$t['src']=$t['kind']==='upload'?'api/index.php?action=track&id='.$t['id']:$t['source'];unset($t['source']);}unset($t);
@@ -178,6 +181,30 @@ try {
   success(['id'=>$id],201);
  }
  $in=jsonInput();
+ if(in_array($action,['package_create','package_save','package_select','package_delete'],true)){
+  $db->beginTransaction();
+  try{
+   if($action==='package_create'){
+    $out=PrizePackages::create($db,$in['name']??'');
+    audit($db,'package.created',null,['packageId'=>$out['id']]);
+   }elseif($action==='package_save'){
+    $out=PrizePackages::save($db,(string)($in['id']??''),(int)($in['version']??0),
+     $in['name']??'',is_array($in['config']??null)?$in['config']:[],
+     ($in['enabled']??false)===true,($in['playerSelectable']??false)===true);
+    audit($db,'package.saved',null,['packageId'=>$out['id'],'version'=>$out['version']]);
+   }elseif($action==='package_select'){
+    $id=PrizePackages::id($in['id']??null);
+    PrizePackages::select($db,$id);$out=['selected'=>$id];
+    audit($db,'package.selected',null,['packageId'=>$id,'source'=>'admin']);
+   }else{
+    $id=PrizePackages::id($in['id']??null);
+    PrizePackages::delete($db,$id);
+    audit($db,'package.deleted',null,['packageId'=>$id]);$out=['deleted'=>true];
+   }
+   $db->commit();
+  }catch(Throwable $e){$db->rollBack();throw $e;}
+  success(['package'=>$out]);
+ }
  if($action==='catalog_save'){
   $product=ProductCatalog::validate($in);$id=(string)($in['id']??'');
   if($id!==''&&!preg_match('/^[a-f0-9]{32}$/D',$id))throw new DomainException('Invalid product ID.',400);
@@ -259,11 +286,18 @@ try {
   $db->beginTransaction();try{
    $config=GameSessionLifecycle::lockGame($db,$game);
    GameSessionLifecycle::assertVacant($db,$game);
+   if($game==='spin-wheel'){
+    PrizePackages::requireReady($db);
+    PrizePackages::lockGame($db,$game);
+    $pkg=PrizePackages::currentConfig($db,$game);
+    $config=$pkg['config'];
+   }
    $s=GameRegistry::module($game)->createSession($config,bin2hex(random_bytes(16)));
+   if(isset($pkg))$s['prizePackage']=['id'=>$pkg['id'],'name'=>$pkg['name']];
    GameFoundation::checkSession(GameRegistry::module($game),$s,(string)($s['id']??''));
    $viewToken=token();$q=$db->prepare('INSERT INTO game_sessions(id,game_id,status,version,state_json,viewer_token) VALUES (?,?,?,?,?,?)');
    $q->execute([$s['id'],$game,$s['status'],$s['version'],json_encode($s,JSON_THROW_ON_ERROR),$viewToken]);
-   audit($db,'session.start',$s['id'],['game'=>$game]);$db->commit();
+   audit($db,'session.start',$s['id'],['game'=>$game,'packageId'=>$pkg['id']??null]);$db->commit();
   }catch(Throwable $e){$db->rollBack();throw $e;}
   success(['data'=>['session'=>$s,'viewerToken'=>$viewToken,'view'=>GameRegistry::module($s['game'])->publicView($s)]],201);
  }
