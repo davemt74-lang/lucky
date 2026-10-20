@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 const LUCKY_ROOT=__DIR__.'/..';
-require_once __DIR__.'/SpinReveal.php';require_once __DIR__.'/GameEngine.php';require_once __DIR__.'/GameRegistry.php';
+require_once __DIR__.'/SpinReveal.php';require_once __DIR__.'/GameEngine.php';require_once __DIR__.'/GameRegistry.php';require_once __DIR__.'/DeploymentMode.php';
 if(!defined('LUCKY_TESTING')) {
   ini_set('session.use_strict_mode','1');ini_set('session.cookie_httponly','1');
   session_name('lucky_hub_sid');
@@ -16,7 +16,7 @@ function config():array {
 }
 function db():PDO {
   static $pdo=null;if($pdo instanceof PDO)return $pdo;
-  $c=config();$dsn='mysql:host='.$c['db_host'].';port='.$c['db_port'].';dbname='.$c['db_name'].';charset=utf8mb4';
+  $c=config();DeploymentMode::assertDatabaseLocation($c);$dsn='mysql:host='.$c['db_host'].';port='.$c['db_port'].';dbname='.$c['db_name'].';charset=utf8mb4';
   $pdo=new PDO($dsn,$c['db_user'],$c['db_pass'],[
       PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,
       PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC,
