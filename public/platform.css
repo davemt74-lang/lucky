@@ -418,3 +418,13 @@ body.game-fullwidth #win-dialog{display:none!important}
 .proof-editor-page .proof-video-stage:has(#proof-camera-settings[open]) #camera-grid .camera-source>input[data-camera-name]{display:block!important}
 .proof-editor-page .proof-video-stage:has(#proof-camera-settings[open]) #camera-grid .camera-source>.mini-label{display:block!important}
 .proof-editor-page .proof-video-stage:has(#proof-camera-settings[open]) #camera-grid .camera-source>.camera-source-actions{display:flex!important}
+
+/* V5Q.15G — proof-media chooser stays on the right; one playback surface on the left. */
+.proof-editor-page .proof-history-panel .proof-saved-clip{display:flex;width:100%;align-items:center;gap:10px;text-align:left;padding:8px;border:1px solid #29435d;background:#101d2e;color:#eff5fc;border-radius:9px;margin:7px 0;cursor:pointer;min-height:62px}
+.proof-editor-page .proof-saved-clip:hover,.proof-editor-page .proof-revision-clip:focus-within{border-color:#ecc277;background:#1c314d}
+.proof-editor-page .proof-saved-clip video,.proof-editor-page .proof-saved-clip img{display:block;width:86px;height:54px;object-fit:cover;flex-shrink:0;background:#030910;border-radius:5px;pointer-events:none}
+.proof-editor-page .proof-saved-clip span{overflow-wrap:anywhere;line-height:1.4;font-size:12px}
+.proof-editor-page .proof-saved-clip .proof-audio-thumb{width:86px;flex-shrink:0;text-align:center;font-size:24px}
+.proof-editor-page .proof-revision-clip .proof-load-clip{white-space:nowrap;margin-left:auto;font-size:11px}
+.proof-editor-page .proof-video-stage #capture-review .review-tile img{width:100%;max-height:70vh;object-fit:contain;background:#050910}
+.proof-editor-page #capture-consent{display:none!important}
