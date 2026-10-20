@@ -8,10 +8,10 @@ if(!mkdir($root,0700,true))throw new RuntimeException('Unable to create test dir
 try {
  $before=GameCatalog::all($root);
  $wheel=array_values(array_filter($before,fn($v)=>$v['id']==='spin-wheel'))[0]??null;
- checkV5Q22($wheel!==null&&$wheel['status']==='ready'&&$wheel['controllerMode']==='custom','Wheel must remain a playable game with custom phone controller.');
+ checkV5Q22($wheel!==null&&$wheel['status']==='ready'&&$wheel['controllerMode']==='custom'&&$wheel['builtIn']===true&&$wheel['canDelete']===false,'Wheel must remain a playable game with custom phone controller.');
  $created=GameCatalog::save('example-game',['title'=>'Example Game','publisherName'=>'Example Publisher','publisherWebsite'=>'https://example.com',
   'tagline'=>'A new game','playersMin'=>2,'playersMax'=>6,'controllerMode'=>'none','enabled'=>true],$root);
- checkV5Q22($created['status']==='draft'&&$created['source']==='catalog-only','Unsanctioned drafts must never be executable.');
+ checkV5Q22($created['status']==='draft'&&$created['source']==='catalog-only'&&$created['builtIn']===false,'Unsanctioned drafts must never be executable.');
  checkV5Q22($created['controllerMode']==='none'&&$created['publisherName']==='Example Publisher','Independent controller mode and publisher metadata must persist.');
  $saved=GameCatalog::load('example-game',$root);
  checkV5Q22($saved['playersMin']===2&&$saved['playersMax']===6,'Player counts must survive reload.');
