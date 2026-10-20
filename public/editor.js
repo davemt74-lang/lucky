@@ -38,6 +38,115 @@
    card.append(thumb,info,add);bin.append(card);
   }
  }
+ function timelineMs(){return clips.reduce((sum,c)=>sum+lengthMs(c),0);}
+ function timelineWidth(){return clips.reduce((sum,c)=>sum+visualWidth(c),0);}
+ // Project a global time into the exact V1 clip width, including minimum-size clips.
+ function timeToX(ms){
+  let elapsed=0,x=0;
+  for(const clip of clips){
+   const duration=lengthMs(clip),width=visualWidth(clip);
+   if(ms<=elapsed+duration)return x+Math.max(0,Math.min(1,(ms-elapsed)/duration))*width;
+   elapsed+=duration;x+=width;
+  }
+  return x;
+ }
+ function xToTime(x){
+  let elapsed=0,px=0;
+  for(const clip of clips){
+   const width=visualWidth(clip),dur=lengthMs(clip);
+   if(x<=px+width)return elapsed+Math.round(Math.max(0,Math.min(1,(x-px)/width))*dur/100)*100;
+   elapsed+=dur;px+=width;
+  }
+  return elapsed;
+ }
+ function selectTitle(id){
+  selectedTitle=id;const title=layers.titles.find(t=>t.id===id);if(!title)return;
+  $('timeline-title-text').value=title.text;$('timeline-title-start').value=secs(title.startMs);
+  $('timeline-title-duration').value=secs(title.durationMs);$('timeline-title-position').value=title.position;
+  $('timeline-title-size').value=title.size;
+  document.querySelectorAll('.studio-title-block').forEach(el=>el.classList.toggle('is-selected',el.dataset.titleId===id));
+ }
+ function commitTitleForm(){
+  const title=layers.titles.find(t=>t.id===selectedTitle);if(!title)return;
+  const text=$('timeline-title-text').value.trim(),total=timelineMs();
+  const start=ms($('timeline-title-start').value),duration=ms($('timeline-title-duration').value);
+  if(!text||text.length>120||start<0||duration<300||start+duration>total)
+   return inform('Title needs text and a time window contained in the video.',true);
+  Object.assign(title,{text,startMs:start,durationMs:duration,
+   position:$('timeline-title-position').value,size:$('timeline-title-size').value});
+  dirty=true;render();selectTitle(title.id);
+ }
+ function beginLayerDrag(e,which,item,edge='move'){
+  if(e.button!==0||!e.isPrimary)return;
+  e.preventDefault();e.stopPropagation();
+  const node=e.currentTarget;
+  const baseline={start:item.startMs,end:item.endMs,duration:item.durationMs};
+  const originX=e.clientX,originTime=xToTime(node.getBoundingClientRect().left-
+   node.closest('.studio-layer-track').getBoundingClientRect().left);
+  const total=timelineMs();
+  let changed=false;
+  try{node.setPointerCapture(e.pointerId);}catch(_){}
+  const move=ev=>{
+   if(ev.pointerId!==e.pointerId)return;
+   const relative=originTime+xToTime(Math.max(0,ev.clientX-originX+timeToX(originTime)))-originTime;
+   // xToTime is evaluated against the global ruler so short clips stay aligned.
+   const delta=relative-originTime;
+   if(which==='title'){
+    if(edge==='end'){
+     item.durationMs=Math.max(300,Math.min(total-baseline.start,baseline.duration+delta));
+    }else item.startMs=Math.max(0,Math.min(total-baseline.duration,baseline.start+delta));
+   }else if(edge==='end'){
+    item.endMs=Math.max(baseline.start+300,Math.min(total,baseline.end+delta));
+   }else{
+    const len=baseline.end-baseline.start;
+    item.startMs=Math.max(0,Math.min(total-len,baseline.start+delta));
+    item.endMs=item.startMs+len;
+   }
+   changed=changed||item.startMs!==baseline.start||item.endMs!==baseline.end||item.durationMs!==baseline.duration;
+   node.style.left=timeToX(item.startMs)+'px';
+   node.style.width=Math.max(14,timeToX(which==='title'?item.startMs+item.durationMs:item.endMs)-timeToX(item.startMs))+'px';
+  };
+  const finish=ev=>{if(ev?.pointerId!==undefined&&ev.pointerId!==e.pointerId)return;
+   node.removeEventListener('pointermove',move);node.removeEventListener('pointerup',finish);
+   node.removeEventListener('pointercancel',cancel);
+   if(node.hasPointerCapture?.(e.pointerId))node.releasePointerCapture(e.pointerId);
+   if(changed){dirty=true;render();if(which==='title')selectTitle(item.id);}
+  };
+  const cancel=ev=>{Object.assign(item,baseline);changed=false;finish(ev);};
+  node.addEventListener('pointermove',move);node.addEventListener('pointerup',finish);node.addEventListener('pointercancel',cancel);
+ }
+ function renderLayerLanes(){
+  const titleLane=$('editor-titles-lane'),musicLane=$('editor-background-lane');
+  if(!titleLane||!musicLane)return;
+  titleLane.replaceChildren();musicLane.replaceChildren();
+  const width=Math.max(200,timelineWidth());
+  titleLane.style.width=width+'px';musicLane.style.width=width+'px';
+  for(const title of layers.titles){
+   const block=document.createElement('button');block.type='button';block.className='studio-layer-block studio-title-block';
+   block.dataset.titleId=title.id;block.setAttribute('aria-label','Move text overlay '+title.text);
+   block.textContent=title.text;block.style.left=timeToX(title.startMs)+'px';
+   block.style.width=Math.max(14,timeToX(title.startMs+title.durationMs)-timeToX(title.startMs))+'px';
+   block.onclick=()=>selectTitle(title.id);
+   block.onpointerdown=e=>beginLayerDrag(e,'title',title);
+   const edge=document.createElement('span');edge.className='studio-layer-edge';edge.title='Drag to change title end';edge.onpointerdown=e=>{e.stopPropagation();beginLayerDrag(e,'title',title,'end');};
+   block.append(edge);titleLane.append(block);
+  }
+  if(layers.background){
+   const music=layers.background,selected=availableSongs.find(x=>x.id===music.trackId);
+   const block=document.createElement('button');block.type='button';block.className='studio-layer-block studio-background-block';
+   block.textContent='♫ '+(selected?.title||'Soundtrack');block.title='Drag to move background audio';
+   block.style.left=timeToX(music.startMs)+'px';
+   block.style.width=Math.max(14,timeToX(music.endMs)-timeToX(music.startMs))+'px';
+   block.onclick=()=>{$('studio-background-section').open=true;};
+   block.onpointerdown=e=>beginLayerDrag(e,'background',music);
+   const edge=document.createElement('span');edge.className='studio-layer-edge';edge.title='Drag to change music end';edge.onpointerdown=e=>{e.stopPropagation();beginLayerDrag(e,'background',music,'end');};
+   block.append(edge);musicLane.append(block);
+   $('timeline-music-select').value=music.trackId;
+   $('timeline-music-start').value=secs(music.startMs);$('timeline-music-end').value=secs(music.endMs);
+   $('timeline-music-offset').value=secs(music.offsetMs);$('timeline-music-volume').value=music.volume;
+   $('timeline-music-volume-value').textContent=music.volume+'%';
+  }
+ }
  function renderRuler(){const tickRoot=$('editor-ruler'),audio=$('editor-audio-lane');if(!tickRoot||!audio)return;tickRoot.replaceChildren();audio.replaceChildren();const total=clips.reduce((sum,c)=>sum+lengthMs(c),0),runtime=$('editor-runtime');if(runtime)runtime.textContent=`00:00 / ${clock(total)}`;
   let offset=0;const width=Math.max(500,clips.reduce((sum,c)=>sum+Math.max(95,Math.min(360,Math.round(lengthMs(c)/1000*16))),0));const ticks=Math.max(1,Math.ceil(total/30000));for(let i=0;i<=ticks;i++){const tick=document.createElement('span');tick.className='studio-ruler-tick';tick.style.width=`${width/(ticks+1)}px`;tick.textContent=clock(i*30000);tickRoot.append(tick);}
   clips.forEach(c=>{
