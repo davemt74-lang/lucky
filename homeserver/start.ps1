@@ -134,7 +134,7 @@ date.timezone=UTC
  $caddyfile=Join-Path $data 'Caddyfile'
  $spec="{`n  admin off`n  auto_https disable_redirects`n}`nhttp://127.0.0.1:8833 {`n  $common`n}`n"
  if($ip){$spec+="https://$($ip):8843 {`n  tls internal`n  @setup path /first-admin.php`n  respond @setup 403`n  $common`n}`n"}
- Set-Content -LiteralPath $caddyfile -Value $spec -Encoding UTF8
+ [IO.File]::WriteAllText($caddyfile,$spec,(New-Object System.Text.UTF8Encoding($false)))
  $caddyProc=Launch $caddy @('run','--config',$caddyfile,'--adapter','caddyfile') 'Caddy HTTPS'
  $ready=$false
  for($i=0;$i -lt 90;$i++){
