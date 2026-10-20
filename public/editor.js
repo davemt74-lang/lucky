@@ -657,7 +657,7 @@
   $('editor-form').onsubmit=updateSelected;$('editor-split').onclick=split;$('editor-remove').onclick=remove;$('editor-delete').onclick=permanentDelete;
   $('render-queue').onclick=queue;$('render-refresh').onclick=loadRenders;
   window.addEventListener('lucky:media-uploaded',receiveCapturedClip);
-  $('render-volume').oninput=()=>{$('render-volume-text').textContent=$('render-volume').value+'%';};
+  $('render-volume').oninput=()=>{$('render-volume-text').textContent=$('render-volume').value+'%';if(layers.background){layers.background.volume=Number($('render-volume').value);$('timeline-music-volume').value=layers.background.volume;$('timeline-music-volume-value').textContent=layers.background.volume+'%';dirty=true;render();}};
   document.querySelectorAll('[data-media-filter]').forEach(b=>b.onclick=()=>{mediaFilter=b.dataset.mediaFilter;document.querySelectorAll('[data-media-filter]').forEach(x=>{x.setAttribute('aria-pressed',String(x===b));x.classList.toggle('is-active',x===b);});renderBin();});
   const lane=$('editor-timeline');if(lane){lane.ondragover=e=>e.preventDefault();lane.addEventListener('drop',e=>{if(e.target.closest('.editor-clip'))return;e.preventDefault();const id=e.dataTransfer.getData('application/x-lucky-media-id');if(id)addFromBin(id);});}
   try{const sessions=await L.api('sessions');const s=$('editor-session');for(const item of sessions.sessions||[])s.add(new Option(`${item.game_id} · ${new Date(item.created_at).toLocaleString()} · ${item.status}`,item.id));
