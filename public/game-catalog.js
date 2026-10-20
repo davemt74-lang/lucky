@@ -80,6 +80,46 @@
   }catch(e){note(e.message,true);}
  };
  
+ let packagePending=false;
+ const packageNote=(message,bad=false)=>{
+  const status=$('game-package-status');status.textContent=message;
+  status.classList.toggle('platform-error',bad);
+ };
+ async function loadPackages(){
+  const result=await api('game_packages');
+  const rows=Array.isArray(result.packages)?result.packages:[];
+  const area=$('game-package-list');area.replaceChildren();
+  if(!rows.length){area.append(text('p','No game packages uploaded yet. Spin the Wheel is already bundled.'));return;}
+  for(const game of rows){
+   const card=text('article','','game-update-release');
+   card.append(text('strong',game.title+' · '+game.id+' · v'+game.version));
+   card.append(text('small',(game.phone?'Custom phone UI included':'No phone UI')+
+    ' · '+(game.signatureVerified?'Publisher signature verified':'Unsigned local upload')+
+    ' · Staged only'));
+   card.append(text('small','Imported '+game.installedAt+' · '+game.fileCount+' files · '+
+    (game.builtIn?'Protected built-in game update':'New game package')));
+   area.append(card);
+  }
+ }
+ $('game-package-refresh').onclick=()=>loadPackages().catch(e=>packageNote(e.message,true));
+ $('game-package-upload').onsubmit=async event=>{
+  event.preventDefault();if(packagePending)return;
+  const form=event.currentTarget;const file=form.querySelector('[name=package]')?.files?.[0];
+  if(!file){packageNote('Select a game ZIP file.',true);return;}
+  if(file.size>40*1024*1024){packageNote('The game package exceeds 40 MB.',true);return;}
+  packagePending=true;const button=form.querySelector('button[type=submit]');button.disabled=true;
+  try{
+   packageNote('Verifying package paths, manifest, file hashes and publisher signature…');
+   const body=new FormData();body.append('package',file);
+   const result=await api('game_package_upload',{body});
+   packageNote(result.package.title+' v'+result.package.version+
+    ' verified and staged. Gameplay was not replaced or activated.');
+   form.reset();await loadPackages();
+  }catch(e){packageNote(e.message,true);}
+  finally{packagePending=false;button.disabled=false;}
+ };
+ loadPackages().catch(e=>packageNote('Unable to load packages: '+e.message,true));
+
  let connected=false;
  const updateMessage=(message,bad=false)=>{
   const node=$('game-update-message');node.textContent=message;node.classList.toggle('platform-error',bad);
