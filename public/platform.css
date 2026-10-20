@@ -583,3 +583,66 @@ body.game-fullwidth .console-dialog .postgame-review{margin:10px 0}
  body.game-fullwidth .host-workspace-panels.is-wheel-active #host-panel-game{height:100%;min-height:0}
  body.game-fullwidth .host-workspace-panels.is-wheel-active .platform-wheel-card{height:100%;box-sizing:border-box}
 }
+
+/* V5Q.16: dedicated left navigation and account-backed Admin Studio header. */
+body.admin-studio-page .shell{max-width:none;width:100%;padding:0 clamp(14px,2vw,32px)}
+body.admin-studio-page .header{height:76px;min-height:76px;gap:18px}
+body.admin-studio-page .header>.brand{flex:0 0 auto}
+body.admin-studio-page .header>.admin-global-heading{display:flex;flex-direction:column;gap:0;border-left:1px solid #40546d;padding-left:20px}
+body.admin-studio-page .admin-global-heading .mini-label{margin:0;font-size:9px;color:#d5ba80}
+body.admin-studio-page .admin-global-heading strong{font-size:16px}
+body.admin-studio-page .admin-global-game-link{margin-left:auto;font-size:12px;padding:10px 15px}
+body.admin-studio-page .header>.account-menu{margin-left:0}
+body.admin-studio-page .admin-console{display:grid;grid-template-columns:236px minmax(0,1fr);gap:20px;min-width:0;margin:20px 0 28px;align-items:start}
+body.admin-studio-page .admin-console-sidebar{position:sticky;top:18px;display:flex;flex-direction:column;min-height:calc(100dvh - 112px);padding:17px 10px;border:1px solid #344a67;border-radius:17px;background:#132037}
+body.admin-studio-page .admin-console-brand{padding:12px 12px 18px;border-bottom:1px solid #334762}
+body.admin-studio-page .admin-console-brand h2{margin:6px 0 5px;font-size:18px;letter-spacing:-.02em}
+body.admin-studio-page .admin-console-brand p{margin:0;font-size:11px;color:#b6c4d6}
+body.admin-studio-page .platform-admin-tabs{display:flex;flex-direction:column;gap:5px;margin:15px 0;flex-wrap:nowrap}
+body.admin-studio-page .platform-admin-tabs button{display:flex;align-items:center;gap:10px;min-height:44px;padding:11px 12px;text-align:left;font-size:12px;font-weight:720;line-height:1.3;background:transparent;border-color:transparent}
+body.admin-studio-page .platform-admin-tabs button.selected{color:#ffdfaa;background:#2a3d59;border:1px solid #a88d58}
+body.admin-studio-page .platform-admin-tabs button:hover{background:#283b56}
+body.admin-studio-page .platform-admin-tabs button:focus-visible{outline:2px solid #fbd695;outline-offset:1px}
+body.admin-studio-page .admin-nav-symbol{display:inline-grid;place-items:center;width:22px;color:#f8d08a;font-size:18px}
+body.admin-studio-page .admin-console-sidebar-footer{margin-top:auto;border-top:1px solid #334762;padding:13px 10px;display:grid;gap:12px;font-size:11px;color:#bacce2}
+body.admin-studio-page .admin-console-workspace{min-width:0}
+body.admin-studio-page .admin-workspace-header{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:98px;margin:0 0 14px}
+body.admin-studio-page .admin-workspace-header h1{font-size:clamp(24px,2.6vw,34px);line-height:1.15;margin:4px 0}
+body.admin-studio-page .admin-workspace-header p{font-size:12px;color:#aebed4;margin:0}
+body.admin-studio-page .admin-workspace-header .eyebrow{font-size:10px}
+body.admin-studio-page .admin-workspace-header #admin-nav-toggle{display:none}
+body.admin-studio-page .platform-admin-layout{margin:0;min-width:0}
+body.admin-studio-page .platform-admin-panel{min-width:0;overflow:hidden}
+body.admin-studio-page .platform-admin-panel[hidden]{display:none!important}
+body.admin-studio-page .platform-prize-items{min-width:0}
+body.admin-studio-page .platform-prize-item{max-width:100%}
+body.admin-studio-page .admin-session-toolbar{display:flex;flex-wrap:wrap;gap:12px;align-items:end;margin:16px 0}
+body.admin-studio-page .admin-session-toolbar label{min-width:220px;flex:1 1 200px}
+body.admin-studio-page .admin-session-list{display:grid;gap:12px;min-width:0}
+body.admin-studio-page .admin-session-card{background:#101c2f;border:1px solid #3e526c;border-radius:12px;padding:15px;display:grid;gap:10px;min-width:0}
+body.admin-studio-page .admin-session-card header{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:space-between}
+body.admin-studio-page .admin-session-card strong{font-size:14px}
+body.admin-studio-page .admin-session-status{border:1px solid #687b94;color:#d6e0ed;padding:4px 9px;border-radius:99px;font-size:10px;text-transform:capitalize}
+body.admin-studio-page .admin-session-status[data-status=active]{color:#bdf6d7;border-color:#66bb8d}
+body.admin-studio-page .admin-session-status[data-status=saved]{color:#ffe0a5;border-color:#d8ac61}
+body.admin-studio-page .admin-session-metadata{font-size:11px;color:#adbed4;overflow-wrap:anywhere}
+body.admin-studio-page .admin-session-actions{display:flex;flex-wrap:wrap;gap:8px}
+body.admin-studio-page .admin-session-actions .btn{padding:9px 12px;font-size:11px}
+@media(max-width:960px){
+ body.admin-studio-page .admin-console{grid-template-columns:1fr;gap:10px;margin-top:10px}
+ body.admin-studio-page .admin-console-sidebar{display:none;position:static;min-height:0}
+ body.admin-studio-page .admin-console.nav-open .admin-console-sidebar{display:flex}
+ body.admin-studio-page .admin-workspace-header #admin-nav-toggle{display:inline-flex}
+ body.admin-studio-page .admin-global-heading{display:none!important}
+}
+@media(max-width:570px){
+ body.admin-studio-page .header{min-height:70px;gap:8px;flex-wrap:nowrap}
+ body.admin-studio-page .header>.brand{font-size:13px}
+ body.admin-studio-page .header>.brand .logo{width:32px;height:32px}
+ body.admin-studio-page .admin-global-game-link{font-size:10px;padding:7px}
+ body.admin-studio-page .header>.account-menu{margin-left:auto}
+ body.admin-studio-page .admin-workspace-header{align-items:flex-start}
+ body.admin-studio-page .admin-workspace-header h1{font-size:26px}
+ body.admin-studio-page .admin-session-toolbar>*{flex-basis:100%}
+ body.admin-studio-page .platform-admin-panel{padding:14px}
+}
