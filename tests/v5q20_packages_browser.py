@@ -81,6 +81,7 @@ async def main():
    await page.wait_for_function("packageItems.find(p=>p.id==='c'.repeat(32)).playerSelectable===false")
    await page.locator('#package-publish').click()
    await page.wait_for_function("packageItems.find(p=>p.id==='c'.repeat(32)).publicationStatus==='published'")
+   await page.wait_for_function("document.querySelector('#package-publication-status')?.dataset.status==='published'")
    check(f'{width}: Publish changes the package status',await page.locator('#package-publication-status').inner_text()=='Published — available if enabled')
    check(f'{width}: player permissions saved with package',await page.evaluate("packageItems.find(p=>p.id==='c'.repeat(32)).playerSelectable===false"))
    await page.locator('#package-activate').click()
