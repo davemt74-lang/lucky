@@ -31,5 +31,5 @@ shellStart('Edit Prize Proof','claims');
 <p id="proof-errors" class="platform-error" role="alert" hidden></p>
 <h3 id="proof-prize-title" class="sr-only">Loading prize…</h3><p id="proof-prize-context" class="sr-only"></p>
 </aside></div></div></dialog>
-<script src="public/client.js" defer></script><script src="public/proof-sequence.js?v=5q2" defer></script><script src="public/claim-capture.js?v=5q15f" defer></script><script src="public/proof.js?v=5q15f" defer></script><script src="public/ui-receiver.js?v=5q8b" defer></script>
+<script src="public/client.js" defer></script><script src="public/proof-sequence.js?v=5q2" defer></script><script src="public/claim-capture.js?v=5q15g" defer></script><script src="public/proof.js?v=5q15g" defer></script><script src="public/ui-receiver.js?v=5q8b" defer></script>
 <?php shellEnd(); ?>
