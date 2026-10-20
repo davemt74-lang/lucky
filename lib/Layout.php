@@ -10,4 +10,4 @@ function shellStart(string $title,string $active='hub',string $bodyClass=''):voi
  else echo '<a href="login.php">Host Login</a>';
  echo '</nav></header><main>';
 }
-function shellEnd():void {echo '</main><script src="public/console.js?v=5q8b" defer></script><footer class="footer"><span>LUCKY GAMES · SECURE GAME ENGINE</span><nav class="footer-menu" aria-label="Footer menu"><a href="devices.php">Controllers</a><span class="footer-version">V5Q.12 · GAME CONSOLE</span></nav></footer></div></body></html>';}
+function shellEnd():void {echo '</main><script src="public/console.js?v=5q15e" defer></script><footer class="footer"><span>LUCKY GAMES · SECURE GAME ENGINE</span><nav class="footer-menu" aria-label="Footer menu"><a href="devices.php">Controllers</a><span class="footer-version">V5Q.12 · GAME CONSOLE</span></nav></footer></div></body></html>';}
