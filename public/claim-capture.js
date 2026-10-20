@@ -4,7 +4,7 @@
  const $=id=>document.getElementById(id);
  let session='',claim='',prize='Prize',feeds=new Map(),recordings=new Map(),audioStream=null,audioRecorder=null,recordTimer=null;
  let uploading=0,approvedCount=0,closing=false,previewGeneration=0,proofProfile=[],proofPlan=[],sequenceAbort=null,sequencePromise=null,cameraAuthorized=false;
- const drafts=new Map();let draftSerial=0,recordAttempt=0,priming=null,capturePhase='live',replacementId=null,savedPreview=null,savedVideos=[];
+ const drafts=new Map();let draftSerial=0,recordAttempt=0,priming=null,capturePhase='live',replacementId=null,savedPreview=null,savedVideos=[],selectedPlayback=null;
  const setPhase=phase=>{capturePhase=phase;window.dispatchEvent(new CustomEvent('lucky:proof-phase',{detail:{session,claim,phase,consent:!!$('capture-consent')?.checked}}));};
  const consentChanged=()=>window.dispatchEvent(new CustomEvent('lucky:proof-phase',{detail:{session,claim,phase:capturePhase,consent:!!$('capture-consent')?.checked}}));
  // A user-initiated Start Game click obtains camera permission before the first prize.
@@ -17,25 +17,49 @@
   }catch(e){status('Camera access can be enabled when proof opens: '+e.message,true);return false;}
  }
  function showDrafts(){
-  const pane=$('capture-review'),list=$('capture-review-list'),controls=$('capture-recording-tools');if(!pane||!list)return;
-  list.replaceChildren();const reviewing=drafts.size>0||!!savedPreview;pane.hidden=!reviewing;if(controls)controls.hidden=reviewing;
+  const pane=$('capture-review'),list=$('capture-review-list'),controls=$('capture-recording-tools');
+  if(!pane||!list)return;
+  list.replaceChildren();
+  // Explicit saved/revision selections take over the same large live-camera viewport.
+  // Unuploaded drafts remain intact and can always be brought back for approval.
+  const entries=selectedPlayback?[['saved',selectedPlayback]]:drafts.size?[...drafts.entries()]:savedPreview?[['saved',savedPreview]]:[];
+  const reviewing=entries.length>0;pane.hidden=!reviewing;if(controls)controls.hidden=reviewing;
   const retake=$('capture-rerecord-saved');if(retake)retake.hidden=reviewing||approvedCount===0;
-  const entries=drafts.size?[...drafts.entries()]:savedPreview?[['saved',savedPreview]]:[];
   for(const [id,clip] of entries){
    const saved=id==='saved',tile=document.createElement('div');tile.className='review-tile';tile.dataset.draft=id;
-   const title=document.createElement('strong');title.textContent=clip.angleLabel||clip.sourceLabel||'Recorded video';
-   const player=document.createElement('video');player.controls=true;player.playsInline=true;player.preload='metadata';player.src=clip.url;
+   const title=document.createElement('strong');title.textContent=clip.title||clip.angleLabel||clip.sourceLabel||'Recorded video';
+   let player;
+   if(clip.kind==='photo'){player=document.createElement('img');player.alt=title.textContent;player.src=clip.url;}
+   else if(clip.kind==='audio'){player=document.createElement('audio');player.controls=true;player.src=clip.url;}
+   else{player=document.createElement('video');player.controls=true;player.playsInline=true;player.preload='metadata';player.src=clip.url;}
    const actions=document.createElement('div');actions.className='capture-actions';
-   const choices=saved?[['▶ Play',()=>{player.currentTime=0;return player.play();}],['↻ Re-record',()=>rerecordSaved()]]:
-    [['▶ Play',()=>{player.currentTime=0;return player.play();}],['✓ Save',()=>approveDraft(id)],['↻ Re-record',()=>rerecordDraft(id)],['🗑 Delete',()=>deleteDraft(id)]];
-   for(const [label,fn] of choices){const button=document.createElement('button');button.type='button';button.className='btn btn-outline';button.textContent=label;button.onclick=()=>Promise.resolve().then(fn).catch(e=>status(e.message,true));actions.append(button);}
+   const play=()=>{if(typeof player.play!=='function')return;player.currentTime=0;return player.play();};
+   const choices=saved?
+    [['▶ Play',play],['↻ Re-record',()=>rerecordSaved(clip.id||null)],[(drafts.size?'↩ Return to unsaved take':'↩ Live camera'),()=>{
+      selectedPlayback=null;savedPreview=null;showDrafts();}]]:
+    [['▶ Play',play],['✓ Save',()=>approveDraft(id)],['↻ Re-record',()=>rerecordDraft(id)],['🗑 Delete',()=>deleteDraft(id)]];
+   for(const [label,fn] of choices){
+    if(clip.kind==='photo'&&label==='▶ Play')continue;
+    if(saved&&clip.kind&&clip.kind!=='video'&&label==='↻ Re-record')continue;
+    const button=document.createElement('button');button.type='button';button.className='btn btn-outline';button.textContent=label;
+    button.onclick=()=>Promise.resolve().then(fn).catch(e=>status(e.message,true));actions.append(button);
+   }
    tile.append(title,player,actions);list.append(tile);
   }
   if(drafts.size)setPhase('review');
   window.dispatchEvent(new CustomEvent('lucky:proof-review',{detail:{session,claim,reviewCount:drafts.size,approvedCount}}));
  }
+ function previewSavedClip(clip){
+  if(!clip||!/^[a-f0-9]{32}$/.test(clip.id||''))throw Error('Select a valid saved recording.');
+  if(recordings.size||sequencePromise)throw Error('Finish recording before viewing history.');
+  // Never use arbitrary media URLs; private streams are resolved from validated clip IDs.
+  selectedPlayback={id:clip.id,url:'api/claim-media.php?action=stream&id='+encodeURIComponent(clip.id),
+   kind:clip.kind,title:clip.title,sourceLabel:clip.sourceLabel,angleLabel:clip.angleLabel};
+  showDrafts();
+  status('Loaded '+(clip.title||'saved recording')+' in the main video player.');
+ }
  function stage(blob,filename,durationMs,sourceLabel,angleLabel='',angleIndex=0){
-  if(closing||!blob?.size)return;const id='video-'+(++draftSerial);
+  if(closing||!blob?.size)return;selectedPlayback=null;const id='video-'+(++draftSerial);
   drafts.set(id,{blob,filename,durationMs,sourceLabel,angleLabel,angleIndex,url:URL.createObjectURL(blob),session,claim,replaceClipId:replacementId||''});
   replacementId=null;showDrafts();status('Recording processed. Review the video, then Save it to this prize.');
  }
@@ -43,7 +67,7 @@
  async function approveDraft(id){const clip=drafts.get(id);if(!clip)throw Error('No recording to save.');if(clip.session!==session||clip.claim!==claim)throw Error('Prize changed; recording not uploaded.');
   setPhase('saving');
   try{const uploaded=await upload(clip.blob,clip.filename,'video',clip.durationMs,clip.sourceLabel,clip.angleLabel,clip.angleIndex,clip.replaceClipId||'');
-   savedPreview={url:uploaded.src,sourceLabel:clip.sourceLabel,angleLabel:clip.angleLabel};deleteDraft(id);
+   selectedPlayback=null;savedPreview={id:uploaded.id,url:uploaded.src,kind:'video',title:uploaded.title,sourceLabel:clip.sourceLabel,angleLabel:clip.angleLabel};deleteDraft(id);
    setPhase('saved');showDrafts();status('Video saved to this prize and automatically placed in the main editor timeline.');
   }catch(e){setPhase('review');throw e;}
  }
@@ -52,8 +76,8 @@
   replacementId=clip.replaceClipId||null;deleteDraft(id);savedPreview=null;
   if(!cameraId)throw Error('Select a camera to re-record.');await record([cameraId]);
  }
- async function rerecordSaved(){const latest=savedVideos.filter(c=>c.kind==='video').at(-1);if(!latest)throw Error('No saved video available to replace.');
-  replacementId=latest.id;savedPreview=null;showDrafts();setPhase('live');await record();
+ async function rerecordSaved(sourceId=null){const videos=savedVideos.filter(c=>c.kind==='video');const latest=sourceId?videos.find(c=>c.id===sourceId):videos.at(-1);if(!latest)throw Error('No saved video available to replace.');
+  replacementId=latest.id;selectedPlayback=null;savedPreview=null;showDrafts();setPhase('live');await record();
  }
  function clearDrafts(){for(const id of [...drafts.keys()])deleteDraft(id);}
  async function phoneAction(action){
@@ -242,9 +266,18 @@
   savedVideos=clips.filter(c=>c.kind==='video');approvedCount=clips.length;const retake=$('capture-rerecord-saved');if(retake)retake.hidden=!approvedCount||drafts.size>0;
   window.dispatchEvent(new CustomEvent('lucky:proof-review',{detail:{session,claim,reviewCount:drafts.size,approvedCount}}));
   const title=document.createElement('strong');title.textContent=`${clips.length} captured clip${clips.length===1?'':'s'} for this prize`;list.append(title);
-  for(const clip of clips){const row=document.createElement('div');row.className='claim-captured';row.textContent=`✓ ${clip.title} (${clip.kind})${clip.sourceLabel?' · '+clip.sourceLabel:''}`;list.append(row);}
+  for(const clip of clips){
+   const button=document.createElement('button');button.type='button';button.className='proof-saved-clip';
+   button.setAttribute('aria-label','Load '+clip.title+' in the main player');
+   const thumb=clip.kind==='video'?document.createElement('video'):clip.kind==='photo'?document.createElement('img'):document.createElement('span');
+   if(clip.kind==='video'){thumb.muted=true;thumb.playsInline=true;thumb.preload='metadata';thumb.src=clip.src;}
+   else if(clip.kind==='photo'){thumb.src=clip.src;thumb.alt='';}
+   else{thumb.textContent='♫';thumb.className='proof-audio-thumb';}
+   const info=document.createElement('span');info.textContent=clip.title+(clip.sourceLabel?' · '+clip.sourceLabel:'');
+   button.append(thumb,info);button.onclick=()=>{try{previewSavedClip(clip);}catch(e){status(e.message,true);}};list.append(button);
+  }
  }catch(e){status(e.message,true);}}
- function show(s,c,n,angles=[]){clearDrafts();savedPreview=null;replacementId=null;savedVideos=[];capturePhase='live';approvedCount=0;closing=false;session=s||'';claim=c||'';prize=n||'Prize';proofProfile=Array.isArray(angles)?angles:[];drawProofPlan();$('capture-prize-label').textContent=prize;$('capture-open-editor').href='editor.php?session='+encodeURIComponent(session);
+ function show(s,c,n,angles=[]){clearDrafts();selectedPlayback=null;savedPreview=null;replacementId=null;savedVideos=[];capturePhase='live';approvedCount=0;closing=false;session=s||'';claim=c||'';prize=n||'Prize';proofProfile=Array.isArray(angles)?angles:[];drawProofPlan();$('capture-prize-label').textContent=prize;$('capture-open-editor').href='editor.php?session='+encodeURIComponent(session);
   $('capture-consent').checked=false;consentChanged();status(session&&claim?'Live preview ready. Recording requires consent.':'Choose a prize first.');refreshClips();
   // The claim page is the one camera station. Start live previews immediately after the
   // verified claim loads, including games initiated on a paired phone (no browser-local
@@ -269,5 +302,5 @@
   navigator.mediaDevices?.addEventListener?.('devicechange',()=>{if((dialog.open||dialog.dataset.inlineCapture==='true')&&!recordings.size&&!sequencePromise)refresh().catch(()=>{});});
  }
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',setup);else setup();
- window.LuckyCapture={show,prime,phoneAction,reviewCount:()=>drafts.size,approvedCount:()=>approvedCount,phase:()=>capturePhase,consent:()=>!!$('capture-consent')?.checked,hasClaim:()=>!!claim&&!closing,release:stopAll,isBusy:()=>!!sequencePromise||recordings.size>0||!!audioRecorder||uploading>0};
+ window.LuckyCapture={show,prime,phoneAction,previewSavedClip,reviewCount:()=>drafts.size,approvedCount:()=>approvedCount,phase:()=>capturePhase,consent:()=>!!$('capture-consent')?.checked,hasClaim:()=>!!claim&&!closing,release:stopAll,isBusy:()=>!!sequencePromise||recordings.size>0||!!audioRecorder||uploading>0};
 })();
