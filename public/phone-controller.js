@@ -40,15 +40,15 @@
   if(typeof raw!=='string'||!raw||raw.length>2048)return null;
   let url;try{url=new URL(raw);}catch(_){return null;}
   if(url.protocol!=='https:'||url.username||url.password)return null;
-  if(/\\.(mp4|webm|m4v|ogv)$/i.test(url.pathname))return {kind:'video',src:url.href};
+  if(['.mp4','.webm','.m4v','.ogv'].some(ext=>url.pathname.toLowerCase().endsWith(ext)))return {kind:'video',src:url.href};
   const host=url.hostname.toLowerCase();let id='';
   if(host==='youtu.be'||host==='www.youtu.be')id=url.pathname.split('/')[1]||'';
   else if(['youtube.com','www.youtube.com','m.youtube.com','youtube-nocookie.com','www.youtube-nocookie.com'].includes(host)){
-   id=url.pathname==='/watch'?url.searchParams.get('v')||'':(/^\\/(embed|shorts)\\//.test(url.pathname)?url.pathname.split('/')[2]||'':'');
+   id=url.pathname==='/watch'?(url.searchParams.get('v')||''):((url.pathname.startsWith('/embed/')||url.pathname.startsWith('/shorts/'))?(url.pathname.split('/')[2]||''):'');
   }
   if(/^[A-Za-z0-9_-]{11}$/.test(id))return {kind:'iframe',src:'https://www.youtube-nocookie.com/embed/'+id+'?autoplay=1&mute=1&playsinline=1'};
   if(['vimeo.com','www.vimeo.com','player.vimeo.com'].includes(host)){
-   id=(url.pathname.match(/^\\/(?:video\\/)?(\\d{1,12})\\/?$/)||[])[1]||'';
+   const parts=url.pathname.split('/').filter(Boolean);id=((parts.length===1||parts.length===2&&parts[0]==='video')&&/^[0-9]{1,12}$/.test(parts[parts.length-1]||''))?parts[parts.length-1]:'';
    if(id)return {kind:'iframe',src:'https://player.vimeo.com/video/'+id+'?autoplay=1&muted=1'};
   }
   return null;
