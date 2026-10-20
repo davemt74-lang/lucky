@@ -3,7 +3,7 @@ declare(strict_types=1);
 require __DIR__.'/lib/Bootstrap.php';
 if(!installed()){http_response_code(503);exit('The game platform is not installed.');}
 headerSecurity();header('Referrer-Policy: no-referrer');header('X-Robots-Tag: noindex, nofollow');
-?><!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="referrer" content="no-referrer"><meta name="theme-color" content="#0d1423"><title>Phone Controller · Lucky Games</title><link rel="stylesheet" href="public/style.css"><link rel="stylesheet" href="public/platform.css?v=5q15f"></head>
+?><!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="referrer" content="no-referrer"><meta name="theme-color" content="#0d1423"><title>Phone Controller · Lucky Games</title><link rel="stylesheet" href="public/style.css"><link rel="stylesheet" href="public/platform.css?v=5q15g"></head>
 <body class="phone-controller-page"><main class="phone-controller" aria-label="Lucky Games phone controller"><div class="phone-controller-top"><p class="eyebrow">LUCKY GAMES</p><p id="phone-status" role="status" aria-live="polite">Connecting…</p></div>
 <section id="phone-join" class="surface phone-join" hidden><h2>Join the game</h2><form id="phone-join-form"><label>Phone name <input id="phone-name" maxlength="48" required autocomplete="nickname" placeholder="Living room phone"></label><button class="btn btn-primary" type="submit">Request connection</button></form></section>
 <section id="phone-wait" class="surface phone-join" hidden><h2>Waiting for host approval</h2></section>
