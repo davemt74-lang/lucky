@@ -3,6 +3,7 @@ declare(strict_types=1);
 /** Phone actions are applied to the same persisted game session as the host/TV.
  * No phone can select a prize, set odds, or bypass the game engine. */
 require_once __DIR__.'/ProofHandoff.php';
+require_once __DIR__.'/PrizePresentation.php';
 final class ControllerGame {
  public const DIRECT=['start','spin','pause','resume','end','prize-accept','prize-decline'];
  public static function current(PDO $db,bool $locked=false):?array {
@@ -28,7 +29,7 @@ final class ControllerGame {
    'spinCount'=>$view['spinCount'],'claimedCount'=>count($claimed),'claimedCents'=>array_sum(array_column($claimed,'cents')),
    'remaining'=>count(array_filter($view['slots'],fn($s)=>!empty($s['tier']))),
    'pendingBonus'=>$view['pendingBonus'],'lastPrize'=>$claimed?end($claimed)['name']:null,
-   'spinning'=>$spinning,'offer'=>$prizeReady&&!$spinning?PrizeDecision::latest($db,$state['id']):null,'upgradeRequired'=>!$prizeReady,'canStart'=>$prizeReady&&in_array($view['status'],['ended'],true),
+   'spinning'=>$spinning,'offer'=>$prizeReady&&!$spinning?PrizePresentation::decorate(PrizeDecision::latest($db,$state['id']),$state):null,'upgradeRequired'=>!$prizeReady,'canStart'=>$prizeReady&&in_array($view['status'],['ended'],true),
    'canSpin'=>$prizeReady&&$view['status']==='active'&&!$spinning&&!PrizeDecision::pending($db,$state['id'])&&(count(array_filter($view['slots'],fn($s)=>!empty($s['tier'])))>0||$view['pendingBonus']||($state['odds']['bonusChance']>0&&self::hasBonus($state))),
   ];
  }
