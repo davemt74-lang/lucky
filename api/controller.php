@@ -74,7 +74,7 @@ try {
     if(!SchemaGuard::missing($db,['controller_proof_state'])){
     $current=ControllerGame::snapshot($db);$legacyProof=false;
     try{
-     $q=$db->prepare("SELECT s.session_id,s.claim_id,s.is_open,s.review_count,s.consent_ack,s.capture_phase FROM controller_proof_state s WHERE s.host_admin_id=? AND s.is_open=1 AND s.updated_at>UTC_TIMESTAMP()-INTERVAL 12 SECOND ORDER BY s.updated_at DESC LIMIT 1");
+     $q=$db->prepare("SELECT s.session_id,s.claim_id,s.is_open,s.review_count,s.consent_ack,s.capture_phase FROM controller_proof_state s WHERE s.host_admin_id=? AND s.is_open=1 AND (s.updated_at>UTC_TIMESTAMP()-INTERVAL 12 SECOND OR (s.capture_phase='opening' AND s.updated_at>UTC_TIMESTAMP()-INTERVAL 45 SECOND)) ORDER BY s.updated_at DESC LIMIT 1");
      $q->execute([(int)$p['host_admin_id']]);$proof=$q->fetch()?:null;
     }catch(PDOException $e){
      if($e->getCode()!=='42S22')throw $e;
