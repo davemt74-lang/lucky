@@ -33,10 +33,11 @@ async def main():
     ok('media bin is significantly wider',dimensions['bin']>=330 and dimensions['monitor']>dimensions['bin'])
     await page.locator('.editor-clip-select').first.click()
     await page.locator('#editor-close-inspector').click()
+    await page.locator('[data-studio-pane="filters"]').click()
     await page.locator('#editor-look').select_option('mono')
     await page.locator('#editor-apply-look').click()
     ok('filter applied to selected timeline clip',await page.locator('#editor-look').input_value()=='mono')
-    await page.locator('#studio-titles-section summary').click()
+    await page.locator('[data-studio-pane="overlays"]').click()
     await page.locator('#editor-overlay-text').fill("Grand Prize: Winner's!")
     await page.locator('#editor-overlay-position').select_option('top')
     await page.locator('#editor-overlay-size').select_option('large')
@@ -46,7 +47,7 @@ async def main():
     ok('filter and title saved in timeline project',await page.evaluate("""() =>
       demo.saved[0].lookPreset==='mono' && demo.saved[0].overlayText==="Grand Prize: Winner's!" &&
       demo.saved[0].overlayPosition==='top' && demo.saved[0].overlaySize==='large'"""))
-    await page.locator('#studio-templates-section summary').click()
+    await page.locator('[data-studio-pane="templates"]').click()
     await page.locator('#editor-template').select_option('film')
     await page.locator('#editor-template-all').click()
     await page.locator('#editor-save-project').click()

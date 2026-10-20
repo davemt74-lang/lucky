@@ -352,3 +352,30 @@ body.editor-workspace .studio-template-manager select{
  background:#09192e;color:#fff;border-radius:6px;font-size:11px
 }
 body.editor-workspace #editor-delete-template{color:#ffc4b6}
+
+/* V5Q.15P: editor toolbox tabs, full-height content, and user-resizable divider. */
+body.editor-workspace .studio-body{--studio-library-width:440px;display:grid;grid-template-columns:minmax(0,var(--studio-library-width)) 12px minmax(0,1fr);column-gap:4px}
+body.editor-workspace .studio-bin{display:flex;flex-direction:row;min-width:0;overflow:hidden}
+body.editor-workspace .studio-library-nav{display:flex;flex-direction:column;flex:0 0 116px;min-width:0;gap:5px;padding:8px 5px;background:#0d1728;border-right:1px solid #33465f;overflow-y:auto}
+body.editor-workspace .studio-library-nav-item{display:flex;align-items:center;gap:7px;width:100%;padding:10px 6px;text-align:left;border:1px solid transparent;border-radius:8px;background:transparent;color:#b8c9de;font-size:10px;line-height:1.35;cursor:pointer;white-space:normal}
+body.editor-workspace .studio-library-nav-icon{flex:0 0 23px;text-align:center;font-weight:800;font-size:14px;color:#ebcb87}
+body.editor-workspace .studio-library-nav-item[aria-pressed=true]{background:#29415f;border-color:#6987a7;color:#fff;font-weight:800}
+body.editor-workspace .studio-library-nav-item:hover{background:#263b56}
+body.editor-workspace .studio-library-nav-item:focus-visible,body.editor-workspace .studio-library-resizer:focus-visible{outline:2px solid #f8d68d;outline-offset:-2px}
+body.editor-workspace .studio-library-content{flex:1;min-width:0;min-height:0;display:flex;overflow:hidden}
+body.editor-workspace .studio-pane{min-width:0;min-height:0;width:100%;display:flex;flex-direction:column;overflow:auto}
+body.editor-workspace .studio-pane[hidden]{display:none!important}
+body.editor-workspace .studio-media-pane{overflow:hidden}
+body.editor-workspace .studio-pane .studio-tool-library{max-height:none;overflow:auto;flex:1 1 auto;min-height:0;border-top:0;padding:8px 10px}
+body.editor-workspace .studio-pane .studio-bin-list{overflow:auto;min-height:0}
+body.editor-workspace .studio-library-resizer{display:flex;align-items:center;justify-content:center;align-self:stretch;min-width:12px;max-width:12px;background:#283b54;color:#e8c98e;border:1px solid #536d8b;border-radius:6px;cursor:col-resize;user-select:none;touch-action:none}
+body.editor-workspace .studio-library-resizer:hover,body.editor-workspace .studio-library-resizer.is-resizing{background:#6b83a3;color:#fff}
+body.editor-workspace .studio-library-resizer span{font-size:23px}
+body.editor-workspace .studio-body.is-resizing,body.editor-workspace .studio-body.is-resizing *{cursor:col-resize!important;user-select:none!important}
+@media(max-width:800px){
+ body.editor-workspace .studio-body{display:flex;flex-direction:column;gap:8px}
+ body.editor-workspace .studio-bin{height:300px;max-height:none;flex:none}
+ body.editor-workspace .studio-library-resizer{display:none}
+ body.editor-workspace .studio-library-nav{flex-basis:104px}
+ body.editor-workspace .studio-monitor-panel{height:310px;min-height:310px}
+}
