@@ -102,6 +102,7 @@ extension=mbstring
 extension=fileinfo
 extension=gd
 extension=openssl
+extension=zip
 cgi.fix_pathinfo=0
 display_errors=Off
 log_errors=On
