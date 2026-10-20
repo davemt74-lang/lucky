@@ -48,8 +48,10 @@ async def main():
   ok('template stores look/title/background',await p.evaluate("""() => demo.savedTemplatePayload.looks[0]==='warm'
     && demo.savedTemplatePayload.titles.length===1 && demo.savedTemplatePayload.background.trackId==='d'.repeat(32)"""))
   ok('template contains no media clip references',await p.evaluate("""() => !JSON.stringify(demo.savedTemplatePayload).includes('a'.repeat(32))"""))
-  await p.locator('#timeline-delete-title').click()
-  await p.locator('#timeline-clear-music').click()
+  await p.locator('[data-studio-pane="titles"]').click()
+   await p.locator('#timeline-delete-title').click()
+  await p.locator('[data-studio-pane="audio"]').click()
+   await p.locator('#timeline-clear-music').click()
   await p.locator('[data-studio-pane="filters"]').click()
    await p.locator('#editor-look').select_option('none')
   await p.locator('#editor-apply-look').click()
