@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__.'/MontagePlan.php';
+require_once __DIR__.'/MontageVisuals.php';
 require_once __DIR__.'/ClaimMedia.php';
 /** Command-array FFmpeg invocation: never interpolates user strings into a shell. */
 final class VideoRender {
@@ -58,6 +59,10 @@ final class VideoRender {
    $total+=$duration;if($total>1200)throw new RuntimeException('Montage exceeds the 20-minute render limit.');
    $dest=$tempDir.'/segment-'.sprintf('%03d',$i).'.mp4';
    $vf="scale={$size['width']}:{$size['height']}:force_original_aspect_ratio=decrease,pad={$size['width']}:{$size['height']}:(ow-iw)/2:(oh-ih)/2:color=0x141e32,setsar=1,fps=30,format=yuv420p";
+   $visuals=MontageVisuals::filters((string)($c['look_preset']??'none'));
+   $captionFilter=MontageVisuals::overlay($c,$tempDir,$i,$size['width']);
+   if($captionFilter!=='')$visuals[]=$captionFilter;
+   if($visuals)$vf.=','.implode(',',$visuals);
    if($kind==='photo'){
     $argv=[$this->ffmpeg,'-hide_banner','-nostdin','-v','error','-y','-loop','1','-framerate','30','-i',$input,'-f','lavfi','-i','anullsrc=channel_layout=stereo:sample_rate=48000'];
     $videoInput='0:v:0';$audioInput='1:a:0';$nextInput=2;
