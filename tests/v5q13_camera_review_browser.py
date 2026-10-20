@@ -6,7 +6,7 @@ sys.path.insert(0,str(Path(__file__).parent))
 from v5q6_proof_browser import html_page, MOCK, SID, CID, BASE
 from v5p_pairing import make_html, ID, SECRET
 MOCK_CAM=r'''
-window.__uploads=[];window.__permissionCalls=0;
+window.__uploads=[];window.__savedClips=[];window.__permissionCalls=0;
 Object.defineProperty(navigator,'mediaDevices',{configurable:true,value:{
  getUserMedia:async()=>{window.__permissionCalls++;return new MediaStream()},
  enumerateDevices:async()=>[{kind:'videoinput',deviceId:'cam-one',label:'USB Front'}],addEventListener:()=>{} }});
@@ -21,8 +21,8 @@ window.MediaRecorder=class{
 const __origFetch=window.fetch;
 window.fetch=async(url,opts={})=>{
  const u=String(url);
- if(u.includes('claim-media.php?action=upload')){__uploads.push({session:opts.body.get('session'),claim:opts.body.get('claim'),kind:opts.body.get('kind')});return new Response(JSON.stringify({ok:true,clip:{id:'e'.repeat(32),claimId:opts.body.get('claim'),title:'clip',kind:'video'}}));}
- if(u.includes('claim-media.php?action=list'))return new Response(JSON.stringify({ok:true,clips:[]}));
+ if(u.includes('claim-media.php?action=upload')){__uploads.push({session:opts.body.get('session'),claim:opts.body.get('claim'),kind:opts.body.get('kind')});const clip={id:'e'.repeat(32),claimId:opts.body.get('claim'),title:'clip',kind:'video',src:'api/claim-media.php?action=stream&id='+('e'.repeat(32))};__savedClips.push(clip);return new Response(JSON.stringify({ok:true,clip}));}
+ if(u.includes('claim-media.php?action=list'))return new Response(JSON.stringify({ok:true,clips:__savedClips}));
  if(u.includes('controller.php?action=proof_state'))return new Response(JSON.stringify({ok:true,active:true}));
  return __origFetch(url,opts);
 };
@@ -48,7 +48,7 @@ async def main():
   page=await browser.new_page(viewport={'width':1280,'height':900});page.set_default_timeout(6000);page.on('pageerror',lambda e:errors.append(str(e)))
   proof_script=(BASE/'public/proof.js').read_text().replace('new URL(location.href).searchParams',f"new URLSearchParams('session={SID}&claim={CID}&from=game&mode=win')")
   script=MOCK_CAM+(BASE/'public/proof-sequence.js').read_text()+'\n'+(BASE/'public/claim-capture.js').read_text()+'\n'+proof_script
-  markup=html_page('proof.php',script,MOCK)
+  markup=html_page('proof.php',script,MOCK.replace("src:'api/claim-media.php?action=stream&id=x'","id:'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',src:'api/claim-media.php?action=stream&id=eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'"))
   await page.set_content(markup,wait_until='domcontentloaded')
   await page.wait_for_function('window.LuckyCapture?.hasClaim()===true')
   await page.locator('#proof-camera-settings summary').click()
@@ -77,6 +77,15 @@ async def main():
   await page.wait_for_function('__uploads.length===1')
   test('Save uploads exact claim',await page.evaluate(f"__uploads[0].claim==='{CID}' && __uploads[0].session==='{SID}'"))
   test('Saved recorded video remains in main viewer',await page.locator('.proof-video-stage #capture-review video').is_visible() and await page.locator('#camera-grid').is_hidden())
+  await page.wait_for_function("document.querySelectorAll('#capture-clip-list .proof-saved-clip').length===1")
+  test('saved recording appears as clickable video in right column',await page.locator('#capture-clip-list .proof-saved-clip video').count()==1)
+  await page.locator('#capture-review-list button').filter(has_text='Live camera').click()
+  await page.locator('#capture-clip-list .proof-saved-clip').click()
+  test('right clip loads into single main video player',await page.locator('#capture-review-list video').is_visible() and await page.locator('#camera-grid').is_hidden())
+  await page.locator('#proof-history-disclosure > summary').click()
+  await page.locator('.proof-load-clip').first.click()
+  test('revision clip loads into main playback instead of new tab',await page.locator('#capture-review-list video').is_visible() and await page.evaluate("document.querySelector('#capture-review-list video').getAttribute('src').includes('id=eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee')"))
+
   await page.close();await browser.close()
   browser=await pw.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox'])
   await page.close();await browser.close()
