@@ -34,6 +34,13 @@ jobs:
           (cd dist/work && zip -qr ../Lucky_Game_Hub_V5Q21_Full_Deploy.zip .)
           unzip -t dist/Lucky_Game_Hub_V5Q21_Full_Deploy.zip | tail -n 1
           (cd dist && sha256sum Lucky_Game_Hub_V5Q21_Full_Deploy.zip > SHA256SUMS.txt)
+          # Developer toolkit is independently downloadable; it does not
+          # include a playable second consumer game or signing secrets.
+          zip -q dist/Lucky_Game_SDK_V5Q23B.zip \
+            sdk/lucky-game.js tools/game_sdk.py \
+            docs/GAME_PACKAGE_SDK.md docs/GAME_PACKAGE_FORMAT.md docs/PACKAGE_PHONE_CONTROLLERS.md
+          unzip -t dist/Lucky_Game_SDK_V5Q23B.zip | tail -n 1
+          (cd dist && sha256sum Lucky_Game_SDK_V5Q23B.zip >> SHA256SUMS.txt)
           {
             echo "Lucky Game Hub V5Q.21 — Full Deployment"
             echo "Source: davemt74-lang/lucky"
@@ -51,6 +58,7 @@ jobs:
           name: lucky-v5q21-complete-deployment
           path: |
             dist/Lucky_Game_Hub_V5Q21_Full_Deploy.zip
+            dist/Lucky_Game_SDK_V5Q23B.zip
             dist/SHA256SUMS.txt
             dist/BUILD_INFO.txt
           if-no-files-found: error
