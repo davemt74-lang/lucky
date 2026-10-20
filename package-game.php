@@ -16,6 +16,7 @@ shellStart($title.' — Game Console');
  <div class="platform-control-row">
   <button id="pkg-start" class="btn btn-primary" type="button">Start game</button>
   <button id="pkg-pause" class="btn btn-outline" type="button" disabled>Pause</button>
+  <button id="pkg-save" class="btn btn-outline" type="button" disabled>Save session</button>
   <button id="pkg-end" class="btn btn-outline" type="button" disabled>End game</button>
  </div>
  <div class="package-console-stage" style="min-height:60vh;background:#070f1d;border:1px solid #35435a;border-radius:12px;overflow:hidden">
