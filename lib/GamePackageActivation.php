@@ -38,7 +38,15 @@ final class GamePackageActivation {
   if(!is_file($path)||is_link($path))throw new DomainException('Game package receipt missing.',404);
   $row=json_decode((string)file_get_contents($path),true,12,JSON_THROW_ON_ERROR);
   if(!is_array($row)||($row['id']??null)!==$id||($row['version']??null)!==$version
-     ||($row['status']??null)!=='staged')throw new DomainException('Damaged package receipt.',409);
+     ||($row['status']??null)!=='staged'
+     ||!is_string($row['title']??null)||trim($row['title'])===''
+     ||!is_string($row['publisher']??null)||trim($row['publisher'])===''
+     ||!is_string($row['host']??null)||!str_ends_with($row['host'],'.html')
+     ||!array_key_exists('phone',$row)
+     ||($row['phone']!==null&&(!is_string($row['phone'])||!str_ends_with($row['phone'],'.html')))
+     ||!is_string($row['manifestSha256']??null)
+     ||!preg_match('/^[a-f0-9]{64}$/D',$row['manifestSha256']))
+   throw new DomainException('Damaged package receipt.',409);
   return $row;
  }
  private static function mkdirSafe(string $folder):void {
