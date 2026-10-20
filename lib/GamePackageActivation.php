@@ -77,10 +77,11 @@ final class GamePackageActivation {
   return $result;
  }
  /** Game packages are readable only via explicitly published asset routes. */
- public static function file(string $id,string $version,string $path,?string $root=null):array {
+ public static function file(string $id,string $version,string $path,?string $root=null,bool $sessionPinned=false):array {
   $act=self::active($id,$root);
-  if(!$act||$act['version']!==GamePackageInstaller::version($version))
+  if((!$act||$act['version']!==GamePackageInstaller::version($version))&&!$sessionPinned)
    throw new DomainException('Game version is not active.',404);
+  self::receipt($id,$version,$root);
   $dir=GamePackageInstaller::base($root).'/'.$id.'/versions/'.$version;
   if(!is_string($path)||!preg_match('~^[a-zA-Z0-9][a-zA-Z0-9_./-]*\.(?:html|js|css|json|png|jpg|jpeg|webp|mp3|m4a|ogg|wav|webm|woff2)$~D',$path)
     ||str_contains($path,'..')||str_contains($path,'//')||str_contains($path,'/./')||count(explode('/',$path))>4)
