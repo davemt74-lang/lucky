@@ -34,7 +34,8 @@ try{
  finally{$db->rollBack();}
  $again=PrizePackages::read($db,true);
  check20(count($again['packages'])===2,'multiple package layers persisted');
- check20($again['packages'][0]['config']['pools']['tier1']['prizes'][0]['name']!=='Holiday Winner','editing one tab does not modify original package');
+ check20($again['packages'][0]['id']===$id1 && $again['packages'][1]['id']===$new['id'],'new prize tab stays to the right of original');
+ check20((array_values(array_filter($again['packages'],fn($p)=>$p['id']===$id1))[0]['config']['pools']['tier1']['prizes'][0]['name']??null)!=='Holiday Winner','editing one tab does not modify original package');
  $db->beginTransaction();PrizePackages::select($db,$new['id'],true);$db->commit();
  check20(PrizePackages::chosen($db)===$new['id'],'player may select enabled and player-selectable package');
  $chosen=PrizePackages::currentConfig($db);$game=GameEngine::newSession($chosen['config'],str_repeat('a',32));
