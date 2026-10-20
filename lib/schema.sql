@@ -64,3 +64,6 @@ CREATE TABLE IF NOT EXISTS controller_proof_state (
 
 -- V5Q.15M independent video timelines; maintains legacy claim-aware edit_json.
 CREATE TABLE IF NOT EXISTS montage_timeline_layers (session_id CHAR(32) NOT NULL PRIMARY KEY, layers_json LONGTEXT NOT NULL, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, FOREIGN KEY fk_timeline_layers_session(session_id) REFERENCES game_sessions(id) ON DELETE CASCADE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- V5Q.15N reusable safe editing templates (no source media is copied).
+CREATE TABLE IF NOT EXISTS montage_templates (id CHAR(32) NOT NULL PRIMARY KEY, admin_id INT UNSIGNED NOT NULL, name VARCHAR(100) NOT NULL, template_json LONGTEXT NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, INDEX idx_montage_template_owner(admin_id,created_at), FOREIGN KEY fk_montage_template_owner(admin_id) REFERENCES admins(id) ON DELETE CASCADE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
