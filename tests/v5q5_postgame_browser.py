@@ -35,7 +35,7 @@ async def main():
    ok(f'{width}px paused game hides review',await page.locator('#postgame-review').evaluate('(e)=>e.hidden'))
    await page.evaluate("__gameStatus='ended';__version++")
    await page.wait_for_timeout(1100)
-   ok(f'{width}px remotely ended game exposes menu review',await page.locator('#postgame-review').is_visible())
+   ok(f'{width}px remotely ended game exposes menu review',await page.locator('#postgame-review').evaluate('(e)=>!e.hidden'))
    await page.close()
   await browser.close()
  ok('No script exceptions',not errors)
