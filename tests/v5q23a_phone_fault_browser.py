@@ -54,7 +54,7 @@ async def main():
   browser=await pw.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox'])
   page=await browser.new_page(viewport={'width':390,'height':844})
   page.on('pageerror',lambda e:errors.append(str(e)))
-  await page.route('https://lucky.test/package-controller.php?*',
+  await page.route('https://lucky.test/package-controller.php*',
    lambda route:route.fulfill(status=200,content_type='text/html',body=HTML))
   await page.route('https://lucky.test/package-view.php?*',
    lambda route:route.fulfill(status=200,content_type='text/html',
