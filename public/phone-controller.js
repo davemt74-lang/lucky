@@ -82,7 +82,7 @@
   const stopButton=document.querySelector('[data-phone="proof-stop"]');if(stopButton){stopButton.hidden=!recording;stopButton.disabled=!recording;}
   const saveButton=document.querySelector('[data-phone="proof-save"]');if(saveButton)saveButton.disabled=!reviewing;
   const approved=showing&&Number(proofState.savedCount)>0;
-  if($('phone-proof-rerecord-saved'))$('phone-proof-rerecord-saved').hidden=reviewing||recording||processing||saving||!approved;
+  if($('phone-proof-saved'))$('phone-proof-saved').hidden=reviewing||recording||processing||saving||!approved;
  }
  async function send(action){if(!active)return;
   if(busy||pendingCommand){if(commandQueue.length>=16){message('Too many pending controls. Wait for the screen to respond.',true);return;}commandQueue.push(action);message(`Waiting… (${commandQueue.length} queued)`);return;}
