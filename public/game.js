@@ -4,6 +4,7 @@
  const wheel=new LuckyWheel($('live-wheel'));
  let proofStates={},proofSessionId='',proofPending=false;
  let currentOffer=null,offerBusy=false,offerRouted=new Set();
+ let wheelOutcome=null;
  let data=null,busy=false,stopVoice=null,lastVersion=0,activeId='',viewerUrl='',syncedSpin=0,initialSync=true,syncPending=false;
  const msg=(s,bad=false)=>L.note(bad?'game-error':'game-message',s,bad);
  function toSlices(view){
@@ -16,7 +17,7 @@
   const view=data?.view;const active=view?.status==='active';
   $('start-game').disabled=busy||active||view?.status==='paused';
   $('start-game').textContent=view?'▶ New game':'▶ Start Game';
-  $('spin-game').disabled=busy||!active||currentOffer?.status==='pending';
+  $('spin-game').disabled=busy||!active||view?.spinPending||currentOffer?.status==='pending';
   $('spin-game').textContent=busy?'✦ Spinning…':view?.pendingBonus?'✧ SPIN BONUS ROUND':view?.claims?.length?'↻ SPIN AGAIN':'✦ SPIN';
   $('pause-game').disabled=busy||!view||!['active','paused'].includes(view.status);
   $('pause-game').textContent=view?.status==='paused'?'▶ Resume':'Ⅱ Pause';
@@ -24,10 +25,12 @@
   $('game-state').textContent=!view?'READY FOR NEW GAME':active?`ACTIVE GAME · ${view.spinCount} SPINS`:view.status==='paused'?'GAME PAUSED':'GAME ENDED';
   // The public TV view intentionally omits claim IDs. The signed-in session owns
   // the authoritative claim IDs required for proof capture and revision history.
-  const items=(data?.session?.claims||[]).slice().reverse();
+  const actualClaims=data?.session?.claims||[];
+   const visibleClaims=(view?.spinPending&&view.lastSpin?.type==='award')?actualClaims.slice(0,-1):actualClaims;
+   const items=visibleClaims.slice().reverse();
   // Count the actual unclaimed prize values across all three configured tiers.
   // Pool budgets can include unused money and must not be treated as winnable prizes.
-  const claimed=(data?.session?.claims||[]);
+  const claimed=visibleClaims;
   const claimedKeys=new Set(claimed.map(c=>`${c.tier}:${c.prizeId}`));
   const pools=data?.session?.pools||{};
   const available=['tier1','tier2','bonus'].reduce((total,tier)=>total+(pools[tier]?.prizes||[])
@@ -42,7 +45,7 @@
    const state=proofStates[c.id];if(state?.needsRevision){const flag=document.createElement('span');flag.className='proof-revision-needed';flag.textContent='Needs revision';info.append(flag);}else if(state?.latestRevision){const flag=document.createElement('span');flag.textContent=`Proof v${state.latestRevision}`;info.append(flag);}
    const edit=document.createElement('a');if(!/^[a-f0-9]{32}$/.test(c.id)){edit.textContent='Proof unavailable';edit.className='btn btn-outline';edit.setAttribute('aria-disabled','true');row.append(info,edit);root.append(row);continue;}edit.href=`proof.php?session=${encodeURIComponent(view.id)}&claim=${encodeURIComponent(c.id)}&from=game`;
    edit.addEventListener('click',()=>{try{sessionStorage.setItem('lucky-proof-origin',JSON.stringify({session:view.id,claim:c.id,from:'game',at:Date.now()}));}catch(_){}});edit.textContent=state?.needsRevision?'Revise proof':'Edit proof';edit.className='btn btn-outline';row.append(info,edit);root.append(row);}
-  if(!busy)wheel.setSlices(toSlices(view));
+  if(!busy)wheel.setSlices(wheelOutcome&&wheelOutcome.session===view?.id&&wheelOutcome.spinCount===view?.lastSpin?.spinCount?wheelOutcome.slices:toSlices(view));
   if(data?.view?.id){$('open-game-editor').href='editor.php?session='+encodeURIComponent(data.view.id);}else $('open-game-editor').href='editor.php';
   const finished=view?.status==='ended';
   $('postgame-review').hidden=!finished;
@@ -55,11 +58,16 @@
  async function updateProofStates(){const session=data?.view?.id;if(!session){proofStates={};proofSessionId='';return;}
   if(proofPending)return;proofPending=true;try{const r=await fetch('api/claim-proof.php?action=summary&session='+encodeURIComponent(session),{credentials:'same-origin'});const out=await r.json();if(out.ok&&data?.view?.id===session){proofStates=out.states||{};proofSessionId=session;render();}}catch(_){/* Optional proof status recovers on next refresh. */}finally{proofPending=false;}}
  async function refresh(){const requested=new URL(location.href).searchParams.get('session');const r=requested&&/^[a-f0-9]{32}$/.test(requested)?{data:await L.api('session',{query:{id:requested}})}:await L.api('last');
-  data=r.data||null;lastVersion=data?.view?.version||0;activeId=data?.view?.id||'';
+  data=r.data||null;lastVersion=data?.view?.version||0;activeId=data?.view?.id||'';wheelOutcome=null;
   syncedSpin=data?.view?.lastSpin?.spinCount||0;initialSync=false;render();updateProofStates();
  }
  // The phone applies gameplay on the server. The desktop must animate the persisted
  // result instead of trying to replay the command and awarding the prize twice.
+ async function revealSpin(session,spinCount){
+  await L.api('spin_revealed',{body:{session,spinCount}});
+  const response=await L.api('session',{query:{id:session}});
+  if(data?.view?.id===session){data=response;lastVersion=response.view.version;}
+ }
  async function syncGame(){if(busy||syncPending||initialSync)return;syncPending=true;
   try{
    const requested=new URL(location.href).searchParams.get('session');const result=requested&&/^[a-f0-9]{32}$/.test(requested)?{data:await L.api('session',{query:{id:requested}})}:await L.api('last'),fresh=result.data||null,view=fresh?.view;
@@ -71,11 +79,12 @@
    const shouldAnimate=!!spin&&(spin.spinCount>(changedId?0:syncedSpin))&&age>=-5000&&age<7500;
    activeId=view.id;lastVersion=view.version;data=fresh;updateProofStates();
    if(shouldAnimate){
-    syncedSpin=spin.spinCount;busy=true;msg('A phone started a wheel spin. Syncing the result…');render();
+    syncedSpin=spin.spinCount;busy=true;wheelOutcome={session:view.id,spinCount:spin.spinCount,slices:spin.slices};msg('The wheel is spinning…');render();
     try{
      L.beep('tick');await wheel.spinTo(spin.index,spin.slices,matchMedia('(prefers-reduced-motion: reduce)').matches?350:3900);
+     await revealSpin(view.id,spin.spinCount);
      if(spin.type==='award'){
-      const claim=view.claims?.[view.claims.length-1];
+      const claim=data?.view?.claims?.[data.view.claims.length-1];
       if(claim){L.beep('win');msg(`🎉 ${claim.name} claimed from your phone!`);
        // The public view intentionally omits image/URL; prize details are still
        // available in the signed-in session snapshot.
@@ -135,8 +144,9 @@
   try{
    const id=data.view.id,r=await L.api('spin',{body:{id,idempotencyKey:L.idempotency()}});
    const event=r.result.event,animation=event.animation;
+   wheelOutcome={session:id,spinCount:animation.spinCount,slices:animation.slices};
    L.beep('tick');await wheel.spinTo(animation.index,animation.slices,matchMedia('(prefers-reduced-motion: reduce)').matches?350:3900);
-   data=(await L.api('session',{query:{id}}));updateProofStates();lastVersion=data.view.version;syncedSpin=data.view.lastSpin?.spinCount||0;
+   await revealSpin(id,animation.spinCount);updateProofStates();syncedSpin=data.view.lastSpin?.spinCount||0;
    if(event.type==='bonus_trigger'){msg('✧ BONUS ROUND! Spin again to reveal the bonus prize.');L.beep('bonus');L.speak('Surprise bonus round!');}
    else {msg(`🎉 ${event.claim.name} · ${L.money(event.claim.cents)} won! Accept or decline on the connected phone.`);L.beep('win');pollOffer();
     if($('speak-winners').checked)L.speak(`Congratulations! You won ${event.claim.name}!`);}
@@ -214,9 +224,9 @@
    if(command.startsWith('music-find-')){const slug=command.slice(11),normalize=t=>String(t).toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');const song=L.tracks.find(t=>normalize(t.title)===slug);if(!song)throw Error('Song not found in music library.');await L.playMusic(song.id);return true;}
    switch(command){
      case 'menu':return window.LuckyConsole?.toggleMenu()??false;
-     case 'back':return window.LuckyConsole?.emit('back')??false;
+     case 'back':return window.LuckyConsole?.closeMenu()??false;
      case 'up':case 'down':case 'left':case 'right':case 'select':return window.LuckyConsole?.emit(command)??false;
-     case 'done':return window.LuckyConsole?.emit('done')??false;
+     case 'done':return window.LuckyConsole?.closeMenu()??false;
      case 'music-play':if(!L.pref.musicOn)await L.toggleMusic();return true;
      case 'music-pause':L.stopMusic();return true;
      case 'music-previous':if(!L.tracks.length)throw Error('No songs available.');await L.nextMusic(-1);return true;
