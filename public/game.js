@@ -117,10 +117,17 @@
    if(currentOffer?.status==='accepted'&&currentOffer.claimId&&!offerRouted.has(currentOffer.claimId)){
     const when=Date.parse((currentOffer.decidedAt||'').replace(' ','T')+'Z');
     let prior='';try{prior=sessionStorage.getItem('lucky-proof-accepted-'+currentOffer.claimId)||'';}catch(_){}
-    if(prior!=='opened'&&Number.isFinite(when)&&Date.now()-when<35000){
-     offerRouted.add(currentOffer.claimId);try{sessionStorage.setItem('lucky-proof-accepted-'+currentOffer.claimId,'opened');}catch(_){}
-     const row=(data.session?.claims||[]).find(x=>x.id===currentOffer.claimId);
-     if(row)openPrize(row);
+    if(prior!=='opened'&&Number.isFinite(when)&&Date.now()-when<90000){
+     // Phone acceptance commits on the server. The existing game snapshot may predate
+     // that claim; reload before routing rather than silently leaving the phone waiting.
+     const refreshed=await L.api('session',{query:{id:data.view.id}});
+     if(refreshed.view?.id!==data.view.id)throw Error('The accepted prize belongs to another game.');
+     const row=(refreshed.session?.claims||[]).find(x=>x.id===currentOffer.claimId);
+     if(!row)throw Error('Accepted prize is not available yet; retrying the handoff.');
+     data=refreshed;lastVersion=refreshed.view.version;offerRouted.add(row.id);
+     try{sessionStorage.setItem('lucky-proof-accepted-'+row.id,'opened');}catch(_){}
+     openPrize(row);
+     return;
     }
    }
    if(currentOffer?.status==='declined'&&data.view.status!=='ended'){

@@ -15,7 +15,10 @@ async def main():
   await pg.evaluate("""() => { const orig=Lucky.api;Lucky.api=async(a,o)=>{
    if(a==='spin')return {result:{event:{type:'award',claim:{id:'dddddddddddddddddddddddddddddddd',name:'Camera Prize',cents:1250,tier:'tier1'},animation:{index:0,slices:[]}}}};
    if(a==='prize_offer')return {offer:{claimId:'dddddddddddddddddddddddddddddddd',session:'cccccccccccccccccccccccccccccccc',name:'Camera Prize',cents:1250,status:__offerStatus,decidedAt:__offerStatus==='accepted'?new Date().toISOString().replace('T',' ').replace('Z',''):null}};
-   if(a==='prize_decide'){__offerStatus=o.body.choice;return {offer:{status:__offerStatus}};}return orig(a,o);
+   if(a==='prize_decide'){__offerStatus=o.body.choice;return {offer:{status:__offerStatus}};}
+   const result=await orig(a,o);
+   if(a==='session'&&__offerStatus!=='accepted'&&result.session)result.session.claims=[]; // stale original game snapshot
+   return result;
   }}""")
   await pg.locator('#spin-game').click()
   await pg.wait_for_function('document.querySelector("#prize-offer-stage").hidden===false',timeout=9000)
@@ -25,12 +28,12 @@ async def main():
   await pg.wait_for_function('window.__proofNav',timeout=5000)
   tests.append(('accept opens correct claim',await pg.evaluate('window.__proofNav.includes("claim=dddddddddddddddddddddddddddddddd")')))
   await pg.close()
-  sent=[]
+  sent=[];phone_proof={'active':False,'phase':'opening','claimId':CID,'consent':False,'reviewCount':0,'savedCount':0}
   async def api(route):
    a=parse_qs(urlparse(route.request.url).query).get('action',[''])[0];q=route.request.post_data_json or {};sent.append((a,q))
    if a=='claim':data={'ok':True,'id':'a'*32,'controllerToken':'b'*64}
-   elif a=='status':data={'ok':True,'status':'paired','proof':{'active':False},'game':{'status':'active','canSpin':False,'offer':{'status':'pending','name':'Camera Prize','cents':1250}}}
-   elif a=='command':data={'ok':True,'applied':True,'effect':'prize_accepted','game':{'status':'active','canSpin':True}}
+   elif a=='status':data={'ok':True,'status':'paired','proof':dict(phone_proof),'game':{'status':'active','canSpin':False,'offer':{'status':'accepted' if phone_proof['active'] else 'pending','claimId':CID,'name':'Camera Prize','cents':1250}}}
+   elif a=='command':phone_proof['active']=True;data={'ok':True,'applied':True,'effect':'prize_accepted','game':{'status':'active','canSpin':False,'offer':{'status':'accepted','claimId':CID,'name':'Camera Prize'}}}
    else:data={'ok':True}
    await route.fulfill(content_type='application/json',body=json.dumps(data))
   phone=await b.new_page();phone.on('pageerror',lambda e:errors.append(str(e)))
@@ -46,6 +49,12 @@ async def main():
   await phone.locator('[data-phone="prize-accept"]').click()
   await phone.wait_for_function('document.querySelector("#phone-status").textContent.includes("Game")',timeout=4000)
   tests.append(('paired phone sends acceptance',any(a=='command' and q.get('command')=='prize-accept' for a,q in sent)))
+  await phone.wait_for_function("document.querySelector('#phone-proof-mode').hidden===false && document.querySelector('#phone-proof-phase').textContent.includes('Opening')")
+  tests.append(('phone switches immediately to opening editor after acceptance',await phone.locator('#phone-proof-mode').is_visible() and await phone.locator('#phone-gameplay-shell').is_hidden()))
+  tests.append(('recording consent blocked until desktop editor opens',await phone.locator('#phone-proof-consent').is_disabled()))
+  phone_proof['phase']='live'
+  await phone.wait_for_function("document.querySelector('#phone-proof-phase').textContent.includes('Live camera ready') && document.querySelector('#phone-proof-consent').disabled===false",timeout=5000)
+  tests.append(('phone starts proof controls after desktop editor opens',await phone.locator('#phone-proof-consent').is_enabled()))
   await phone.close();await b.close()
  tests.append(('browser has no errors',not errors))
  for name,ok in tests:print(('PASS' if ok else 'FAIL'),name,flush=True)

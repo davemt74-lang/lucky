@@ -26,6 +26,7 @@ jobs:
           php tests/engine.php
           php tests/spin_reveal.php
           php tests/montage_claim_timeline.php
+          php tests/proof_handoff.php
           php tests/catalog.php
           php tests/pairing.php
           php tests/v5q15c_upgrade_readiness.php

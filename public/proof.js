@@ -28,7 +28,7 @@
 
  let busy=false,proofBusy=false,leaving=false;
  async function publishProof(){if(leaving||proofBusy||!/^[a-f0-9]{32}$/.test(session)||!/^[a-f0-9]{32}$/.test(claim))return;
-  proofBusy=true;try{const me=await L.getMe();await fetch('api/controller.php?action=proof_state',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF-Token':me.csrf},body:JSON.stringify({session,claim,open:true,reviewCount:window.LuckyCapture?.reviewCount?.()||0,phase:window.LuckyCapture?.phase?.()||'live',consent:window.LuckyCapture?.consent?.()||false})});}catch(_){/* Basic editing still available without the pairing upgrade. */}finally{proofBusy=false;}}
+  proofBusy=true;try{const me=await L.getMe();const r=await fetch('api/controller.php?action=proof_state',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF-Token':me.csrf},body:JSON.stringify({session,claim,open:true,reviewCount:window.LuckyCapture?.reviewCount?.()||0,phase:window.LuckyCapture?.phase?.()||'live',consent:window.LuckyCapture?.consent?.()||false})});if(!r.ok){const data=await r.json().catch(()=>({}));throw Error(data.error||'The phone proof controls could not synchronize.');}}catch(e){feedback('Phone controller: '+e.message,true);}finally{proofBusy=false;}}
  window.addEventListener('lucky:proof-review',publishProof);
  window.addEventListener('lucky:proof-phase',publishProof);
  setInterval(()=>{if(!leaving&&document.visibilityState==='visible'&&window.LuckyCapture?.hasClaim?.())publishProof();},950);
@@ -46,7 +46,7 @@
   for(const rev of revisions){const item=document.createElement('details');item.className='proof-revision-item';const header=document.createElement('summary');header.textContent=`Revision ${rev.number} · ${rev.at} · ${rev.clips.length} clip${rev.clips.length===1?'':'s'}`;
    const note=document.createElement('p');note.textContent=rev.note||'No note';item.append(header,note);
    for(const c of rev.clips){const line=document.createElement('div');line.className='proof-revision-clip';const label=document.createElement('span');label.textContent=`${c.title} · ${c.kind}${c.angleLabel?' · '+c.angleLabel:''}`;
-    const view=document.createElement('a');view.href=c.src;view.target='_blank';view.rel='noopener';view.className='small-link';view.textContent='View clip ↗';line.append(label,view);item.append(line);}
+    const view=document.createElement('button');view.type='button';view.className='btn btn-outline proof-load-clip';view.textContent='▶ Load in player';view.onclick=()=>{try{window.LuckyCapture?.previewSavedClip(c);}catch(e){feedback(e.message,true);}};line.append(label,view);item.append(line);}
    root.append(item);}
  }
  async function save(action){if(busy)return;busy=true;$('proof-save').disabled=true;$('proof-request').disabled=true;

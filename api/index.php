@@ -128,7 +128,9 @@ try {
   $db->beginTransaction();try{
    $offer=PrizeDecision::pending($db,$session,true);
    if(!$offer||$offer['claim_id']!==$claim)throw new DomainException('This prize is not awaiting a decision.',409);
-   $result=PrizeDecision::choose($db,$session,$claim,$choice);$db->commit();
+   $result=PrizeDecision::choose($db,$session,$claim,$choice);
+   if($choice==='accepted')ProofHandoff::activate($db,$session,$claim,(int)$_SESSION['admin_id']);
+   $db->commit();
   }catch(Throwable $e){$db->rollBack();throw $e;}
   success(['offer'=>$result]);
  }

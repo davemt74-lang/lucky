@@ -9,7 +9,7 @@ shellStart('Edit Prize Proof','claims');
 <div class="proof-editor-layout"><section class="claim-capture" aria-label="Capture prize reaction">
   <div class="proof-video-stage"><div id="camera-grid" class="camera-grid" aria-label="Live camera feeds"><div class="camera-waiting">Live video appears here after camera permission is granted.</div></div><canvas id="capture-photo-canvas" hidden></canvas>
    <section id="capture-review" class="capture-review" hidden aria-label="Review recorded video"><h3>Review recording</h3><div id="capture-review-list" class="capture-review-list"></div></section>
-  <label class="platform-checkbox proof-consent-overlay"><input type="checkbox" id="capture-consent"> Everyone recorded has agreed to this private video.</label>
+  <input type="checkbox" id="capture-consent" hidden aria-hidden="true" tabindex="-1">
   <details id="proof-camera-settings" class="proof-camera-settings"><summary>⚙ Camera settings</summary>
   
   <div id="capture-recording-tools" class="capture-recording-tools">
@@ -31,5 +31,5 @@ shellStart('Edit Prize Proof','claims');
 <p id="proof-errors" class="platform-error" role="alert" hidden></p>
 <h3 id="proof-prize-title" class="sr-only">Loading prize…</h3><p id="proof-prize-context" class="sr-only"></p>
 </aside></div></div></dialog>
-<script src="public/client.js" defer></script><script src="public/proof-sequence.js?v=5q2" defer></script><script src="public/claim-capture.js?v=5q15f" defer></script><script src="public/proof.js?v=5q15f" defer></script><script src="public/ui-receiver.js?v=5q8b" defer></script>
+<script src="public/client.js" defer></script><script src="public/proof-sequence.js?v=5q2" defer></script><script src="public/claim-capture.js?v=5q15g" defer></script><script src="public/proof.js?v=5q15g" defer></script><script src="public/ui-receiver.js?v=5q8b" defer></script>
 <?php shellEnd(); ?>

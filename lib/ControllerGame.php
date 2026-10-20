@@ -2,6 +2,7 @@
 declare(strict_types=1);
 /** Phone actions are applied to the same persisted game session as the host/TV.
  * No phone can select a prize, set odds, or bypass the game engine. */
+require_once __DIR__.'/ProofHandoff.php';
 final class ControllerGame {
  public const DIRECT=['start','spin','pause','resume','end','prize-accept','prize-decline'];
  public static function current(PDO $db,bool $locked=false):?array {
@@ -68,6 +69,7 @@ final class ControllerGame {
    $offer=PrizeDecision::pending($db,$state['id'],true);
    if(!$offer)throw new DomainException('There is no prize awaiting acceptance.',409);
    PrizeDecision::choose($db,$state['id'],$offer['claim_id'],$command==='prize-accept'?'accepted':'declined');
+   if($command==='prize-accept')ProofHandoff::activate($db,$state['id'],$offer['claim_id'],$hostAdminId);
    return ['applied'=>true,'effect'=>$command==='prize-accept'?'prize_accepted':'prize_declined','sessionId'=>$state['id']];
   }
   if($command==='spin'||$command==='select'){
