@@ -5,13 +5,13 @@ define('LUCKY_ROOT',$root);
 require __DIR__.'/../lib/VideoRender.php';
 require __DIR__.'/../lib/MontageLayers.php';
 @mkdir($root.'/storage/claim-media',0700,true);
-function command(array $args):string {
+function command(array $args,bool $log=false):string {
  $p=proc_open($args,[0=>['file','/dev/null','r'],1=>['pipe','w'],2=>['pipe','w']],$pipes,null,null,['bypass_shell'=>true]);
  if(!is_resource($p))throw new RuntimeException('FFmpeg unavailable');
  $output=stream_get_contents($pipes[1]);fclose($pipes[1]);
  $error=stream_get_contents($pipes[2]);fclose($pipes[2]);
  if(proc_close($p)!==0)throw new RuntimeException($error);
- return $output;
+ return $log?$error:$output;
 }
 function checkParity(bool $ok,string $message):void {if(!$ok)throw new RuntimeException('FAIL '.$message);echo "PASS ".$message."\n";}
 function frame(string $path,float $at):string {
@@ -36,7 +36,7 @@ function chroma(string $rgb):float{
  return $sum/max(1,$samples);
 }
 function musicLevel(string $path,float $at):float{
- $stderr=command(['ffmpeg','-hide_banner','-loglevel','info','-ss',sprintf('%.3f',$at),'-t','0.25','-i',$path,'-vn','-af','bandpass=f=900:width_type=h:width=65,volumedetect','-f','null','-']);
+ $stderr=command(['ffmpeg','-hide_banner','-loglevel','info','-ss',sprintf('%.3f',$at),'-t','0.25','-i',$path,'-vn','-af','bandpass=f=900:width_type=h:width=65,volumedetect','-f','null','-'],true);
  if(!preg_match('/mean_volume:\s*(-?inf|-?[0-9.]+) dB/',$stderr,$m))throw new RuntimeException('Missing volume measurement');
  return $m[1]==='-inf'?-100:(float)$m[1];
 }
