@@ -44,6 +44,7 @@ async def main():
    check(f'{width}px no horizontal overflow',await page.evaluate('document.documentElement.scrollWidth<=innerWidth+2'))
    if width==375:await page.close();continue
    await page.locator('.editor-clip-select').first.click()
+   await page.locator('#editor-open-inspector').click()
    check('inspector opens as a slide-out',await page.locator('#clip-inspector').evaluate('(e)=>e.classList.contains("is-open")'))
    await page.locator('#editor-trim-end').fill('5')
    await page.locator('#editor-split').click();await page.wait_for_timeout(60)
