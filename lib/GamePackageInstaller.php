@@ -204,6 +204,9 @@ final class GamePackageInstaller {
       'publisher'=>$manifest['publisher'],'host'=>$manifest['host'],
       'phone'=>$manifest['phone'],'manifestSha256'=>$digest,'signatureVerified'=>$verified,
       'builtIn'=>$builtIn,
+      // Keep the verified per-file hash list for runtime integrity checks,
+      // including media, script and font assets after an update/restart.
+      'fileHashes'=>$manifest['files'],
       'status'=>'staged','fileCount'=>count($manifest['files']),
       'installedAt'=>gmdate('Y-m-d\TH:i:s\Z')];
      $json=json_encode($receipt,JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);

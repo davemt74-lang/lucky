@@ -36,6 +36,9 @@ jobs:
           php tests/v5q22h_phone_bridge.php
           php tests/v5q23a_activation_recovery.php
           php tests/v5q23a_phone_version.php
+          php tests/v5q23b_offline_media.php
+          node tests/v5q23b_sdk.js
+          python3 tests/v5q23b_game_sdk.py
           php tests/v5q16_session_lifecycle.php
           php tests/v5q18_foundation.php
           php tests/spin_reveal.php
@@ -136,6 +139,7 @@ jobs:
           python tests/v5q22g_package_browser.py
           python tests/v5q22h_phone_browser.py
           python tests/v5q23a_phone_fault_browser.py
+          python tests/v5q23b_media_browser.py
       - name: Phone controller regressions
         run: |
           python tests/v5p2_navigation_voice.py
