@@ -28,14 +28,27 @@
  function show(id){
   for(const section of ['join','wait','play','finished'])$('package-phone-'+section).hidden=section!==id;
  }
+ function closeGame(){
+  const iframe=$('package-phone-frame');
+  iframe.hidden=true;
+  iframe.removeAttribute('src');
+  delete iframe.dataset.source;
+  // Stop the old game's timers/audio when its persisted session ends or
+  // the owner's approval is revoked. A hidden frame alone keeps running.
+  try{iframe.contentWindow?.location.replace('about:blank');}catch(_){}
+ }
  function refreshGame(view){
-  if(!view)return;
+  if(ended||!view)return;
   game=view;
-  if(view.status==='ended'||view.status==='saved'){ended=true;show('finished');status('Game ended · controller disconnected from gameplay.');return;}
+  if(view.status==='ended'||view.status==='saved'){
+   ended=true;closeGame();show('finished');
+   status('Game ended · controller disconnected from gameplay.');return;
+  }
   const playing=view.status==='active';
   show('play');
   $('package-phone-pause').textContent=playing?'Pause':'Resume';
   const iframe=$('package-phone-frame');
+  iframe.hidden=false;
   const url='package-view.php?'+new URLSearchParams({
     game:view.game,version:view.packageVersion,session,viewer,role:'phone'
   });
@@ -52,7 +65,7 @@
   }catch(e){
    status(e.message);
    if(/expired|disconnected|revoked|authorization|invalid/i.test(e.message)){
-    sessionStorage.removeItem(key);pair=null;show('join');
+    closeGame();sessionStorage.removeItem(key);pair=null;game=null;show('join');
    }else show('wait');
   }finally{polling=false;}
  }
@@ -72,12 +85,18 @@
  };
  async function action(verb,payload={},confirmEnd=false){
   if(!pair||busy||ended)return;busy=true;
+  $('package-phone-pause').disabled=true;
+  $('package-phone-end').disabled=true;
   try{
    const nonce=crypto.randomUUID?crypto.randomUUID().replace(/-/g,''):Math.random().toString(36).slice(2).padEnd(16,'0');
    const reply=await request('package_command',{session,viewer,verb,payload,confirm:confirmEnd,nonce});
    refreshGame(reply.game);
   }catch(e){status(e.message);}
-  finally{busy=false;}
+  finally{
+   busy=false;
+   $('package-phone-pause').disabled=ended;
+   $('package-phone-end').disabled=ended;
+  }
  }
  $('package-phone-pause').onclick=()=>action(game?.status==='paused'?'resume':'pause');
  $('package-phone-end').onclick=()=>{
@@ -86,7 +105,7 @@
  $('package-phone-disconnect').onclick=async()=>{
   try{await request('disconnect');}catch(_){}
   sessionStorage.removeItem(key);pair=null;ended=true;
-  status('Phone disconnected.');show('finished');
+  closeGame();status('Phone disconnected.');show('finished');
  };
  window.addEventListener('message',event=>{
   if(!pair||ended||busy||game?.status!=='active')return;
@@ -100,7 +119,7 @@
   if(typeof input.value==='number'&&(!Number.isSafeInteger(input.value)||Math.abs(input.value)>100000000))return;
   action('input',{name:input.name,value:input.value});
  });
- $('package-phone-frame').addEventListener('load',()=>{if(game)refreshGame(game);});
+ $('package-phone-frame').addEventListener('load',()=>{if(game&&!ended)refreshGame(game);});
  if(pair){show('wait');status('Reconnecting approved phone…');}
  poll();setInterval(poll,1000);
 })();
