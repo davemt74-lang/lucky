@@ -30,7 +30,7 @@
  }
 
  let data=null,busy=false,stopVoice=null,lastVersion=0,activeId='',viewerUrl='',syncedSpin=0,initialSync=true,syncPending=false;
- const msg=(s,bad=false)=>L.note(bad?'game-error':'game-message',s,bad);
+ const msg=(s,bad=false)=>{if(!bad)$('game-message').dataset.highlight=String(s.startsWith('🎉')||s.startsWith('✧ BONUS'));L.note(bad?'game-error':'game-message',s,bad);};
  function toSlices(view){
    if(view?.pendingBonus)return (data?.session?.pools?.bonus?.prizes||[]).filter(p=>p.cents>0 && !(data?.session?.claims||[]).some(c=>c.prizeId===p.id)).map(p=>({...p,tier:'bonus',kind:'prize'}));
    const slices=(view?.slots||[]).map(p=>({name:p.name,cents:p.value,tier:p.tier,kind:p.tier?'prize':'empty'}));
@@ -324,10 +324,9 @@
   wheelFitScheduled=false;
   const wrap=document.querySelector('#host-panel-game .platform-wheel-wrap');
   if(!wrap||$('host-panel-game')?.hidden)return;
-  const controls=$('spin-game')?.closest('.platform-control-row');
+  // Host controls live in the Game menu, not underneath the wheel.
   const top=wrap.getBoundingClientRect().top;
-  const controlsHeight=controls?.getBoundingClientRect().height||54;
-  const available=Math.floor(innerHeight-top-controlsHeight-76);
+  const available=Math.floor(innerHeight-top-34);
   const width=wrap.parentElement?.clientWidth||innerWidth;
   wrap.style.setProperty('--wheel-viewport-size',Math.max(160,Math.min(available,width-20,780))+'px');
  }
