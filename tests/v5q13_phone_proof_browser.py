@@ -41,7 +41,7 @@ async def run():
   ok('review buttons replace record buttons',await page.locator('#phone-proof-review').is_visible() and await page.locator('#phone-proof-recording').is_hidden())
   await page.locator('[data-phone="proof-approve"]').click()
   await page.wait_for_timeout(100)
-  ok('Approve sent as phone command',await page.evaluate("__commands.includes('proof-approve')"))
+  ok('Save sent as phone command',await page.evaluate("__commands.includes('proof-save')"))
   await page.evaluate('__proofOpen=false');await page.wait_for_timeout(1000)
   ok('accordion hidden when proof closed',await page.locator('#phone-proof-controls').is_hidden())
   ok('accordion closes again',not await page.locator('#phone-proof-controls').evaluate('(e)=>e.open'))
