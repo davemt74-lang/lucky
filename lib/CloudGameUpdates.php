@@ -150,26 +150,8 @@ final class CloudGameUpdates {
  public static function check(?string $root=null):array {
   $cfg=self::settings($root);
   if(!$cfg)throw new DomainException('Connect a trusted update channel first.',409);
-  $host=self::hostname($cfg['url']);
-  // Refuse hosts resolving to LAN, loopback, link-local or reserved addresses.
-  $records=@dns_get_record($host,DNS_A|DNS_AAAA);
-  if(!is_array($records)||!$records)throw new DomainException('Update feed host did not resolve.',502);
-  foreach($records as $r) {
-   $ip=$r['ip']??$r['ipv6']??'';
-   if(!filter_var($ip,FILTER_VALIDATE_IP,FILTER_FLAG_NO_PRIV_RANGE|FILTER_FLAG_NO_RES_RANGE))
-    throw new DomainException('Game update feed resolved to a private or unsafe network address.',403);
-  }
-  $headers="Accept: application/json\r\nConnection: close\r\n";
-  if(($cfg['token']??'')!=='')$headers.="Authorization: Bearer ".$cfg['token']."\r\n";
-  $context=stream_context_create([
-   'http'=>['method'=>'GET','timeout'=>8,'follow_location'=>0,'max_redirects'=>0,'ignore_errors'=>true,'header'=>$headers],
-   'ssl'=>['verify_peer'=>true,'verify_peer_name'=>true,'allow_self_signed'=>false]
-  ]);
-  $bytes=@file_get_contents($cfg['url'],false,$context,0,self::MAX_FEED+1);
-  if(!is_string($bytes))throw new DomainException('Unable to reach the configured game update feed.',502);
-  $responseHeaders=$http_response_header??[];
-  if(!preg_match('/^HTTP\/\S+ 200\b/',(string)($responseHeaders[0]??'')))
-   throw new DomainException('Game update feed did not return HTTP 200.',502);
+  require_once __DIR__.'/PublisherTransport.php';
+  $bytes=PublisherTransport::fetch($cfg['url'],(string)($cfg['token']??''),self::MAX_FEED);
   return self::verifyEnvelope($bytes,$cfg['publicKey'],$cfg['url']);
  }
 }

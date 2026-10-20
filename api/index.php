@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-require __DIR__.'/../lib/Bootstrap.php';require_once __DIR__.'/../lib/CloudGameUpdates.php';require_once __DIR__.'/../lib/GamePackageInstaller.php';require_once __DIR__.'/../lib/GameCatalog.php';require_once __DIR__.'/../lib/ProductCatalog.php';require_once __DIR__.'/../lib/ControllerGame.php';require_once __DIR__.'/../lib/PrizeDecision.php';require_once __DIR__.'/../lib/GameSessionLifecycle.php';headerSecurity();
+require __DIR__.'/../lib/Bootstrap.php';require_once __DIR__.'/../lib/CloudGameUpdates.php';require_once __DIR__.'/../lib/GamePackageInstaller.php';require_once __DIR__.'/../lib/CloudGamePackageDownload.php';require_once __DIR__.'/../lib/GameCatalog.php';require_once __DIR__.'/../lib/ProductCatalog.php';require_once __DIR__.'/../lib/ControllerGame.php';require_once __DIR__.'/../lib/PrizeDecision.php';require_once __DIR__.'/../lib/GameSessionLifecycle.php';headerSecurity();
 $action=strval($_GET['action']??'');$method=$_SERVER['REQUEST_METHOD']??'GET';
 function setting(PDO $db,string $game='spin-wheel'):array {
  $q=$db->prepare('SELECT * FROM game_settings WHERE game_id=?');$q->execute([$game]);$r=$q->fetch();
@@ -175,6 +175,16 @@ try {
   $updates=CloudGameUpdates::check();
   audit($db,'game_updates.checked',null,['releaseCount'=>count($updates['releases'])]);
   success(['updates'=>$updates]);
+ }
+ if($action==='game_update_stage'){
+  // Client supplies ONLY immutable game + version selection. Source URL and
+  // digest are reloaded from a fresh, verified publisher feed server-side.
+  $input=jsonInput();$id=GameCatalog::slug($input['game']??null);
+  $version=GamePackageInstaller::version($input['version']??null);
+  $package=CloudGamePackageDownload::stage($id,$version);
+  audit($db,'game_updates.package_staged',null,['game'=>$id,'version'=>$version,
+   'signatureVerified'=>$package['signatureVerified']]);
+  success(['package'=>$package],201);
  }
  if($action==='game_catalog_save'){
   $data=jsonInput();$id=GameCatalog::slug($data['id']??null);

@@ -86,3 +86,23 @@ This is for trusted publishers, not arbitrary unsigned PHP plug-ins.
 A future PHP game package can execute server-side code, so no package may run
 merely by appearing in a remote feed. Never expose the HomeServer's LAN UI or
 database to the public internet to enable update checks.
+
+
+## V5Q.22F — Download and stage from trusted cloud
+
+After checking for updates, an admin can click **Download & stage verified ZIP**
+on a listed version. HomeServer then re-fetches the publisher feed,
+cryptographically verifies its signature again, selects the requested
+game/version server-side, connects to the public publisher over TLS with DNS
+pinning and no redirects, and checks the exact advertised ZIP byte length and
+SHA-256 before passing it to the same private offline package validator used
+by manual uploads.
+
+The browser never supplies a download URL, token or checksum to this endpoint.
+All download requests are manual, require admin CSRF authorization, and
+reuse the existing pinned publisher key. Maximum package size: 40 MiB.
+
+**Importing still does not activate or execute game code.** Staged versions
+remain immutable in local HomeServer storage. A new runtime certification
+phase is required for game-specific host/phone execution, shared sessions
+and activation/rollback. No cloud connection is required for normal games.

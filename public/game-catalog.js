@@ -157,16 +157,31 @@
    updateMessage('Checking publisher signature and release metadata…');
    const {updates}=await api('game_update_check',{body:{}});
    const list=$('game-update-releases');list.replaceChildren();
-   const heading=text('p',updates.releases.length+' verified game release(s) · No download or installation performed.');
+   const heading=text('p',updates.releases.length+' verified game release(s) · No download performed until you select a release.');
    list.append(heading);
    for(const release of updates.releases){
     const item=text('article','','game-update-release');
     item.append(text('strong',release.game+' · v'+release.version));
     if(release.notes)item.append(text('p',release.notes));
     item.append(text('small','SHA-256: '+release.sha256+' · '+Math.ceil(release.bytes/1024)+' KB'));
+    const stage=document.createElement('button');stage.type='button';stage.className='btn btn-outline';
+    stage.textContent='Download & stage verified ZIP';
+    stage.disabled=release.bytes>40*1024*1024;
+    if(stage.disabled)stage.textContent='Exceeds 40 MB package limit';
+    stage.onclick=async()=>{
+     if(!confirm('Download and stage '+release.game+' v'+release.version+' from the trusted publisher? No game will be activated.'))return;
+     stage.disabled=true;
+     try{
+      updateMessage('Downloading and validating signed '+release.game+' v'+release.version+'…');
+      const output=await api('game_update_stage',{body:{game:release.game,version:release.version}});
+      await loadPackages();
+      updateMessage(output.package.title+' v'+output.package.version+' downloaded and staged. No executable game code was activated.');
+     }catch(e){updateMessage(e.message,true);}finally{stage.disabled=false;}
+    };
+    item.append(stage);
     list.append(item);
    }
-   updateMessage('Publisher signature verified. The HomeServer has not installed or executed anything.');
+   updateMessage('Publisher signature verified. Select a release to download and stage it. No game code will execute.');
   }catch(e){updateMessage(e.message,true);}
   finally{control.disabled=!connected;}
  };
