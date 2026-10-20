@@ -193,6 +193,7 @@ try {
      ($in['enabled']??false)===true,($in['playerSelectable']??false)===true);
     audit($db,'package.saved',null,['packageId'=>$out['id'],'version'=>$out['version']]);
    }elseif($action==='package_publish'){
+    if(!array_key_exists('published',$in)||!is_bool($in['published']))throw new DomainException('Publication status must be Draft or Published.',400);
     $out=PrizePackages::publish($db,PrizePackages::id($in['id']??null),
      (int)($in['version']??0),($in['published']??null)===true);
     audit($db,'package.publication_changed',null,['packageId'=>$out['id'],'status'=>$out['publicationStatus'],'version'=>$out['version']]);
