@@ -57,7 +57,7 @@ async def main():
   await p.locator('[data-look-preset="none"]').click()
   await p.locator('#editor-apply-look').click()
   await p.locator('[data-studio-pane="templates"]').click()
-  await p.locator('[data-saved-template="'+'f'.repeat(32)+'"]').click()
+  await p.locator('[data-saved-template="'+'f'*32+'"]').click()
   ok('saved video look reapplied to current clips',await p.locator('#editor-look').input_value()=='warm')
   ok('relative T1 title recreated with independent instance ID',await p.locator('.studio-title-block').count()==1)
   ok('B1 background song restored from library',await p.locator('.studio-background-block').count()==1)
