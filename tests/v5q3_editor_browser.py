@@ -56,6 +56,8 @@ async def main():
    check('render uses selected uploaded soundtrack',await page.evaluate("demo.queued?.musicVolume===24&&demo.queued?.soundtrackId==='"+'d'*32+"'"))
    check('hosted URL song omitted from renderer',await page.locator('#render-track option').count()==2)
    check('render listed as queued',await page.get_by_text('queued',exact=False).count()>0)
+   await page.locator('#close-render-dialog').click()
+   check('modal closes and main editor controls regain focus',await page.locator('#render-dialog').is_hidden())
    await page.locator('#editor-auto').click()
    # A replacement confirmation appears after changes; accept it.
    await page.wait_for_timeout(20)
