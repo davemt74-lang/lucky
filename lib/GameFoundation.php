@@ -25,17 +25,18 @@ final class GameFoundation {
   $theme=['accent'=>'#f6cb74','background'=>'#0d1423'];
   $q=$db->prepare('INSERT IGNORE INTO game_settings(game_id,config_json,intro_json,theme_json) VALUES (?,?,?,?)');
   $q->execute([$game,json_encode($defaults,JSON_THROW_ON_ERROR),json_encode($intro,JSON_THROW_ON_ERROR),json_encode($theme,JSON_THROW_ON_ERROR)]);
-  // Historic installations reserved game-2 with a non-playable placeholder.
-  // Replace only this exact placeholder when Game #2 is actually registered.
-  if($game==='game-2'){
-   $q=$db->prepare('UPDATE game_settings SET config_json=? WHERE game_id=? AND config_json=?');
-   $q->execute([json_encode($defaults,JSON_THROW_ON_ERROR),$game,'{"pools":[]}']);
-  }
   $q=$db->prepare('SELECT config_json FROM game_settings WHERE game_id=? FOR UPDATE');
   $q->execute([$game]);$row=$q->fetch();
   if(!$row)throw new DomainException('Game settings are unavailable.',409);
   $stored=json_decode($row['config_json'],true,512,JSON_THROW_ON_ERROR);
   if(!is_array($stored))throw new DomainException('Game settings must be an object.',409);
+  // Older installs pre-seeded an unused game-2 placeholder. Migrate it only
+  // after that game is registered, while its settings row is locked.
+  if($game==='game-2'&&$stored===['pools'=>[]]){
+   $stored=$defaults;
+   $q=$db->prepare('UPDATE game_settings SET config_json=? WHERE game_id=?');
+   $q->execute([json_encode($stored,JSON_THROW_ON_ERROR),$game]);
+  }
   return $module->validateSettings($stored);
  }
 
