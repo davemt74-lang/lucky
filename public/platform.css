@@ -428,3 +428,17 @@ body.game-fullwidth #win-dialog{display:none!important}
 .proof-editor-page .proof-revision-clip .proof-load-clip{white-space:nowrap;margin-left:auto;font-size:11px}
 .proof-editor-page .proof-video-stage #capture-review .review-tile img{width:100%;max-height:70vh;object-fit:contain;background:#050910}
 .proof-editor-page #capture-consent{display:none!important}
+
+/* V5Q.15H: each saved prize video gets a compact still thumbnail on game.php. */
+body.game-fullwidth .game-claims-side .claim-proof-row{gap:10px;align-items:center}
+body.game-fullwidth .game-claims-side .claim-video-thumbnail{
+ display:block;width:92px;height:64px;flex:0 0 92px;object-fit:cover;
+ border:1px solid #3c5873;border-radius:8px;background:#030910;
+ pointer-events:none
+}
+body.game-fullwidth .game-claims-side .claim-proof-info{flex:1;min-width:0;overflow-wrap:anywhere}
+body.game-fullwidth .game-claims-side .claim-proof-row .btn{white-space:nowrap;font-size:11px;padding:8px}
+@media(max-width:650px){
+ body.game-fullwidth .game-claims-side .claim-video-thumbnail{width:74px;height:52px;flex-basis:74px}
+ body.game-fullwidth .game-claims-side .claim-proof-row{gap:7px;padding:8px}
+}
