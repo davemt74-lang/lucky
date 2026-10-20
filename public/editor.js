@@ -3,7 +3,7 @@
  'use strict';const $=id=>document.getElementById(id),L=window.Lucky;
  let source=[],clips=[],chosen=null,session='',playToken=0,previewMedia=null,previewTimer=0,dirty=false,mediaFilter='all',cameraSession='',cameraClaim='';
  let inspectorOpen=false,clipMenuFor=null,recorder=null,recordStream=null,recordBlob=null,recordUrl='',recordTarget=null,overlayPlayers=[];
- let layers={titles:[],background:null},selectedTitle='',availableSongs=[];
+ let layers={titles:[],background:null},selectedTitle='',availableSongs=[],savedTemplates=[];
  const inform=(s,bad=false)=>{const n=$('editor-feedback');n.textContent=s;n.classList.toggle('platform-error',bad);};
  const secs=ms=>(Number(ms||0)/1000).toFixed(1),ms=s=>Math.round(Number(s||0)*1000);
  const fresh=()=>window.crypto?.randomUUID?.()||('seg-'+Math.random().toString(36).slice(2));
@@ -37,6 +37,68 @@
    add.setAttribute('aria-label',`Add ${c.title} to timeline`);add.title='Add to timeline';add.onclick=()=>addFromBin(c.id);
    card.append(thumb,info,add);bin.append(card);
   }
+ }
+ function templateFromCurrent(){
+  const total=timelineMs(),pct=n=>total?Math.max(0,Math.min(10000,Math.round(n/total*10000))):0;
+  const titleStyle=layers.titles.map(t=>({
+   text:t.text,position:t.position,size:t.size,
+   startPct:pct(t.startMs),durationPct:Math.max(1,pct(t.durationMs))
+  }));
+  const background=layers.background?{
+   trackId:layers.background.trackId,startPct:pct(layers.background.startMs),
+   endPct:pct(layers.background.endMs),offsetMs:layers.background.offsetMs,
+   volume:layers.background.volume
+  }:null;
+  return {looks:clips.map(c=>c.lookPreset||'none'),titles:titleStyle,background};
+ }
+ async function loadSavedTemplates(){
+  try{
+   const data=await api('templates');savedTemplates=data.templates||[];
+   const select=$('editor-saved-template'),prior=select.value;
+   select.replaceChildren(new Option('Select a saved template',''));
+   for(const item of savedTemplates)select.add(new Option(item.name,item.id));
+   if(savedTemplates.some(x=>x.id===prior))select.value=prior;
+  }catch(e){inform('Video template library: '+e.message,true);}
+ }
+ async function saveCurrentTemplate(){
+  const name=$('editor-template-name').value.trim();
+  if(!name||name.length>100||!clips.length)return inform('Enter a template name and include at least one video clip.',true);
+  try{
+   const result=await api('save_template',{name,template:templateFromCurrent()},true);
+   await loadSavedTemplates();$('editor-saved-template').value=result.template.id;
+   inform('Reusable template saved. Original recordings were not copied.');
+  }catch(e){inform(e.message,true);}
+ }
+ function applySavedTemplate(){
+  const record=savedTemplates.find(x=>x.id===$('editor-saved-template').value);
+  if(!record||!clips.length)return inform('Select a template and include at least one clip.',true);
+  const spec=record.template,total=timelineMs();
+  if(!total)return inform('This edit has no duration.',true);
+  const time=p=>Math.round(total*p/10000/100)*100;
+  for(let i=0;i<clips.length;i++)clips[i].lookPreset=spec.looks?.[i%Math.max(1,spec.looks.length)]||'none';
+  layers.titles=(spec.titles||[]).map((t,i)=>{
+   let start=Math.max(0,Math.min(total-300,time(t.startPct)));
+   let duration=Math.max(300,Math.min(total-start,time(t.durationPct)));
+   return {id:fresh(),text:t.text,startMs:start,durationMs:duration,position:t.position,size:t.size};
+  });
+  layers.background=null;
+  if(spec.background){
+   const song=availableSongs.find(x=>x.id===spec.background.trackId);
+   if(song){
+    const start=Math.max(0,Math.min(total-300,time(spec.background.startPct)));
+    const end=Math.max(start+300,Math.min(total,time(spec.background.endPct)));
+    layers.background={trackId:song.id,startMs:start,endMs:end,offsetMs:spec.background.offsetMs,volume:spec.background.volume};
+   }else inform('Template applied without a soundtrack: its library track is unavailable.',true);
+  }
+  selectedTitle='';dirty=true;render();
+  inform('Template applied to this edit only. Save the project to keep it.');
+ }
+ async function deleteSavedTemplate(){
+  const selected=savedTemplates.find(x=>x.id===$('editor-saved-template').value);
+  if(!selected)return inform('Choose a saved template to delete.',true);
+  if(!confirm('Delete the reusable template "'+selected.name+'"? Your recordings and edits will remain.'))return;
+  try{await api('delete_template',{id:selected.id},true);await loadSavedTemplates();inform('Template deleted. This edit and original recordings are unchanged.');}
+  catch(e){inform(e.message,true);}
  }
  function timelineMs(){return clips.reduce((sum,c)=>sum+lengthMs(c),0);}
  function timelineWidth(){return clips.reduce((sum,c)=>sum+visualWidth(c),0);}
@@ -632,6 +694,9 @@
   $('editor-clear-overlay').onclick=()=>{if(!chosen)return inform('Select a timeline clip first.',true);overlayClip(chosen,'','bottom','medium');};
   $('editor-apply-template').onclick=()=>{if(!applyLook(chosen,templateLooks[$('editor-template').value]))inform('Select a timeline clip first.',true);};
   $('editor-template-all').onclick=()=>{const look=templateLooks[$('editor-template').value];if(!clips.length||!look)return inform('Add a clip to apply a template.',true);clips.forEach(c=>c.lookPreset=look);dirty=true;render();inform('Starter template applied to all clips. Save edit to retain it.');};
+  $('editor-save-template').onclick=saveCurrentTemplate;
+  $('editor-load-template').onclick=applySavedTemplate;
+  $('editor-delete-template').onclick=deleteSavedTemplate;
   $('editor-open-inspector').onclick=()=>setInspector(!inspectorOpen);
   $('editor-close-inspector').onclick=()=>setInspector(false);
   $('editor-inspector-backdrop').onclick=()=>setInspector(false);
@@ -665,7 +730,7 @@
    $('editor-back-game').href='game.php?session='+encodeURIComponent(session);
    s.onchange=()=>{if(dirty&&!confirm('Discard unsaved changes?')){s.value=session;return;}session=s.value;$('editor-back-game').href='game.php?session='+encodeURIComponent(session);load();};
    const tracks=await L.loadTracks();availableSongs=tracks.filter(x=>x.kind==='upload');for(const track of availableSongs){$('render-track').add(new Option(track.title,track.id));$('timeline-music-select').add(new Option(track.title,track.id));}
-   await load();
+   await load();await loadSavedTemplates();
   }catch(e){inform(e.message,true);}
  }
  window.addEventListener('beforeunload',event=>{if(!dirty)return;event.preventDefault();event.returnValue='';});
