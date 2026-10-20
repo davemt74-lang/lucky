@@ -63,18 +63,47 @@ final class GamePackageActivation {
     'phone'=>$receipt['phone']!==null];
   }finally{flock($lock,LOCK_UN);fclose($lock);}
  }
- public static function all(?string $root=null):array {
-  $ids=[];
-  foreach(GamePackageInstaller::listing($root) as $row)
-   if($row['id']!=='spin-wheel')$ids[$row['id']]=true;
-  $result=[];
-  foreach(array_keys($ids) as $id){
-   $act=self::active($id,$root);
-   if($act)$result[$id]=['id'=>$id,'version'=>$act['version'],
-     'title'=>$act['receipt']['title'],'phone'=>$act['receipt']['phone']!==null,
-     'publisher'=>$act['receipt']['publisher']];
+ /**
+  * Enumerate independent activation records, not package receipts. A corrupt
+  * receipt must not hide its failure or prevent unrelated games from loading.
+  * Never auto-activate an older release on corruption: fail closed and ask the
+  * owner to inspect/restore the affected package.
+  */
+ public static function inspect(?string $root=null):array {
+  $base=GamePackageInstaller::base($root);
+  $active=[];$issues=[];
+  if(is_link($base)){
+   return ['active'=>[], 'issues'=>[['game'=>'storage','reason'=>'unsafe_directory']]];
   }
-  return $result;
+  if(!is_dir($base))return ['active'=>[], 'issues'=>[]];
+  try {
+   foreach(new DirectoryIterator($base) as $entry){
+    if(!$entry->isDir()||$entry->isLink()||$entry->getFilename()==='spin-wheel')continue;
+    $id=$entry->getFilename();
+    if(!preg_match('/^[a-z0-9][a-z0-9-]{1,62}$/D',$id))continue;
+    if(!file_exists($entry->getPathname().'/active.json')&&!is_link($entry->getPathname().'/active.json'))continue;
+    try {
+     $selection=self::active($id,$root);
+     if(!$selection)continue;
+     $receipt=$selection['receipt'];
+     $active[$id]=['id'=>$id,'version'=>$selection['version'],
+      'title'=>$receipt['title'],'phone'=>$receipt['phone']!==null,
+      'publisher'=>$receipt['publisher']];
+    } catch(Throwable $e) {
+     // No filesystem paths or raw exception strings in admin API responses.
+     error_log('Lucky game activation unavailable for '.$id.': '.get_class($e));
+     $issues[]=['game'=>$id,'reason'=>'invalid_activation'];
+    }
+   }
+  }catch(Throwable $e){
+   error_log('Lucky package discovery unavailable: '.get_class($e));
+   $issues[]=['game'=>'storage','reason'=>'unreadable_directory'];
+  }
+  ksort($active,SORT_STRING);
+  return ['active'=>$active,'issues'=>$issues];
+ }
+ public static function all(?string $root=null):array {
+  return self::inspect($root)['active'];
  }
  /** Game packages are readable only via explicitly published asset routes. */
  public static function file(string $id,string $version,string $path,?string $root=null,bool $sessionPinned=false):array {
