@@ -26,3 +26,5 @@ $api=file_get_contents(__DIR__.'/../api/index.php');
 check(str_contains($api,"GameSessionLifecycle::lockGame(\$db,\$game)")&&str_contains($api,"GameSessionLifecycle::assertVacant(\$db,\$game)"),'all game starts use shared per-game lock and one live session policy');
 check(str_contains($api,"'save_session','resume_saved','finish_saved'")&&str_contains($api,"idempotencyKey"),'save/resume/finish use authenticated idempotent action API');
 echo "V5Q16 lifecycle assertions passed\n";
+
+require __DIR__.'/v5q17_session_delete.php';
