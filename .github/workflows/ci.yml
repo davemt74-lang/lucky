@@ -27,6 +27,7 @@ jobs:
           php tests/catalog.php
           php tests/pairing.php
           php tests/v5q15c_upgrade_readiness.php
+          php tests/migration_sql.php
           php tests/proof_config.php
           php tests/montage.php
           php tests/auto_draft.php
