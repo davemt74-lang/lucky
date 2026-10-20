@@ -2,6 +2,40 @@
  'use strict';const $=id=>document.getElementById(id),storageKey='lucky-phone-controller-v5p';
  const params=new URLSearchParams(location.search||(location.protocol==='about:'?new URL(document.baseURI).search:''));let state=null,busy=false,active=false,game=null,gameVersion=-1,pendingCommand=null,feedback=null;let speech=null,listening=false,statusBusy=false,commandQueue=[];
  let noticeTimer=null,failures=0,proofState={active:false},hadUpgradeWarning=false,lastConnectionError='';
+ // The phone is the only speaking prize-acceptance surface. Remember announces
+ // across polling and reconnection so an old prize is never repeated.
+ const voicePreferenceKey='lucky-phone-prize-speech-v1',spokenStoreKey='lucky-phone-spoken-prizes-v1';
+ let prizeUtterance=null,spokenPrizeKeys=[];
+ try{const previous=JSON.parse(sessionStorage.getItem(spokenStoreKey)||'[]');if(Array.isArray(previous))spokenPrizeKeys=previous.filter(x=>typeof x==='string').slice(-100);}catch(_){}
+ function stopPrizeSpeech(){
+  if(!prizeUtterance)return;prizeUtterance=null;
+  try{window.speechSynthesis?.cancel();}catch(_){}
+ }
+ function updateSpeechStatus(label){const el=$('phone-prize-speech-status');if(el)el.textContent=label;}
+ function announcePrize(force=false){
+  const offer=game?.offer;
+  if(!active||!offer||offer.status!=='pending'||game.spinning||!offer.claimId)return false;
+  if(!force&&!($('phone-announcements-enabled')?.checked??true))return false;
+  const key=String(offer.session||game.id||state?.id||'session')+':'+offer.claimId;
+  if(!force&&spokenPrizeKeys.includes(key))return false;
+  if(typeof window.SpeechSynthesisUtterance!=='function'||!window.speechSynthesis?.speak){
+   updateSpeechStatus('Speech is not supported by this browser. Prize details are shown above.');return false;
+  }
+  const name=String(offer.name||'a prize').trim().slice(0,140);
+  const cents=Number(offer.cents);
+  const amount=Number.isFinite(cents)&&cents>=0?', worth '+(cents/100).toFixed(2)+' dollars':'';
+  try{
+   stopPrizeSpeech();
+   const utterance=new SpeechSynthesisUtterance('Congratulations! You won '+name+amount+'. Accept or decline the prize on your phone.');
+   utterance.lang='en-US';utterance.rate=0.92;utterance.pitch=1;utterance.volume=1;
+   utterance.onstart=()=>{if(prizeUtterance===utterance)updateSpeechStatus('Announcing your prize…');};
+   utterance.onend=()=>{if(prizeUtterance===utterance){prizeUtterance=null;updateSpeechStatus('Prize announced. Tap Hear prize to listen again.');}};
+   utterance.onerror=()=>{if(prizeUtterance===utterance){prizeUtterance=null;updateSpeechStatus('Automatic speech was blocked. Tap Hear prize to retry.');}};
+   prizeUtterance=utterance;
+   if(!force){spokenPrizeKeys.push(key);spokenPrizeKeys=spokenPrizeKeys.slice(-100);try{sessionStorage.setItem(spokenStoreKey,JSON.stringify(spokenPrizeKeys));}catch(_){}}
+   window.speechSynthesis.speak(utterance);return true;
+  }catch(_){prizeUtterance=null;updateSpeechStatus('Audio could not start. Tap Hear prize to retry.');return false;}
+ }
  const message=(m,warning=false)=>{const e=$('phone-status');if(!e)return;clearTimeout(noticeTimer);e.textContent=m;e.classList.toggle('platform-error',warning);
   if(active)noticeTimer=setTimeout(()=>{e.textContent='';e.classList.remove('platform-error');},warning?6500:2300);
  };
