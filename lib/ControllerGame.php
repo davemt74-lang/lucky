@@ -29,7 +29,7 @@ final class ControllerGame {
    'spinCount'=>$view['spinCount'],'claimedCount'=>count($claimed),'claimedCents'=>array_sum(array_column($claimed,'cents')),
    'remaining'=>count(array_filter($view['slots'],fn($s)=>!empty($s['tier']))),
    'pendingBonus'=>$view['pendingBonus'],'lastPrize'=>$claimed?end($claimed)['name']:null,
-   'spinning'=>$spinning,'offer'=>$prizeReady&&!$spinning?PrizePresentation::decorate(PrizeDecision::latest($db,$state['id']),$state):null,'upgradeRequired'=>!$prizeReady,'canStart'=>$prizeReady&&in_array($view['status'],['ended'],true),
+   'spinning'=>$spinning,'offer'=>$prizeReady&&!$spinning?PrizePresentation::decorate(PrizeDecision::latest($db,$state['id']),$state):null,'upgradeRequired'=>!$prizeReady,'canStart'=>$prizeReady&&in_array($view['status'],['ended','saved'],true),
    'canSpin'=>$prizeReady&&$view['status']==='active'&&!$spinning&&!PrizeDecision::pending($db,$state['id'])&&(count(array_filter($view['slots'],fn($s)=>!empty($s['tier'])))>0||$view['pendingBonus']||($state['odds']['bonusChance']>0&&self::hasBonus($state))),
   ];
  }
