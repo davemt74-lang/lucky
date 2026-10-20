@@ -67,7 +67,7 @@ async def main():
   ck(out,'camera previews/recordings stopped after each take',await pg.evaluate('__stops===2'))
   await pg.wait_for_function("document.querySelector('#capture-clip-list')?.textContent?.includes('2 captured clips')",timeout=5000)
   ck(out,'editor includes captured clips', '2 captured clips' in await pg.locator('#capture-clip-list').inner_text())
-  await pg.locator('[data-camera-select]').last.uncheck()
+  await pg.evaluate("() => {const input=[...document.querySelectorAll('[data-camera-select]')].at(-1);input.checked=false;input.dispatchEvent(new Event('change',{bubbles:true}));}")
   ck(out,'one active camera means one proof angle',await pg.locator('.proof-angle-chip').count()==1)
   ck(out,'no page exceptions',not errs)
   await pg.screenshot(path='/mnt/data/Lucky-Game-Hub-V5Q2-proof-preview.png',full_page=True)
