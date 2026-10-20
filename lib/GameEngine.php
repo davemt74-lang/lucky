@@ -204,7 +204,7 @@ final class GameEngine {
             function($slot)use($s){$p=$slot['prizeId']?self::prize($s,$slot['tier'],$slot['prizeId']):null;
                 return ['tier'=>$slot['tier'],'name'=>$p['name']??'Waiting for replacement','value'=>$p['cents']??0,'pending'=>$slot['pending']];},$s['slots']),
           'pendingBonus'=>$s['pendingBonus'],'claims'=>array_map(fn($c)=>['name'=>$c['name'],'tier'=>$c['tier'],'cents'=>$c['cents'],'at'=>$c['at'],'slot'=>$c['slot']],$s['claims']),
-          'spinCount'=>$s['spinCount'],'lastSpin'=>$s['lastSpin']??null,
+          'spinCount'=>$s['spinCount'],'lastSpin'=>$s['lastSpin']??null,'spinPending'=>SpinReveal::pending($s),
           'bonusSlices'=>array_values(array_map(fn($p)=>['name'=>$p['name'],'cents'=>$p['cents'],'tier'=>'bonus','kind'=>'prize'],
               array_filter($s['pools']['bonus']['prizes'],fn($p)=>$p['cents']>0&&!in_array($p['id'],array_column($s['claims'],'prizeId'),true)))),
           'bonusEnabled'=>$s['odds']['bonusChance']>0,
