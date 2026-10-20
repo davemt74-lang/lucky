@@ -49,16 +49,23 @@
  function drawPackageTabs(){
   const root=$('prize-package-tabs');root.replaceChildren();
   for(const p of packages){
-   const button=elem('button',p.name,'btn btn-outline');button.type='button';button.role='tab';button.dataset.packageId=p.id;
+   const button=elem('button',p.name+(p.publicationStatus==='draft'?' · Draft':''),'btn btn-outline');button.type='button';button.role='tab';button.dataset.packageId=p.id;
    button.classList.toggle('selected',p.id===packageId);
    button.classList.toggle('package-live-choice',p.id===selectedPackage);
    button.classList.toggle('package-disabled',!p.enabled);
+   button.classList.toggle('package-draft',p.publicationStatus==='draft');
    button.setAttribute('aria-selected',String(p.id===packageId));
    button.onclick=()=>switchPackage(p.id);root.append(button);
   }
+  const item=packageFor(packageId);
+  const publication=item?.publicationStatus||'published';
+  $('package-publication-status').textContent=publication==='draft'?'Draft — not available to players':'Published — available if enabled';
+  $('package-publication-status').dataset.status=publication;
+  $('package-publish').textContent=publication==='draft'?'Publish package':'Move to Draft';
+  $('package-publish').disabled=!packagesAvailable||(publication==='published'&&packageId===selectedPackage);
   $('package-selection-status').textContent=!packagesAvailable?'Run upgrade.php to enable package tabs.':
-   packageId===selectedPackage?'✓ Selected for the next game':'Editing package · not selected for the next game';
-  $('package-activate').disabled=!packagesAvailable||packageId===selectedPackage||!packageFor(packageId)?.enabled;
+   packageId===selectedPackage?'✓ Selected for the next game':publication==='draft'?'Draft · publish to make selectable':'Editing package · not selected for the next game';
+  $('package-activate').disabled=!packagesAvailable||packageId===selectedPackage||!item?.enabled||publication!=='published';
   $('package-remove').disabled=!packagesAvailable||packageId===selectedPackage;
  }
  function switchPackage(id,force=false){
@@ -80,7 +87,7 @@
   const r=await L.api('settings',{query:{game:'spin-wheel'}});settings=r.settings;
   try{await reloadPackages();}catch(e){
    packagesAvailable=false;
-   packages=[{id:'legacy',name:'Original Prizes',config:structuredClone(settings.config),enabled:true,playerSelectable:true,version:1}];
+   packages=[{id:'legacy',name:'Original Prizes',config:structuredClone(settings.config),enabled:true,playerSelectable:true,publicationStatus:'published',version:1}];
    selectedPackage='legacy';switchPackage('legacy',true);
    status('Run upgrade.php to enable multiple prize packages.',true);
   }
@@ -101,7 +108,19 @@
   if(packageDirty&&!confirm('Create from the last saved version? Unsaved changes will be discarded.'))return;
   const name=prompt('Name your new prize package:', 'Prize Package '+(packages.length+1));if(name===null)return;
   try{const out=await L.api('package_create',{body:{name:name.trim(),cloneFrom:packageId}});await reloadPackages(out.package.id);
-   status('Prize package created. Configure its tiers and Save.');}catch(e){status(e.message,true);}
+   status('Draft package created. Configure its tiers, Save, then Publish when ready.');}catch(e){status(e.message,true);}
+ };
+ $('package-publish').onclick=async()=>{
+  const p=packageFor(packageId);if(!p||!packagesAvailable)return;
+  if(packageDirty&&!(await save()))return;
+  const publish=(p.publicationStatus==='draft');
+  if(!publish&&p.id===selectedPackage)return status('Select a different published package before moving this one to Draft.',true);
+  if(!publish&&!confirm('Move this published prize package to Draft? It will disappear from available game choices.'))return;
+  try{
+   const response=await L.api('package_publish',{body:{id:p.id,version:p.version,published:publish}});
+   Object.assign(p,response.package);drawPackageTabs();
+   status(publish?'Package Published. Enable and select it to use for the next game.':'Package moved to Draft. Existing game sessions are unchanged.');
+  }catch(e){status(e.message,true);}
  };
  $('package-activate').onclick=async()=>{
   if(packageDirty&&!(await save()))return;

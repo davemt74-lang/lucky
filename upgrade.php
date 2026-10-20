@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require __DIR__.'/lib/Layout.php';
 require_once __DIR__.'/lib/MigrationSql.php';
+require_once __DIR__.'/lib/PrizePublicationMigration.php';
 if(!installed()){header('Location: install.php');exit;}
 if(!isAdmin()){header('Location: login.php');exit;}
 headerSecurity();
@@ -27,6 +28,7 @@ if(($_SERVER['REQUEST_METHOD']??'')==='POST'){
   foreach($migrationFiles as $migrationFile){
    foreach(MigrationSql::statements(sql($migrationFile)) as $statement)$db->exec($statement);
   }
+  PrizePublicationMigration::ensure($db);
   // Previous V5Q installs already have claim_media: add camera identity safely once.
   $cameraColumn=$db->query("SHOW COLUMNS FROM claim_media LIKE 'source_label'")->fetch();
   if(!$cameraColumn)$db->exec("ALTER TABLE claim_media ADD COLUMN source_label VARCHAR(120) NOT NULL DEFAULT '' AFTER title");
@@ -40,7 +42,7 @@ if(($_SERVER['REQUEST_METHOD']??'')==='POST'){
   if(!$db->query("SHOW COLUMNS FROM controller_proof_state LIKE 'capture_phase'")->fetch())
     $db->exec("ALTER TABLE controller_proof_state ADD COLUMN capture_phase VARCHAR(12) NOT NULL DEFAULT 'live' AFTER consent_ack");
   audit($db,'platform.upgrade-v5q3');
-  $message='Database upgrade complete, including multiple tiered prize packages and Video Studio layers. Refresh the editor and phone.';
+  $message='Database upgrade complete. Prize packages support Draft and Published on both Cloud and HomeServer. Refresh the editor and phone.';
  }catch(Throwable $e){$failed=true;$message='Upgrade did not complete: '.$e->getMessage();error_log('Lucky migration: '.$e->getMessage());}
 }
 shellStart('Upgrade Platform');

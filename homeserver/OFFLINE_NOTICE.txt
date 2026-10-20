@@ -1,4 +1,4 @@
-LUCKY GAME HUB HOMESERVER (V5Q.20) — WINDOWS OFFLINE PREVIEW
+LUCKY GAME HUB HOMESERVER (V5Q.21) — WINDOWS OFFLINE PREVIEW
 
 This installer contains the complete application and locally executed components:
 PHP, MariaDB, Caddy and FFmpeg. After installation, the product requires

@@ -121,6 +121,9 @@ date.timezone=UTC
   & $php -c $phpIni (Join-Path $app 'homeserver\initialize.php')
   if($LASTEXITCODE -ne 0){throw "Failed to initialize local game database ($LASTEXITCODE)."}
  }
+ # Keep fresh and upgraded offline installs on the same schema as Cloud.
+ & $php -c $phpIni (Join-Path $app 'homeserver\migrate.php')
+ if($LASTEXITCODE -ne 0){throw "Local HomeServer database migration failed ($LASTEXITCODE)."}
  $env:LUCKY_DB_ROOT_PASSWORD=''
  $env:LUCKY_DB_APP_PASSWORD=''
  $env:LUCKY_BOOTSTRAP=''

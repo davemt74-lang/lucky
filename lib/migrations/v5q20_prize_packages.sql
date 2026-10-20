@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS prize_packages (
  name VARCHAR(100) NOT NULL,
  config_json LONGTEXT NOT NULL,
  enabled TINYINT(1) NOT NULL DEFAULT 1,
+ publication_status VARCHAR(12) NOT NULL DEFAULT 'published',
  player_selectable TINYINT(1) NOT NULL DEFAULT 1,
  version INT UNSIGNED NOT NULL DEFAULT 1,
  sort_order INT UNSIGNED NOT NULL DEFAULT 0,

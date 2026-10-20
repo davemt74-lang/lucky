@@ -42,11 +42,11 @@ final class PrizePackages {
  }
  public static function rows(PDO $db,string $game='spin-wheel',bool $admin=false):array {
   self::requireReady($db);
-  $q=$db->prepare('SELECT id,name,enabled,player_selectable,version,config_json FROM prize_packages WHERE game_id=?'.($admin?'': ' AND enabled=1 AND player_selectable=1'). ' ORDER BY sort_order ASC,id ASC');
+  $q=$db->prepare('SELECT id,name,enabled,player_selectable,publication_status,version,config_json FROM prize_packages WHERE game_id=?'.($admin?'': " AND enabled=1 AND player_selectable=1 AND publication_status='published'"). ' ORDER BY sort_order ASC,id ASC');
   $q->execute([$game]);$rows=[];
   foreach($q as $r){
    $item=['id'=>$r['id'],'name'=>$r['name'],'enabled'=>(bool)$r['enabled'],
-    'playerSelectable'=>(bool)$r['player_selectable'],'version'=>(int)$r['version']];
+    'playerSelectable'=>(bool)$r['player_selectable'],'publicationStatus'=>$r['publication_status'],'version'=>(int)$r['version']];
    if($admin)$item['config']=json_decode($r['config_json'],true,512,JSON_THROW_ON_ERROR);
    $rows[]=$item;
   }
@@ -60,9 +60,9 @@ final class PrizePackages {
  public static function currentConfig(PDO $db,string $game='spin-wheel'):array {
   self::requireReady($db);
   $id=self::chosen($db,$game);
-  $q=$db->prepare('SELECT name,config_json,enabled FROM prize_packages WHERE id=? AND game_id=?');
+  $q=$db->prepare('SELECT name,config_json,enabled,publication_status FROM prize_packages WHERE id=? AND game_id=?');
   $q->execute([$id,$game]);$r=$q->fetch();
-  if(!$r||(int)$r['enabled']!==1)throw new DomainException('Select an enabled prize package before starting.',409);
+  if(!$r||(int)$r['enabled']!==1||$r['publication_status']!=='published')throw new DomainException('Publish and enable a prize package before starting.',409);
   return ['id'=>$id,'name'=>$r['name'],'config'=>GameEngine::validateConfig(json_decode($r['config_json'],true,512,JSON_THROW_ON_ERROR))];
  }
  public static function read(PDO $db,bool $admin=false):array {
@@ -82,9 +82,9 @@ final class PrizePackages {
  }
  public static function select(PDO $db,string $id,bool $player=false):void {
   self::requireReady($db);self::lockGame($db);self::noLive($db);self::id($id);
-  $q=$db->prepare('SELECT enabled,player_selectable FROM prize_packages WHERE id=? AND game_id=? FOR UPDATE');
+  $q=$db->prepare('SELECT enabled,player_selectable,publication_status FROM prize_packages WHERE id=? AND game_id=? FOR UPDATE');
   $q->execute([$id,'spin-wheel']);$r=$q->fetch();
-  if(!$r||(int)$r['enabled']!==1||($player&&(int)$r['player_selectable']!==1))
+  if(!$r||(int)$r['enabled']!==1||$r['publication_status']!=='published'||($player&&(int)$r['player_selectable']!==1))
    throw new DomainException('This prize package is not available for selection.',403);
   $q=$db->prepare('UPDATE prize_package_selection SET package_id=? WHERE game_id=?');$q->execute([$id,'spin-wheel']);
  }
@@ -100,14 +100,14 @@ final class PrizePackages {
   if($raw===false)throw new DomainException('Package to duplicate is unavailable.',404);
   $config=GameEngine::validateConfig(json_decode($raw,true,512,JSON_THROW_ON_ERROR));
   $id=bin2hex(random_bytes(16));
-  $q=$db->prepare("INSERT INTO prize_packages (id,game_id,name,config_json,enabled,player_selectable,sort_order) VALUES (?,'spin-wheel',?,?,1,1,?)");
+  $q=$db->prepare("INSERT INTO prize_packages (id,game_id,name,config_json,enabled,player_selectable,publication_status,sort_order) VALUES (?,'spin-wheel',?,?,1,1,'draft',?)");
   $q->execute([$id,$name,json_encode($config,JSON_THROW_ON_ERROR),$count]);
-  return ['id'=>$id,'name'=>$name,'enabled'=>true,'playerSelectable'=>true,'version'=>1,'config'=>$config];
+  return ['id'=>$id,'name'=>$name,'enabled'=>true,'playerSelectable'=>true,'publicationStatus'=>'draft','version'=>1,'config'=>$config];
  }
  public static function save(PDO $db,string $id,int $version,string $name,array $cfg,bool $enabled,bool $player):array {
   self::requireReady($db);self::lockGame($db);self::id($id);$name=self::label($name);
   $cfg=GameEngine::validateConfig($cfg);
-  $q=$db->prepare("SELECT version,enabled FROM prize_packages WHERE id=? AND game_id='spin-wheel' FOR UPDATE");
+  $q=$db->prepare("SELECT version,enabled,publication_status FROM prize_packages WHERE id=? AND game_id='spin-wheel' FOR UPDATE");
   $q->execute([$id]);$r=$q->fetch();
   if(!$r)throw new DomainException('Prize package not found.',404);
   if((int)$r['version']!==$version)throw new DomainException('This package was changed elsewhere. Reload before saving.',409);
@@ -115,7 +115,25 @@ final class PrizePackages {
   $q=$db->prepare("UPDATE prize_packages SET name=?,config_json=?,enabled=?,player_selectable=?,version=version+1 WHERE id=? AND game_id='spin-wheel' AND version=?");
   $q->execute([$name,json_encode($cfg,JSON_THROW_ON_ERROR),(int)$enabled,(int)$player,$id,$version]);
   if($q->rowCount()!==1)throw new DomainException('Prize package update conflict.',409);
-  return ['id'=>$id,'name'=>$name,'enabled'=>$enabled,'playerSelectable'=>$player,'version'=>$version+1,'config'=>$cfg];
+  return ['id'=>$id,'name'=>$name,'enabled'=>$enabled,'playerSelectable'=>$player,'publicationStatus'=>$r['publication_status'],'version'=>$version+1,'config'=>$cfg];
+ }
+ public static function publish(PDO $db,string $id,int $version,bool $published):array {
+  self::requireReady($db);self::lockGame($db);self::id($id);
+  $q=$db->prepare("SELECT name,config_json,enabled,publication_status,version FROM prize_packages WHERE id=? AND game_id='spin-wheel' FOR UPDATE");
+  $q->execute([$id]);$r=$q->fetch();
+  if(!$r)throw new DomainException('Prize package not found.',404);
+  if((int)$r['version']!==$version)throw new DomainException('This package changed. Reload before changing publication status.',409);
+  $next=$published?'published':'draft';
+  if($r['publication_status']===$next)throw new DomainException('The package already has this publication status.',409);
+  if(!$published&&self::chosen($db)===$id)throw new DomainException('Choose a different published package before moving this one to Draft.',409);
+  if($published){
+   $cfg=GameEngine::validateConfig(json_decode($r['config_json'],true,512,JSON_THROW_ON_ERROR));
+   if(count($cfg['pools']['tier1']['prizes'])===0)throw new DomainException('Add at least one Tier 1 prize before publishing.',422);
+  }
+  $q=$db->prepare("UPDATE prize_packages SET publication_status=?,version=version+1 WHERE id=? AND game_id='spin-wheel' AND version=?");
+  $q->execute([$next,$id,$version]);
+  if($q->rowCount()!==1)throw new DomainException('Publication status conflict.',409);
+  return ['id'=>$id,'publicationStatus'=>$next,'version'=>$version+1];
  }
  public static function delete(PDO $db,string $id):void {
   self::requireReady($db);self::lockGame($db);self::id($id);

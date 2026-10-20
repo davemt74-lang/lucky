@@ -28,7 +28,7 @@ jobs:
         shell: pwsh
         run: |
           $release=Join-Path $env:RUNNER_TEMP 'lucky-homeserver-output'
-          $exe=Join-Path $release 'Lucky_Game_Hub_HomeServer_V5Q20_Setup.exe'
+          $exe=Join-Path $release 'Lucky_Game_Hub_HomeServer_V5Q21_Setup.exe'
           if(!(Test-Path $exe)){throw 'EXE missing'}
           $hash=(Get-FileHash $exe -Algorithm SHA256).Hash.ToLowerInvariant()
           $expected=(Get-Content (Join-Path $release 'SHA256SUMS.txt') -Raw).Split(' ')[0].Trim()
@@ -40,12 +40,27 @@ jobs:
         shell: pwsh
         run: |
           $release=Join-Path $env:RUNNER_TEMP 'lucky-homeserver-output'
-          $exe=Join-Path $release 'Lucky_Game_Hub_HomeServer_V5Q20_Setup.exe'
+          $exe=Join-Path $release 'Lucky_Game_Hub_HomeServer_V5Q21_Setup.exe'
           $installation=Join-Path $env:RUNNER_TEMP 'LuckyHomeServerInstalled'
           $proc=Start-Process -FilePath $exe -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/TASKS=""',"/DIR=$installation") -Wait -PassThru
           if($proc.ExitCode -ne 0){throw "EXE installation failed: $($proc.ExitCode)"}
           $start=Join-Path $installation 'homeserver\start.ps1'
           if(!(Test-Path $start)){throw 'Installer did not extract launcher'}
+          # Cloud ZIP and Windows EXE originate from identical tracked application sources.
+          $application=Join-Path $installation 'app'
+          $source=(Get-Location).Path
+          $count=0
+          foreach($file in (& git ls-files)){
+            if($file -match '^(tests/|\.github/|dist/|\.git/|homeserver/installer\.iss$)'){continue}
+            $from=Join-Path $source $file
+            $to=Join-Path $application $file
+            if(!(Test-Path $to)){throw "HomeServer missing application file: $file"}
+            if((Get-FileHash $from -Algorithm SHA256).Hash -ne (Get-FileHash $to -Algorithm SHA256).Hash){
+              throw "HomeServer application differs from Cloud source: $file"
+            }
+            $count++
+          }
+          Write-Host "CLOUD_HOMESERVER_APPLICATION_PARITY_PASS ($count files)"
           try {
             $out=& $start -Smoke -NoBrowser 2>&1 | Out-String
             Write-Host $out
@@ -90,9 +105,9 @@ jobs:
       - name: Upload Windows installer and verification manifest
         uses: actions/upload-artifact@v4
         with:
-          name: Lucky_Game_Hub_HomeServer_V5Q20_Windows_Preview
+          name: Lucky_Game_Hub_HomeServer_V5Q21_Windows_Preview
           path: |
-            ${{ runner.temp }}/lucky-homeserver-output/Lucky_Game_Hub_HomeServer_V5Q20_Setup.exe
+            ${{ runner.temp }}/lucky-homeserver-output/Lucky_Game_Hub_HomeServer_V5Q21_Setup.exe
             ${{ runner.temp }}/lucky-homeserver-output/SHA256SUMS.txt
             ${{ runner.temp }}/lucky-homeserver-output/RUNTIME_MANIFEST.json
           if-no-files-found: error

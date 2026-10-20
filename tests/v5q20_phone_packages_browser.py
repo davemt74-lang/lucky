@@ -7,9 +7,10 @@ ROOT=Path(__file__).resolve().parents[1]
 PAIR='a'*32;SECRET='b'*64
 MOCK="""<script>
 window.__packages=[
- {id:'c'.repeat(32),name:'Original Prizes',enabled:true,playerSelectable:true},
- {id:'d'.repeat(32),name:'Game Night',enabled:true,playerSelectable:true},
- {id:'e'.repeat(32),name:'Admin Private',enabled:true,playerSelectable:false}
+ {id:'c'.repeat(32),name:'Original Prizes',enabled:true,playerSelectable:true,publicationStatus:'published'},
+ {id:'d'.repeat(32),name:'Game Night',enabled:true,playerSelectable:true,publicationStatus:'published'},
+ {id:'e'.repeat(32),name:'Admin Private',enabled:true,playerSelectable:false,publicationStatus:'published'},
+ {id:'f'.repeat(32),name:'Unpublished Draft',enabled:true,playerSelectable:true,publicationStatus:'draft'}
 ];
 window.__selected='c'.repeat(32);
 window.__requests=[];
@@ -25,7 +26,7 @@ window.fetch=async(url,opts={})=>{
  if(action==='select_package'){
   const body=JSON.parse(opts.body);__requests.push({action,body});
   if(__game.status==='active')return new Response(JSON.stringify({ok:false,error:'Game running'}),{status:409});
-  if(!__packages.some(p=>p.id===body.package&&p.enabled&&p.playerSelectable))
+  if(!__packages.some(p=>p.id===body.package&&p.enabled&&p.playerSelectable&&p.publicationStatus==='published'))
    return new Response(JSON.stringify({ok:false,error:'Package not allowed'}),{status:403});
   __selected=body.package;
   return new Response(JSON.stringify({ok:true,selected:__selected}));
@@ -51,7 +52,7 @@ async def main():
   await page.wait_for_function("document.querySelector('#phone-controls').hidden===false")
   await page.wait_for_function("document.querySelector('#phone-package-picker').hidden===false")
   ck('package chooser visible before game',await page.locator('#phone-package-picker').is_visible())
-  ck('phone lists only public-enabled prize packages',await page.locator('#phone-package-select option').count()==2)
+  ck('phone shows published public packages, never drafts',await page.locator('#phone-package-select option').count()==2)
   ck('host preference synchronized to phone',await page.locator('#phone-package-select').input_value()=='c'*32)
   await page.locator('#phone-package-select').select_option('d'*32)
   await page.wait_for_function("__selected==='d'.repeat(32)")

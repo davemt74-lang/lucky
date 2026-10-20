@@ -11,20 +11,20 @@ const existingFetch=window.fetch;
 const ORIGINAL='a'.repeat(32),NEW='b'.repeat(32);
 window.packageCalls=[];
 window.packageItems=[
- {id:ORIGINAL,name:'Original Prizes',enabled:true,playerSelectable:true,version:1,config:structuredClone(cfg.config)},
- {id:NEW,name:'Family Night',enabled:true,playerSelectable:true,version:1,config:structuredClone(cfg.config)}
+ {id:ORIGINAL,name:'Original Prizes',enabled:true,playerSelectable:true,publicationStatus:'published',version:1,config:structuredClone(cfg.config)},
+ {id:NEW,name:'Family Night',enabled:true,playerSelectable:true,publicationStatus:'published',version:1,config:structuredClone(cfg.config)}
 ];
 packageItems[1].config.pools.tier1.prizes[0].name='Family Prize';
 window.packageSelected=ORIGINAL;
 window.fetch=async(url,opts={})=>{
  const action=new URL(String(url),'https://example.test/').searchParams.get('action');
  if(action==='prize_packages')return new Response(JSON.stringify({ok:true,selected:packageSelected,packages:packageItems}));
- if(['package_save','package_create','package_select','package_delete'].includes(action)){
+ if(['package_save','package_create','package_select','package_delete','package_publish'].includes(action)){
   const data=JSON.parse(opts.body||'{}');packageCalls.push({action,data});
   if(action==='package_create'){
    const next='c'.repeat(32);
    const selected=packageItems.find(p=>p.id===packageSelected);
-   packageItems.push({id:next,name:data.name,enabled:true,playerSelectable:true,version:1,config:structuredClone(selected.config)});
+   packageItems.push({id:next,name:data.name,enabled:true,playerSelectable:true,publicationStatus:'draft',version:1,config:structuredClone(selected.config)});
    return new Response(JSON.stringify({ok:true,package:packageItems.at(-1)}));
   }
   if(action==='package_save'){
@@ -32,6 +32,12 @@ window.fetch=async(url,opts={})=>{
    if(!p||p.version!==data.version)return new Response(JSON.stringify({ok:false,error:'Conflict'}),{status:409});
    Object.assign(p,{name:data.name,config:data.config,enabled:data.enabled,playerSelectable:data.playerSelectable,version:p.version+1});
    return new Response(JSON.stringify({ok:true,package:p}));
+  }
+  if(action==='package_publish'){
+   const p=packageItems.find(x=>x.id===data.id);
+   if(p.version!==data.version)return new Response(JSON.stringify({ok:false,error:'Conflict'}),{status:409});
+   p.publicationStatus=data.published?'published':'draft';p.version++;
+   return new Response(JSON.stringify({ok:true,package:{id:p.id,publicationStatus:p.publicationStatus,version:p.version}}));
   }
   if(action==='package_select'){packageSelected=data.id;return new Response(JSON.stringify({ok:true,package:{selected:packageSelected}}));}
   packageItems=packageItems.filter(p=>p.id!==data.id);
@@ -68,9 +74,15 @@ async def main():
    await page.locator('#add-package').click()
    await page.wait_for_function("document.querySelectorAll('#prize-package-tabs button').length===3")
    check(f'{width}: plus creates new complete tier layer',await page.locator('#package-name').input_value()=='Game Night Special' and await page.locator('#prize-items input[aria-label="Prize name"]').count()==1)
+   check(f'{width}: new package starts Draft',await page.locator('#package-publication-status').inner_text()=='Draft — not available to players')
+   check(f'{width}: cannot select Draft for game',await page.locator('#package-activate').is_disabled())
    await page.locator('#package-player-choice').uncheck()
    await page.locator('#save-prizes').click()
    await page.wait_for_function("packageItems.find(p=>p.id==='c'.repeat(32)).playerSelectable===false")
+   await page.locator('#package-publish').click()
+   await page.wait_for_function("packageItems.find(p=>p.id==='c'.repeat(32)).publicationStatus==='published'")
+   await page.wait_for_function("document.querySelector('#package-publication-status')?.dataset.status==='published'")
+   check(f'{width}: Publish changes the package status',await page.locator('#package-publication-status').inner_text()=='Published — available if enabled')
    check(f'{width}: player permissions saved with package',await page.evaluate("packageItems.find(p=>p.id==='c'.repeat(32)).playerSelectable===false"))
    await page.locator('#package-activate').click()
    await page.wait_for_function("packageSelected==='c'.repeat(32)")

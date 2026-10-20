@@ -98,7 +98,7 @@
   const picker=$('phone-package-picker'),select=$('phone-package-select');
   if(picker&&select){
    const canChoose=['ready','saved','ended'].includes(current.status);
-   const options=(current.packages||[]).filter(p=>p.enabled&&p.playerSelectable);
+   const options=(current.packages||[]).filter(p=>p.enabled&&p.playerSelectable&&(p.publicationStatus||'published')==='published');
    picker.hidden=!canChoose||options.length<2||!!current.offer;
    const signature=JSON.stringify(options.map(p=>[p.id,p.name]));
    if(select.dataset.signature!==signature){
