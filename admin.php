@@ -52,6 +52,24 @@ shellStart('Admin Studio','admin','admin-studio-page');
   <div class="platform-control-row"><button class="btn btn-primary" type="submit">Save game profile</button><span id="catalog-save-status" class="mini-label" role="status" aria-live="polite"></span></div>
  </form>
  </div>
+
+ <section class="game-update-connection" aria-label="Cloud game updates">
+  <div class="card-title-row"><div><p class="mini-label">OPTIONAL · OFFLINE BY DEFAULT</p><h3>Cloud game updates</h3></div><span id="game-update-connection-status" class="mini-label">Not connected</span></div>
+  <p>Connect to a publisher's signed HTTPS update feed to check for new game releases. HomeServer gameplay, player data, recordings and database stay local. The connection never runs during startup or gameplay.</p>
+  <form id="game-update-connect-form" class="platform-form">
+   <label>Publisher update feed (HTTPS)<input id="game-update-url" type="url" maxlength="2048" placeholder="https://publisher.example/game-updates.json" required></label>
+   <label>Publisher verification public key (PEM)<textarea id="game-update-public-key" rows="4" required placeholder="-----BEGIN PUBLIC KEY-----"></textarea></label>
+   <label>Optional cloud access token <input id="game-update-token" type="password" autocomplete="new-password" maxlength="1024" placeholder="Leave blank for public feeds"></label>
+   <div class="platform-control-row">
+    <button class="btn btn-primary" type="submit">Connect update channel</button>
+    <button class="btn btn-outline" type="button" id="game-update-check">Check for updates</button>
+    <button class="btn btn-outline" type="button" id="game-update-disconnect">Disconnect</button>
+   </div>
+  </form>
+  <p id="game-update-message" class="voice-status" role="status" aria-live="polite"></p>
+  <div id="game-update-releases" class="game-update-releases" aria-live="polite"></div>
+  <p class="mini-label">Only publisher-signed release metadata is displayed. Automatic downloads, package installation and code execution are not enabled in this section; those require separate installer certification.</p>
+ </section>
 </section>
 <section id="tab-prizes" class="surface platform-admin-panel"><div class="card-title-row"><div><p class="mini-label">GAME 1 · SERVER PRIZES</p><h2>Prize packages</h2></div><button id="save-prizes" type="button" class="btn btn-primary">Save package changes</button></div><p>Use + to add a Draft package. Save its tiers, odds and awards, then Publish it to make it eligible for the next game. Only Published and enabled packages can be selected. Games already started retain their original prizes.</p>
 <div class="prize-package-header"><div id="prize-package-tabs" class="prize-package-tabs" role="tablist" aria-label="Prize packages"></div><button type="button" id="add-package" class="btn btn-primary prize-package-add" aria-label="Create prize package" title="New prize package">+</button></div>

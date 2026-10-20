@@ -29,6 +29,7 @@ jobs:
           php tests/engine.php
           php tests/v5q22_phone_controller_contract.php
           php tests/v5q22b_game_catalog.php
+          php tests/v5q22c_cloud_updates.php
           php tests/v5q16_session_lifecycle.php
           php tests/v5q18_foundation.php
           php tests/spin_reveal.php
