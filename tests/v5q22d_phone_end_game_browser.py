@@ -28,6 +28,8 @@ window.Lucky={
        odds:{bonusChance:0}},viewerToken:'c'.repeat(48)};
   // JSON-like independent HTTP payloads, never shared JS state objects.
   const copy=JSON.parse(JSON.stringify(game));
+  // Simulate last-session prioritization of older saved games after the phone ends this game.
+  if(action==='last'&&__state==='ended')return {data:{view:{id:'f'.repeat(32),status:'saved',version:9},session:{claims:[],pools:{tier1:{prizes:[]},tier2:{prizes:[]},bonus:{prizes:[]}},odds:{bonusChance:0}}}};
   if(action==='last')return {data:copy};
   if(action==='session')return copy;
   if(action==='end'){
