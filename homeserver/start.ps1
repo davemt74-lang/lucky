@@ -135,7 +135,7 @@ date.timezone=UTC
  $privateRoutes='@private path /storage/* /lib/* /homeserver/* /bin/* /tests/* /docs/* /.github/* /first-admin.php'
  $common="root * `"$webRoot`"`n  @private path /storage/* /lib/* /homeserver/* /bin/* /tests/* /docs/* /.github/*`n  respond @private 403`n  php_fastcgi 127.0.0.1:9017`n  file_server"
  $caddyfile=Join-Path $data 'Caddyfile'
- $spec="{`n  admin off`n  auto_https disable_redirects`n}`nhttp://127.0.0.1:8833 {`n  $common`n}`n"
+ $spec="{`n  admin off`n  auto_https disable_redirects`n  skip_install_trust`n}`nhttp://127.0.0.1:8833 {`n  $common`n}`n"
  if($ip){$spec+="https://$($ip):8843 {`n  tls internal`n  @setup path /first-admin.php`n  respond @setup 403`n  $common`n}`n"}
  [IO.File]::WriteAllText($caddyfile,$spec,(New-Object System.Text.UTF8Encoding($false)))
  $caddyProc=Launch $caddy @('run','--config',$caddyfile,'--adapter','caddyfile') 'Caddy HTTPS'
