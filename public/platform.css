@@ -412,3 +412,9 @@ body.game-fullwidth #win-dialog{display:none!important}
 #phone-proof-phase{padding:9px 3px;color:#ffda99;font-weight:800;font-size:15px}
 .phone-proof-controls button[data-phone="proof-record"]:disabled{opacity:.72;cursor:default}
 @media(max-width:700px){.proof-editor-page .proof-video-stage #capture-review .review-tile video{max-height:46vh}}
+
+/* Advanced camera naming appears only while settings are explicitly expanded. */
+.proof-editor-page .proof-video-stage:has(#proof-camera-settings[open]) #camera-grid .camera-source>.camera-source-title{display:flex!important}
+.proof-editor-page .proof-video-stage:has(#proof-camera-settings[open]) #camera-grid .camera-source>input[data-camera-name]{display:block!important}
+.proof-editor-page .proof-video-stage:has(#proof-camera-settings[open]) #camera-grid .camera-source>.mini-label{display:block!important}
+.proof-editor-page .proof-video-stage:has(#proof-camera-settings[open]) #camera-grid .camera-source>.camera-source-actions{display:flex!important}
