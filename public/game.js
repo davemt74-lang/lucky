@@ -38,7 +38,7 @@
   const sig=JSON.stringify(prizePackageOptions.map(p=>[p.id,p.name,p.enabled]));
   if(input.dataset.signature!==sig){
    input.dataset.signature=sig;input.replaceChildren();
-   for(const p of prizePackageOptions)if(p.enabled)input.add(new Option(p.name,p.id));
+   for(const p of prizePackageOptions)if(p.enabled&&(p.publicationStatus||'published')==='published')input.add(new Option(p.name,p.id));
   }
   if(chosenPackage&&[...input.options].some(o=>o.value===chosenPackage))input.value=chosenPackage;
   input.disabled=busy||live||input.options.length<2;
