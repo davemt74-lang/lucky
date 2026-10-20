@@ -22,7 +22,7 @@ try{
  $root=$base.'/installed';$zipFile=$base.'/game.zip';
  // Valid 1x1 opaque pixel PNG; audio/video/font bodies are structurally
  // checked by the container tests and MIME rules, not media decoders.
- $picture=base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL/nwAAAABJRU5ErkJggg==',true);
+ $picture=base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC',true);
  $wave="RIFF".pack('V',36)."WAVEfmt ".pack('VvvVVvv',16,1,1,8000,8000,1,8)."data".pack('V',0);
  $video="\x1a\x45\xdf\xa3webm-ci-video";
  $font="wOF2sdk-ci-font-fixture";
