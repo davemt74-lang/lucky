@@ -105,6 +105,48 @@ final class GamePackageActivation {
  public static function all(?string $root=null):array {
   return self::inspect($root)['active'];
  }
+ /**
+  * Explicit owner recovery for a corrupt activation pointer. Preserve the
+  * broken record as evidence; never silently select a different game release.
+  * Call only behind the same live-session DB guard as normal activation.
+  */
+ public static function recover(string $id,string $version,bool $ownerApproved,?string $root=null):array {
+  $id=GameCatalog::slug($id);$version=GamePackageInstaller::version($version);
+  if($id==='spin-wheel')throw new DomainException('Built-in games cannot be recovered through package uploads.',409);
+  if(!$ownerApproved)throw new DomainException('Owner approval required.',403);
+  $base=GamePackageInstaller::base($root);self::mkdirSafe($base);
+  $lock=fopen($base.'/.lock','c');
+  if(!$lock||!flock($lock,LOCK_EX))throw new RuntimeException('Cannot lock game recovery.');
+  try {
+   $directory=$base.'/'.$id;self::mkdirSafe($directory);
+   $file=$directory.'/active.json';
+   if(!is_file($file)||is_link($file))throw new DomainException('No recoverable activation record exists.',409);
+   try {
+    self::active($id,$root);
+   } catch(Throwable $damaged) {
+    // Recovery can only target an already verified, staged package receipt.
+    $receipt=self::receipt($id,$version,$root);
+    $backup=$directory.'/activation-damaged-'.bin2hex(random_bytes(12)).'.json';
+    if(!rename($file,$backup))throw new RuntimeException('Cannot preserve damaged activation record.');
+    $row=['id'=>$id,'version'=>$version,'previous'=>null,
+      'epoch'=>bin2hex(random_bytes(12)),'activatedAt'=>gmdate('Y-m-d\\TH:i:s\\Z'),
+      'recovered'=>true];
+    $tmp=$directory.'/.recover-'.bin2hex(random_bytes(12));
+    try {
+     if(file_put_contents($tmp,json_encode($row,JSON_PRETTY_PRINT|JSON_THROW_ON_ERROR),LOCK_EX)===false)
+      throw new RuntimeException('Cannot write recovered activation.');
+     @chmod($tmp,0600);
+     if(!rename($tmp,$file))throw new RuntimeException('Cannot publish recovered activation.');
+    } catch(Throwable $e){
+     @unlink($tmp);
+     if(!file_exists($file))rename($backup,$file);
+     throw $e;
+    }
+    return ['game'=>$id,'version'=>$version,'recovered'=>true,'phone'=>$receipt['phone']!==null];
+   }
+   throw new DomainException('Game activation is healthy; use normal version switching.',409);
+  }finally{flock($lock,LOCK_UN);fclose($lock);}
+ }
  /** Game packages are readable only via explicitly published asset routes. */
  public static function file(string $id,string $version,string $path,?string $root=null,bool $sessionPinned=false):array {
   $act=self::active($id,$root);
