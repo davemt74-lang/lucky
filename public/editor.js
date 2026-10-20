@@ -4,7 +4,7 @@
  let source=[],clips=[],chosen=null,session='',playToken=0,previewMedia=null,previewTimer=0,dirty=false,mediaFilter='all',cameraSession='',cameraClaim='';
  let inspectorOpen=false,clipMenuFor=null,recorder=null,recordStream=null,recordBlob=null,recordUrl='',recordTarget=null,overlayPlayers=[];
  let layers={titles:[],background:null},selectedTitle='',availableSongs=[],savedTemplates=[];
- const inform=(s,bad=false)=>{const n=$('editor-feedback');n.textContent=s;n.classList.toggle('platform-error',bad);};
+ const inform=(s,bad=false)=>{for(const id of ['editor-feedback','render-feedback']){const n=$(id);if(!n)continue;n.textContent=s;n.classList.toggle('platform-error',bad);}};
  const secs=ms=>(Number(ms||0)/1000).toFixed(1),ms=s=>Math.round(Number(s||0)*1000);
  const fresh=()=>window.crypto?.randomUUID?.()||('seg-'+Math.random().toString(36).slice(2));
  const looks={none:'none',vivid:'contrast(1.16) saturate(1.35)',warm:'sepia(.18) saturate(1.16) contrast(1.06)',mono:'grayscale(1) contrast(1.12)',cinematic:'contrast(1.22) saturate(.78) brightness(.91)',vintage:'sepia(.48) saturate(.76) contrast(.92)'};
