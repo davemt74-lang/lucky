@@ -98,3 +98,63 @@ body.game-show-mode .host-compact-top{display:none}
 @media(max-width:600px){.studio-camera-panel{padding:.75rem}.studio-camera-controls label{width:100%}}
 /* Passive feedback cannot block export and timeline buttons on compact screens. */
 .studio-feedback{pointer-events:none}
+
+/* V5Q.15H: full-frame video editor with camera capture on proof.php only. */
+body.editor-workspace .media-editor-studio{
+ grid-template-rows:54px minmax(0,1fr) minmax(180px,28vh) minmax(28px,auto);
+}
+body.editor-workspace .studio-body{
+ grid-template-columns:minmax(170px,.72fr) minmax(420px,3.6fr) minmax(210px,.85fr);
+ min-height:0
+}
+body.editor-workspace .studio-monitor-panel{min-height:0;overflow:hidden}
+body.editor-workspace .media-preview.studio-monitor{
+ display:flex;align-items:center;justify-content:center;min-height:0;min-width:0;
+ width:calc(100% - 16px);flex:1 1 auto;max-height:none;aspect-ratio:auto;
+ margin:8px;overflow:hidden;background:#000;
+}
+body.editor-workspace .studio-monitor video,
+body.editor-workspace .studio-monitor img{display:block;width:100%;height:100%;
+ max-width:100%;max-height:100%;object-fit:contain;object-position:center}
+body.editor-workspace .studio-monitor-tools{display:flex;align-items:center;gap:10px}
+body.editor-workspace #editor-fullscreen{font-size:10px;padding:6px 8px}
+body.editor-workspace .studio-monitor:fullscreen{
+ width:100%;height:100%;max-width:none;max-height:none;margin:0;border:0;border-radius:0;background:#000
+}
+body.editor-workspace .studio-monitor:fullscreen video,
+body.editor-workspace .studio-monitor:fullscreen img{object-fit:contain;width:100%;height:100%}
+body.editor-workspace .studio-topbar .account-menu{margin-left:6px;flex:none}
+body.editor-workspace .studio-topbar .account-name{max-width:85px}
+body.editor-workspace .studio-render-dialog{
+ box-sizing:border-box;position:fixed;inset:0;margin:auto;
+ width:min(660px,calc(100vw - 28px));max-width:660px;max-height:min(88dvh,760px);
+ overflow:auto;padding:22px;background:#111f34;border:1px solid #6b86a8;
+ color:#f3f6fc;border-radius:17px;box-shadow:0 20px 90px #000b;z-index:100
+}
+body.editor-workspace .studio-render-dialog::backdrop{background:#030a13d9;backdrop-filter:blur(3px)}
+body.editor-workspace .studio-render-dialog-head{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:12px}
+body.editor-workspace .studio-render-dialog-head h2{font-size:23px;margin:4px 0}
+body.editor-workspace .studio-render-note{font-size:13px;color:#b1c4df;margin:0 0 14px}
+body.editor-workspace .studio-render-dialog .studio-export.render-studio{
+ display:grid;grid-template-columns:1fr;padding:0;gap:12px;border:0;background:transparent
+}
+body.editor-workspace .studio-render-dialog .studio-export-head{font-size:13px}
+body.editor-workspace .studio-render-dialog .studio-export-head small{font-size:12px;max-width:none}
+body.editor-workspace .studio-render-dialog .render-options{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+body.editor-workspace .studio-render-dialog .render-options label{display:grid;gap:7px;font-size:12px}
+body.editor-workspace .studio-render-dialog .render-options select{padding:11px}
+body.editor-workspace .studio-render-dialog .render-options #render-queue{align-self:end}
+body.editor-workspace .studio-render-dialog .render-jobs{display:grid;gap:8px;max-height:230px;overflow:auto}
+body.editor-workspace .studio-json-export{margin-top:14px;padding-top:13px;border-top:1px solid #34455d}
+body.editor-workspace #editor-feedback{min-height:25px}
+@media(max-width:1100px){
+ body.editor-workspace .media-editor-studio{grid-template-rows:none}
+ body.editor-workspace .studio-body{grid-template-columns:minmax(175px,.75fr) minmax(320px,2fr)}
+ body.editor-workspace .studio-monitor-panel{height:450px;min-height:450px}
+}
+@media(max-width:650px){
+ body.editor-workspace .studio-monitor-panel{height:370px;min-height:370px}
+ body.editor-workspace .studio-render-dialog .render-options{grid-template-columns:1fr}
+ body.editor-workspace .studio-topbar .account-menu{margin-left:auto}
+ body.editor-workspace .studio-topbar .studio-exit{order:2}
+}
