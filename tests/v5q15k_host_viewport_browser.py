@@ -44,7 +44,18 @@ async def main():
    check(f'{width}x{height}: main menu right-aligned ahead of account',geom['nav']['right']<=geom['account']['right']+2)
    if width>=1061:
     check(f'{width}x{height}: no page vertical scroll',geom['bodyScroll']<=height+4)
-   await page.wait_for_function("document.querySelector('#display-game-status').textContent==='Active' && document.querySelector('#share-display').hidden===false",timeout=6000)
+   await page.wait_for_timeout(400)
+   diagnostic=await page.evaluate("""() => ({
+    gameStatus:document.querySelector('#game-state')?.textContent,
+    displayStatus:document.querySelector('#display-game-status')?.textContent,
+    viewerHidden:document.querySelector('#share-display')?.hidden,
+    viewerValue:document.querySelector('#viewer-link')?.value,
+    gameError:document.querySelector('#game-error')?.textContent,
+    state:window.__state,
+    hasLastApi:!!window.Lucky?.api
+   })""")
+   print('LIVE-DISPLAY DIAGNOSTIC',width,diagnostic,flush=True)
+   await page.wait_for_function("document.querySelector('#display-game-status').textContent==='Active' && document.querySelector('#share-display').hidden===false",timeout=3000)
    await page.locator('#host-tab-display').click()
    check(f'{width}x{height}: live display fourth tab opens',await page.locator('#host-panel-display').is_visible() and await page.locator('#host-panel-game').is_hidden())
    check(f'{width}x{height}: audience display link available',await page.locator('#share-display').is_visible() and 'display.php' in await page.locator('#viewer-link').input_value())
