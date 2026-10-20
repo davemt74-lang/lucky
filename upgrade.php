@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require __DIR__.'/lib/Layout.php';
+require_once __DIR__.'/lib/MigrationSql.php';
 if(!installed()){header('Location: install.php');exit;}
 if(!isAdmin()){header('Location: login.php');exit;}
 headerSecurity();
@@ -10,8 +11,19 @@ if(($_SERVER['REQUEST_METHOD']??'')==='POST'){
   if(!hash_equals(csrf(),(string)($_POST['csrf']??'')))throw new DomainException('Invalid security token.',403);
   $db=db();
   // Only a fixed bundled SQL migration, never arbitrary SQL submitted by a visitor.
-  $statements=array_filter(array_map('trim',explode(';',sql('lib/migrations/v5n.sql')."\n".sql('lib/migrations/v5p.sql')."\n".sql('lib/migrations/v5p_sync.sql')."\n".sql('lib/migrations/v5q_claim_media.sql')."\n".sql('lib/migrations/v5q3_renders.sql')."\n".sql('lib/migrations/v5q6_proof_revisions.sql')."\n".sql('lib/migrations/v5q13_capture_ui.sql')."\n".sql('lib/migrations/v5q15b_prize_decisions.sql'))));
-  foreach($statements as $statement)$db->exec($statement);
+  $migrationFiles=[
+   'lib/migrations/v5n.sql',
+   'lib/migrations/v5p.sql',
+   'lib/migrations/v5p_sync.sql',
+   'lib/migrations/v5q_claim_media.sql',
+   'lib/migrations/v5q3_renders.sql',
+   'lib/migrations/v5q6_proof_revisions.sql',
+   'lib/migrations/v5q13_capture_ui.sql',
+   'lib/migrations/v5q15b_prize_decisions.sql'
+  ];
+  foreach($migrationFiles as $migrationFile){
+   foreach(MigrationSql::statements(sql($migrationFile)) as $statement)$db->exec($statement);
+  }
   // Previous V5Q installs already have claim_media: add camera identity safely once.
   $cameraColumn=$db->query("SHOW COLUMNS FROM claim_media LIKE 'source_label'")->fetch();
   if(!$cameraColumn)$db->exec("ALTER TABLE claim_media ADD COLUMN source_label VARCHAR(120) NOT NULL DEFAULT '' AFTER title");
