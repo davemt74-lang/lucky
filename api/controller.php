@@ -59,7 +59,7 @@ try {
    success(['id'=>$newId,'controllerToken'=>$token,'status'=>'pending']);
   }
   $id=strval($in['id']??'');$token=(string)($_SERVER['HTTP_X_CONTROLLER_TOKEN']??'');
-  $p=ControllerPairing::authenticate($db,$id,$token,in_array($action,['command','select_package'],true));
+  $p=ControllerPairing::authenticate($db,$id,$token,in_array($action,['command','select_package','package_command'],true));
   $status=ControllerPairing::status($p);
   if(in_array($action,['package_status','package_command'],true)){
    $session=(string)($in['session']??'');$viewer=(string)($in['viewer']??'');
