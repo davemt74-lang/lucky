@@ -19,12 +19,16 @@ final class ControllerGame {
   // Keep the paired controller alive while disabling unsafe prize actions.
   $prizeReady=PrizeDecision::available($db);
   $row=self::latest($db);
-  if(!$row)return ['offer'=>null,'upgradeRequired'=>!$prizeReady,'id'=>null,'game'=>'spin-wheel','status'=>'ready','version'=>0,'spinCount'=>0,'claimedCount'=>0,'claimedCents'=>0,'remaining'=>0,'pendingBonus'=>false,'lastPrize'=>null,'spinning'=>false,'canStart'=>$prizeReady,'canSpin'=>false];
+  $choice=['selected'=>null,'packages'=>[]];
+  try{$choice=PrizePackages::read($db,false);}catch(DomainException $e){/* Older hosts need upgrade.php. */}
+  if(!$row)return ['packages'=>$choice['packages'],'selectedPackage'=>$choice['selected'],'offer'=>null,'upgradeRequired'=>!$prizeReady,'id'=>null,'game'=>'spin-wheel','status'=>'ready','version'=>0,'spinCount'=>0,'claimedCount'=>0,'claimedCents'=>0,'remaining'=>0,'pendingBonus'=>false,'lastPrize'=>null,'spinning'=>false,'canStart'=>$prizeReady,'canSpin'=>false];
   $state=stateFromRow($row);$view=GameRegistry::module($state['game'])->publicView($state);
   $last=$state['lastSpin']??null;$spinning=SpinReveal::pending($state);
   $claimed=$view['claims']??[];
   if($spinning&&($last['type']??null)==='award')array_pop($claimed);
   return [
+   'packages'=>$choice['packages'],'selectedPackage'=>$choice['selected'],
+   'package'=>$state['prizePackage']??null,
    'id'=>$view['id'],'game'=>$view['game'],'status'=>$view['status'],'version'=>$view['version'],
    'spinCount'=>$view['spinCount'],'claimedCount'=>count($claimed),'claimedCents'=>array_sum(array_column($claimed,'cents')),
    'remaining'=>count(array_filter($view['slots'],fn($s)=>!empty($s['tier']))),
@@ -53,14 +57,14 @@ final class ControllerGame {
   $row=self::current($db,true);
   if($command==='start'||(($command==='spin'||$command==='select')&&!$row)){
    if($row)throw new DomainException('A game is already running. Use Spin or Resume.',409);
-   $q=$db->prepare("SELECT config_json FROM game_settings WHERE game_id='spin-wheel'");$q->execute();$cfg=$q->fetchColumn();
-   if(!$cfg)throw new DomainException('Game settings unavailable.',409);
-   $state=GameRegistry::module('spin-wheel')->createSession(json_decode($cfg,true,512,JSON_THROW_ON_ERROR),bin2hex(random_bytes(16)));
+   $pkg=PrizePackages::currentConfig($db);
+   $state=GameRegistry::module('spin-wheel')->createSession($pkg['config'],bin2hex(random_bytes(16)));
+   $state['prizePackage']=['id'=>$pkg['id'],'name'=>$pkg['name']];
    $q=$db->prepare('INSERT INTO game_sessions(id,game_id,status,version,state_json,viewer_token) VALUES (?,?,?,?,?,?)');
    $q->execute([$state['id'],$state['game'],$state['status'],$state['version'],json_encode($state,JSON_THROW_ON_ERROR),token()]);
    // The real host owner must be present for TV-QR pairing and audit attribution.
    $q=$db->prepare('INSERT INTO audit_log(admin_id,event,session_id,details) VALUES (?,?,?,?)');
-   $q->execute([$hostAdminId,'session.start',$state['id'],json_encode(['pairId'=>$pairId,'source'=>'approved-phone'],JSON_THROW_ON_ERROR)]);
+   $q->execute([$hostAdminId,'session.start',$state['id'],json_encode(['pairId'=>$pairId,'source'=>'approved-phone','packageId'=>$pkg['id']],JSON_THROW_ON_ERROR)]);
    return ['applied'=>true,'effect'=>'started','sessionId'=>$state['id']];
   }
   if(!$row)throw new DomainException('Start a game first.',409);
