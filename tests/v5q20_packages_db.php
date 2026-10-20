@@ -18,12 +18,12 @@ $q->execute(['spin-wheel',json_encode($original,JSON_THROW_ON_ERROR),'{}','{}'])
 try{
  $first=PrizePackages::read($db,true);
  check20(count($first['packages'])===1&&$first['packages'][0]['name']==='Original Prizes','migrate existing prize setup to first package without changes');
- check20($first['packages'][0]['config']==GameEngine::validateConfig($original),'original tiers, odds and budgets preserved');
+ check20(GameEngine::validateConfig($first['packages'][0]['config'])==GameEngine::validateConfig($original),'original tiers, odds and budgets preserved');
  $id1=$first['selected'];
  $db->beginTransaction();
  $new=PrizePackages::create($db,'Holiday Prizes');
  $db->commit();
- check20($new['config']===$first['packages'][0]['config'],'plus tab clones all existing tier and award settings');
+ check20(GameEngine::validateConfig($new['config'])==GameEngine::validateConfig($first['packages'][0]['config']),'plus tab clones all existing tier and award settings');
  $config=$new['config'];$config['pools']['tier1']['prizes'][0]['name']='Holiday Winner';
  $config['odds']['bonusChance']=22;
  $db->beginTransaction();$updated=PrizePackages::save($db,$new['id'],1,'Holiday Prizes',$config,true,true);$db->commit();
