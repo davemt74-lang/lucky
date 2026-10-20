@@ -42,7 +42,7 @@ final class PrizePackages {
  }
  public static function rows(PDO $db,string $game='spin-wheel',bool $admin=false):array {
   self::requireReady($db);
-  $q=$db->prepare('SELECT id,name,enabled,player_selectable,publication_status,version,config_json FROM prize_packages WHERE game_id=?'.($admin?'': ' AND enabled=1 AND player_selectable=1 AND publication_status='published''). ' ORDER BY sort_order ASC,id ASC');
+  $q=$db->prepare('SELECT id,name,enabled,player_selectable,publication_status,version,config_json FROM prize_packages WHERE game_id=?'.($admin?'': " AND enabled=1 AND player_selectable=1 AND publication_status='published'"). ' ORDER BY sort_order ASC,id ASC');
   $q->execute([$game]);$rows=[];
   foreach($q as $r){
    $item=['id'=>$r['id'],'name'=>$r['name'],'enabled'=>(bool)$r['enabled'],
