@@ -50,7 +50,8 @@
   // The public TV view intentionally omits claim IDs. The signed-in session owns
   // the authoritative claim IDs required for proof capture and revision history.
   const actualClaims=data?.session?.claims||[];
-   const visibleClaims=(view?.spinPending&&view.lastSpin?.type==='award')?actualClaims.slice(0,-1):actualClaims;
+   const hidePending=!!(view?.lastSpin?.type==='award'&&(view.spinPending||currentOffer?.status!=='accepted'));
+   const visibleClaims=hidePending?actualClaims.slice(0,-1):actualClaims;
    const items=visibleClaims.slice().reverse();
   // Count the actual unclaimed prize values across all three configured tiers.
   // Pool budgets can include unused money and must not be treated as winnable prizes.
@@ -140,7 +141,7 @@
      await revealSpin(view.id,spin.spinCount);
      if(spin.type==='award'){
       const claim=data?.view?.claims?.[data.view.claims.length-1];
-      if(claim){L.beep('win');msg(`🎉 ${claim.name} claimed from your phone!`);
+      if(claim){L.beep('win');msg('Spin complete. Continue on your phone.');
        // The public view intentionally omits image/URL; prize details are still
        // available in the signed-in session snapshot.
        pollOffer();
@@ -159,17 +160,10 @@
   busy=true;render();
   try{const r=await L.api('start',{body:{game:'spin-wheel'}});data=r.data;if(new URL(location.href).searchParams.has('session'))history.replaceState(null,'','game.php?session='+encodeURIComponent(data.view.id));activeId=data.view.id;lastVersion=data.view.version;syncedSpin=0;proofStates={};updateProofStates();refreshThumbs(true);msg('Game started! Spin whenever you are ready.');L.beep('bonus');L.speak('Welcome to Spin the Wheel. Start spinning!');}
   catch(e){msg(e.message,true);}finally{busy=false;render();}}
- async function decideOffer(choice){
-  if(!currentOffer||currentOffer.status!=='pending'||!data?.view?.id)return;
-  if(choice==='declined'&&!confirm('Decline this prize and end the game?'))return;
-  try{await L.api('prize_decide',{body:{session:data.view.id,claim:currentOffer.claimId,choice}});await pollOffer();}
-  catch(e){msg('Prize decision: '+e.message,true);}
- }
- async function pollOffer(){
+  async function pollOffer(){
   if(offerBusy||!data?.view?.id||busy)return;offerBusy=true;
   try{const result=await L.api('prize_offer',{query:{session:data.view.id}});currentOffer=result.offer||null;
-   const stage=$('prize-offer-stage');if(stage){stage.hidden=currentOffer?.status!=='pending';if(!stage.hidden)$('prize-offer-description').textContent=currentOffer.name+' · '+L.money(currentOffer.cents);}
-   if(currentOffer?.status==='accepted'&&currentOffer.claimId&&!offerRouted.has(currentOffer.claimId)){
+      if(currentOffer?.status==='accepted'&&currentOffer.claimId&&!offerRouted.has(currentOffer.claimId)){
     const when=Date.parse((currentOffer.decidedAt||'').replace(' ','T')+'Z');
     let prior='';try{prior=sessionStorage.getItem('lucky-proof-accepted-'+currentOffer.claimId)||'';}catch(_){}
     if(prior!=='opened'&&Number.isFinite(when)&&Date.now()-when<90000){
@@ -210,8 +204,7 @@
    L.beep('tick');await wheel.spinTo(animation.index,animation.slices,matchMedia('(prefers-reduced-motion: reduce)').matches?350:3900);
    await revealSpin(id,animation.spinCount);updateProofStates();syncedSpin=data.view.lastSpin?.spinCount||0;
    if(event.type==='bonus_trigger'){msg('✧ BONUS ROUND! Spin again to reveal the bonus prize.');L.beep('bonus');L.speak('Surprise bonus round!');}
-   else {msg(`🎉 ${event.claim.name} · ${L.money(event.claim.cents)} won! Accept or decline on the connected phone.`);L.beep('win');pollOffer();
-    if($('speak-winners').checked)L.speak(`Congratulations! You won ${event.claim.name}!`);}
+   else {msg('Spin complete. Continue on your phone.');L.beep('win');pollOffer();}
   }catch(e){msg(e.message,true);}finally{busy=false;render();}
  }
  async function pause(){if(busy||!data||!['active','paused'].includes(data.view.status))return;busy=true;render();
@@ -255,8 +248,8 @@
       else L.volume(channel,L.pref[channel+'Volume']+action.step);
       tell('Volume adjusted.');return;
     }
-    case 'speech-on':$('speak-winners').checked=true;tell('Spoken awards enabled.');return;
-    case 'speech-off':$('speak-winners').checked=false;tell('Spoken awards disabled.');return;
+    case 'speech-on':tell('Prize announcements are controlled on the connected phone.');return;
+    case 'speech-off':tell('Prize announcements are controlled on the connected phone.');return;
     case 'effects-on':L.volume('effects',75);tell('Sound effects enabled.');return;
     case 'effects-off':L.volume('effects',0);tell('Sound effects disabled.');return;
     case 'remaining':tell(`${data?.view?.slots?.filter(s=>s.tier).length||0} live prizes on the wheel.`);return;
@@ -294,8 +287,8 @@
      case 'music-previous':if(!L.tracks.length)throw Error('No songs available.');await L.nextMusic(-1);return true;
      case 'effects-on':L.volume('effects',75);$('effects-volume').value=75;$('effects-value').textContent='75%';return true;
      case 'effects-off':L.volume('effects',0);$('effects-volume').value=0;$('effects-value').textContent='0%';return true;
-     case 'speech-on':$('speak-winners').checked=true;return true;
-     case 'speech-off':$('speak-winners').checked=false;return true;
+     case 'speech-on':return false;
+     case 'speech-off':return false;
      case 'home':location.href='index.php';return true;
      case 'volume-set':return false;
      case 'music-on':
@@ -329,9 +322,7 @@
   const controls=$('spin-game')?.closest('.platform-control-row');
   const top=wrap.getBoundingClientRect().top;
   const controlsHeight=controls?.getBoundingClientRect().height||54;
-  const offer=$('prize-offer-stage');
-  const offerHeight=offer&&!offer.hidden?offer.getBoundingClientRect().height+12:0;
-  const available=Math.floor(innerHeight-top-controlsHeight-offerHeight-76);
+  const available=Math.floor(innerHeight-top-controlsHeight-76);
   const width=wrap.parentElement?.clientWidth||innerWidth;
   wrap.style.setProperty('--wheel-viewport-size',Math.max(160,Math.min(available,width-20,780))+'px');
  }
@@ -363,8 +354,7 @@
  
  window.addEventListener('lucky:paired-phones',e=>{const count=$('host-phone-count');if(count)count.textContent=Number(e.detail?.count||0)>0?String(e.detail.count):'';});
  window.LuckyHostRemote=remoteCommand;
- $('prize-offer-accept').onclick=()=>decideOffer('accepted');$('prize-offer-decline').onclick=()=>decideOffer('declined');
- $('start-game').onclick=start;$('spin-game').onclick=spin;$('pause-game').onclick=pause;$('end-game').onclick=end;
+  $('start-game').onclick=start;$('spin-game').onclick=spin;$('pause-game').onclick=pause;$('end-game').onclick=end;
  $('copy-viewer').onclick=()=>{navigator.clipboard?.writeText(viewerUrl).then(()=>msg('Display link copied.')).catch(()=>{$('viewer-link').select();});};
  $('voice-toggle').onclick=()=>{if(stopVoice){stopVoice();stopVoice=null;$('voice-toggle').textContent='🎙 Enable listening';L.note('voice-status','Microphone off.');return;}
    stopVoice=L.listen(text=>voiceInput(text).catch(e=>L.note('voice-status',e.message,true)),m=>L.note('voice-status',m));$('voice-toggle').textContent='⏹ Stop listening';};
