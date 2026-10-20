@@ -32,6 +32,7 @@ jobs:
           php tests/v5q22c_cloud_updates.php
           php tests/v5q22e_game_packages.php
           php tests/v5q22f_cloud_download.php
+          php tests/v5q22g_activation.php
           php tests/v5q16_session_lifecycle.php
           php tests/v5q18_foundation.php
           php tests/spin_reveal.php
@@ -128,6 +129,7 @@ jobs:
           python tests/v5q20_packages_browser.py
           python tests/v5q20_phone_packages_browser.py
           python tests/v5q22d_phone_end_game_browser.py
+          python tests/v5q22g_package_browser.py
       - name: Phone controller regressions
         run: |
           python tests/v5p2_navigation_voice.py

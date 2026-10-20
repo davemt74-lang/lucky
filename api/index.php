@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-require __DIR__.'/../lib/Bootstrap.php';require_once __DIR__.'/../lib/CloudGameUpdates.php';require_once __DIR__.'/../lib/GamePackageInstaller.php';require_once __DIR__.'/../lib/CloudGamePackageDownload.php';require_once __DIR__.'/../lib/GameCatalog.php';require_once __DIR__.'/../lib/ProductCatalog.php';require_once __DIR__.'/../lib/ControllerGame.php';require_once __DIR__.'/../lib/PrizeDecision.php';require_once __DIR__.'/../lib/GameSessionLifecycle.php';headerSecurity();
+require __DIR__.'/../lib/Bootstrap.php';require_once __DIR__.'/../lib/CloudGameUpdates.php';require_once __DIR__.'/../lib/GamePackageInstaller.php';require_once __DIR__.'/../lib/GamePackageActivation.php';require_once __DIR__.'/../lib/CloudGamePackageDownload.php';require_once __DIR__.'/../lib/GameCatalog.php';require_once __DIR__.'/../lib/ProductCatalog.php';require_once __DIR__.'/../lib/ControllerGame.php';require_once __DIR__.'/../lib/PrizeDecision.php';require_once __DIR__.'/../lib/GameSessionLifecycle.php';headerSecurity();
 $action=strval($_GET['action']??'');$method=$_SERVER['REQUEST_METHOD']??'GET';
 function setting(PDO $db,string $game='spin-wheel'):array {
  $q=$db->prepare('SELECT * FROM game_settings WHERE game_id=?');$q->execute([$game]);$r=$q->fetch();
@@ -64,7 +64,7 @@ try {
    requireAdmin();success(['games'=>GameCatalog::all()]);
   }
   if($action==='game_packages'){
-   requireAdmin();success(['packages'=>GamePackageInstaller::listing()]);
+   requireAdmin();success(['packages'=>GamePackageInstaller::listing(),'active'=>GamePackageActivation::all()]);
   }
   if($action==='game_update_connection'){
    requireAdmin();success(['connection'=>CloudGameUpdates::summary()]);
@@ -141,6 +141,28 @@ try {
  if($action==='login')throw new DomainException('Use the sign-in page.',400);
  requireAdmin();
  if($action==='logout') {session_unset();session_destroy();success(['loggedOut'=>true]);}
+ if($action==='game_package_activate'){
+  $input=jsonInput();$id=GameCatalog::slug($input['game']??null);
+  $version=GamePackageInstaller::version($input['version']??null);
+  $expected=$input['expectedCurrent']??null;
+  if($expected!==null)$expected=GamePackageInstaller::version($expected);
+  if(($input['confirm']??false)!==true)throw new DomainException('Explicit owner approval required.',403);
+  // Hold the same game-settings lock as gameplay session start, ensuring
+  // an update cannot switch code while a session is actively running.
+  $db->beginTransaction();
+  try{
+   $q=$db->prepare('SELECT game_id FROM game_settings WHERE game_id=? FOR UPDATE');
+   $q->execute([$id]);
+   $q=$db->prepare("SELECT COUNT(*) FROM game_sessions WHERE game_id=? AND status IN ('active','paused')");
+   $q->execute([$id]);
+   if((int)$q->fetchColumn()>0)throw new DomainException('End or save the live game before changing versions.',409);
+   $result=GamePackageActivation::activate($id,$version,$expected,true);
+   audit($db,'game.package_activated',null,['game'=>$id,'version'=>$version,
+      'previous'=>$result['previous']??null]);
+   $db->commit();
+  }catch(Throwable $e){$db->rollBack();throw $e;}
+  success(['activation'=>$result]);
+ }
  if($action==='game_package_upload'){
   $package=$_FILES['package']??null;
   if(!is_array($package)||($package['error']??-1)!==UPLOAD_ERR_OK||

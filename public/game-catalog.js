@@ -23,9 +23,10 @@
   const game=games.find(item=>item.id===id);if(!game)return;
   selected=id;$('catalog-editor').hidden=false;
   $('catalog-id').value=id;$('catalog-editor-heading').textContent=game.title;
-  $('catalog-execution-status').textContent=game.status==='ready'
-   ?'Built-in game · protected from deletion · updates supported · '+game.source
-   :'Draft listing · Game module not installed; cannot be launched';
+  $('catalog-execution-status').textContent=game.builtIn
+   ?'Permanent built-in game · updates supported'
+   :game.status==='ready'?'Installed playable package · '+game.version
+   :'Draft listing · Activate a verified package before gameplay';
   for(const [key,control] of Object.entries(fields))$(control).value=game[key]??'';
   $('catalog-min').value=game.playersMin;
   $('catalog-max').value=game.playersMax;
@@ -90,14 +91,33 @@
   const rows=Array.isArray(result.packages)?result.packages:[];
   const area=$('game-package-list');area.replaceChildren();
   if(!rows.length){area.append(text('p','No game packages uploaded yet. Spin the Wheel is already bundled.'));return;}
+  const active=result.active||{};
   for(const game of rows){
    const card=text('article','','game-update-release');
+   const now=active[game.id]?.version||null;
    card.append(text('strong',game.title+' · '+game.id+' · v'+game.version));
    card.append(text('small',(game.phone?'Custom phone UI included':'No phone UI')+
-    ' · '+(game.signatureVerified?'Publisher signature verified':'Unsigned local upload')+
-    ' · Staged only'));
+    ' · '+(game.signatureVerified?'Publisher signature verified':'Locally uploaded game')));
    card.append(text('small','Imported '+game.installedAt+' · '+game.fileCount+' files · '+
-    (game.builtIn?'Protected built-in game update':'New game package')));
+    (game.builtIn?'Protected built-in game update':now===game.version?'Currently active':'Available for activation')));
+   if(!game.builtIn){
+    const activate=document.createElement('button');
+    activate.className='btn btn-outline';activate.type='button';
+    activate.textContent=now===game.version?'Active version':(now?'Switch / Roll back to this version':'Activate game version');
+    activate.disabled=now===game.version;
+    activate.onclick=async()=>{
+     if(!confirm('Activate '+game.title+' v'+game.version+'? Any active session must be finished or saved first. The previous version will be preserved.'))return;
+     activate.disabled=true;
+     try{
+      const out=await api('game_package_activate',{body:{
+       game:game.id,version:game.version,expectedCurrent:now,confirm:true
+      }});
+      packageNote(out.activation.game+' v'+out.activation.version+' activated. Existing versions are retained.');
+      await loadPackages();await reload(game.id);
+     }catch(e){packageNote(e.message,true);activate.disabled=false;}
+    };
+    card.append(activate);
+   }
    area.append(card);
   }
  }
