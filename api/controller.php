@@ -101,6 +101,9 @@ try {
     PackageControllerBridge::bound($locked,$row,$viewer,$owner);
     if(!in_array($row['status'],['active','paused'],true))
      throw new DomainException('This game has already ended or been saved.',409);
+    // The duplicate nonce branch above returns success before this check.
+    // A delayed first delivery must never act on an unexpectedly newer game.
+    PackageControllerBridge::assertFreshVersion($in['expectedVersion']??null,(int)$row['version']);
     $state=stateFromRow($row);$event=$module->action($state,$cmd['verb'],$cmd['payload']);
     saveState($db,$state);
     $q=$db->prepare('INSERT INTO game_events(session_id,idempotency_key,event_type,payload_json) VALUES (?,?,?,?)');
