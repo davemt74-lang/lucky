@@ -16,7 +16,7 @@ jobs:
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
-          extensions: pdo_mysql, fileinfo, mbstring
+          extensions: pdo_mysql, fileinfo, mbstring, zip
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -30,6 +30,7 @@ jobs:
           php tests/v5q22_phone_controller_contract.php
           php tests/v5q22b_game_catalog.php
           php tests/v5q22c_cloud_updates.php
+          php tests/v5q22e_game_packages.php
           php tests/v5q16_session_lifecycle.php
           php tests/v5q18_foundation.php
           php tests/spin_reveal.php

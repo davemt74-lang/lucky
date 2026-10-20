@@ -53,6 +53,17 @@ shellStart('Admin Studio','admin','admin-studio-page');
  </form>
  </div>
 
+ <section class="game-package-installer" aria-label="Install game packages">
+  <div class="card-title-row"><div><p class="mini-label">MODULAR GAMES · LOCAL STORAGE</p><h3>Game package library</h3></div><button id="game-package-refresh" class="btn btn-outline" type="button">Refresh packages</button></div>
+  <p>Upload a versioned Lucky game ZIP without rebuilding the HomeServer. The game and its optional custom phone controller are inspected and stored independently. Uploaded packages are <strong>staged, not playable</strong> until the separate sandboxed game runtime is certified. Existing game versions and sessions remain unchanged.</p>
+  <form id="game-package-upload" class="platform-form">
+   <label>Lucky game package ZIP (up to 40 MB)<input type="file" name="package" accept=".zip,application/zip" required></label>
+   <button class="btn btn-primary" type="submit">Upload and validate game ZIP</button>
+  </form>
+  <p id="game-package-status" class="voice-status" role="status" aria-live="polite"></p>
+  <div id="game-package-list" class="game-update-releases" aria-live="polite"></div>
+  <p class="mini-label">Built-in Spin the Wheel is permanent. Only verified publisher-signed updates can be staged for built-in games; no upload can delete or overwrite its installed engine.</p>
+ </section>
  <section class="game-update-connection" aria-label="Cloud game updates">
   <div class="card-title-row"><div><p class="mini-label">OPTIONAL · OFFLINE BY DEFAULT</p><h3>Cloud game updates</h3></div><span id="game-update-connection-status" class="mini-label">Not connected</span></div>
   <p>Connect to a publisher's signed HTTPS update feed to check for new game releases. HomeServer gameplay, player data, recordings and database stay local. The connection never runs during startup or gameplay.</p>
@@ -88,4 +99,4 @@ shellStart('Admin Studio','admin','admin-studio-page');
 <section id="tab-history" class="surface platform-admin-panel" hidden><h2>Finished-game archive</h2><p>Completed games are preserved with their audit records, prizes, and session timestamps.</p><button class="btn btn-outline" id="refresh-history">↻ Refresh</button><div id="history-items" class="platform-claim-list"></div><button class="btn btn-outline" id="export-history">Export history CSV</button></section>
 <section id="tab-migration" class="surface platform-admin-panel" hidden><h2>Import a V5 browser configuration</h2><p>The older game stored prizes and music in one browser. You can import its Tier 1, Tier 2, and Bonus prize definitions here. This does not erase the old browser copy. Existing claimed prizes are imported into a separate completed historical session, never into an active game. Duplicate imports of the same game are blocked.</p><p id="legacy-status" class="voice-status">Checking this browser…</p><button id="import-legacy" class="btn btn-outline">Import prizes and archived claims</button></section>
 </div><p id="admin-status" class="voice-status" role="status" aria-live="polite"></p></div></div>
-<script src="public/client.js" defer></script><script src="public/admin.js?v=5q22" defer></script><script src="public/game-catalog.js?v=5q22" defer></script><?php shellEnd(); ?>
+<script src="public/client.js" defer></script><script src="public/admin.js?v=5q22" defer></script><script src="public/game-catalog.js?v=5q22e" defer></script><?php shellEnd(); ?>

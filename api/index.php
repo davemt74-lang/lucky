@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-require __DIR__.'/../lib/Bootstrap.php';require_once __DIR__.'/../lib/CloudGameUpdates.php';require_once __DIR__.'/../lib/GameCatalog.php';require_once __DIR__.'/../lib/ProductCatalog.php';require_once __DIR__.'/../lib/ControllerGame.php';require_once __DIR__.'/../lib/PrizeDecision.php';require_once __DIR__.'/../lib/GameSessionLifecycle.php';headerSecurity();
+require __DIR__.'/../lib/Bootstrap.php';require_once __DIR__.'/../lib/CloudGameUpdates.php';require_once __DIR__.'/../lib/GamePackageInstaller.php';require_once __DIR__.'/../lib/GameCatalog.php';require_once __DIR__.'/../lib/ProductCatalog.php';require_once __DIR__.'/../lib/ControllerGame.php';require_once __DIR__.'/../lib/PrizeDecision.php';require_once __DIR__.'/../lib/GameSessionLifecycle.php';headerSecurity();
 $action=strval($_GET['action']??'');$method=$_SERVER['REQUEST_METHOD']??'GET';
 function setting(PDO $db,string $game='spin-wheel'):array {
  $q=$db->prepare('SELECT * FROM game_settings WHERE game_id=?');$q->execute([$game]);$r=$q->fetch();
@@ -62,6 +62,9 @@ try {
   if($action==='manifest')success(['games'=>GameRegistry::manifest()]);
   if($action==='game_catalog'){
    requireAdmin();success(['games'=>GameCatalog::all()]);
+  }
+  if($action==='game_packages'){
+   requireAdmin();success(['packages'=>GamePackageInstaller::listing()]);
   }
   if($action==='game_update_connection'){
    requireAdmin();success(['connection'=>CloudGameUpdates::summary()]);
@@ -138,6 +141,18 @@ try {
  if($action==='login')throw new DomainException('Use the sign-in page.',400);
  requireAdmin();
  if($action==='logout') {session_unset();session_destroy();success(['loggedOut'=>true]);}
+ if($action==='game_package_upload'){
+  $package=$_FILES['package']??null;
+  if(!is_array($package)||($package['error']??-1)!==UPLOAD_ERR_OK||
+    !is_uploaded_file((string)($package['tmp_name']??'')))
+   throw new DomainException('Choose a game package ZIP file.',422);
+  $settings=CloudGameUpdates::settings();
+  $key=$settings['publicKey']??null;
+  $entry=GamePackageInstaller::install($package['tmp_name'],null,$key);
+  audit($db,'game.package_staged',null,['game'=>$entry['id'],'version'=>$entry['version'],
+    'signatureVerified'=>$entry['signatureVerified']]);
+  success(['package'=>$entry],201);
+ }
  if($action==='game_art_upload'){
   $id=GameCatalog::slug($_POST['id']??null);$slot=strval($_POST['slot']??'');
   $file=$_FILES['image']??null;
