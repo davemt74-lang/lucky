@@ -43,9 +43,22 @@ jobs:
           if($proc.ExitCode -ne 0){throw "EXE installation failed: $($proc.ExitCode)"}
           $start=Join-Path $installation 'homeserver\start.ps1'
           if(!(Test-Path $start)){throw 'Installer did not extract launcher'}
-          $out=& $start -Smoke -NoBrowser 2>&1 | Out-String
-          Write-Host $out
-          if($out -notmatch 'HOMESERVER_SMOKE_OK'){throw 'Local MariaDB/PHP/Caddy smoke failed'}
+          try {
+            $out=& $start -Smoke -NoBrowser 2>&1 | Out-String
+            Write-Host $out
+            if($out -notmatch 'HOMESERVER_SMOKE_OK'){throw 'Local MariaDB/PHP/Caddy smoke failed'}
+          } catch {
+            Write-Host ('SMOKE ERROR: '+$_.Exception.Message)
+            $logDir=Join-Path $env:LOCALAPPDATA 'LuckyGameHub\logs'
+            if(Test-Path $logDir){
+              Get-ChildItem $logDir -File |ForEach-Object {
+                Write-Host ('=== '+$_.Name+' ===')
+                Get-Content -LiteralPath $_.FullName -Tail 65 |Write-Host
+              }
+            }
+            Get-NetTCPConnection -LocalPort 8833,9017,3307 -ErrorAction SilentlyContinue |Select-Object LocalAddress,LocalPort,State |Format-Table |Out-String |Write-Host
+            throw
+          }
           $data=Join-Path $env:LOCALAPPDATA 'LuckyGameHub'
           if(!(Test-Path (Join-Path $data 'db\mysql'))){throw 'User-owned database data missing'}
           $config=Join-Path $data 'storage\config.php'
