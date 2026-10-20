@@ -19,14 +19,15 @@ final class ControllerGame {
   $row=self::latest($db);
   if(!$row)return ['offer'=>null,'upgradeRequired'=>!$prizeReady,'id'=>null,'game'=>'spin-wheel','status'=>'ready','version'=>0,'spinCount'=>0,'claimedCount'=>0,'claimedCents'=>0,'remaining'=>0,'pendingBonus'=>false,'lastPrize'=>null,'spinning'=>false,'canStart'=>$prizeReady,'canSpin'=>false];
   $state=stateFromRow($row);$view=GameRegistry::module($state['game'])->publicView($state);
-  $last=$state['lastSpin']??null;$spinning=!!$last&&((time()-strtotime($last['at']??'1970-01-01'))<4);
+  $last=$state['lastSpin']??null;$spinning=SpinReveal::pending($state);
   $claimed=$view['claims']??[];
+  if($spinning&&($last['type']??null)==='award')array_pop($claimed);
   return [
    'id'=>$view['id'],'game'=>$view['game'],'status'=>$view['status'],'version'=>$view['version'],
    'spinCount'=>$view['spinCount'],'claimedCount'=>count($claimed),'claimedCents'=>array_sum(array_column($claimed,'cents')),
    'remaining'=>count(array_filter($view['slots'],fn($s)=>!empty($s['tier']))),
    'pendingBonus'=>$view['pendingBonus'],'lastPrize'=>$claimed?end($claimed)['name']:null,
-   'spinning'=>$spinning,'offer'=>$prizeReady?PrizeDecision::latest($db,$state['id']):null,'upgradeRequired'=>!$prizeReady,'canStart'=>$prizeReady&&in_array($view['status'],['ended'],true),
+   'spinning'=>$spinning,'offer'=>$prizeReady&&!$spinning?PrizeDecision::latest($db,$state['id']):null,'upgradeRequired'=>!$prizeReady,'canStart'=>$prizeReady&&in_array($view['status'],['ended'],true),
    'canSpin'=>$prizeReady&&$view['status']==='active'&&!$spinning&&!PrizeDecision::pending($db,$state['id'])&&(count(array_filter($view['slots'],fn($s)=>!empty($s['tier'])))>0||$view['pendingBonus']||($state['odds']['bonusChance']>0&&self::hasBonus($state))),
   ];
  }
@@ -36,7 +37,7 @@ final class ControllerGame {
   return false;
  }
  public static function spinReady(array $state):void {
-  if(!empty($state['lastSpin']['at']) && (time()-strtotime($state['lastSpin']['at'])<4))
+  if(SpinReveal::pending($state)||(!empty($state['lastSpin']['at']) && (time()-strtotime($state['lastSpin']['at'])<4)))
    throw new DomainException('The wheel is finishing its last spin. Try again in a moment.',409);
  }
  public static function apply(PDO $db,string $command,string $pairId,string $nonce,int $hostAdminId):array {
@@ -63,6 +64,7 @@ final class ControllerGame {
   if(!$row)throw new DomainException('Start a game first.',409);
   $state=stateFromRow($row);
   if(in_array($command,['prize-accept','prize-decline'],true)){
+   if(SpinReveal::pending($state))throw new DomainException('Wait for the wheel to stop before accepting a prize.',409);
    $offer=PrizeDecision::pending($db,$state['id'],true);
    if(!$offer)throw new DomainException('There is no prize awaiting acceptance.',409);
    PrizeDecision::choose($db,$state['id'],$offer['claim_id'],$command==='prize-accept'?'accepted':'declined');
