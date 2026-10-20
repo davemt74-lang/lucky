@@ -89,6 +89,7 @@ jobs:
           python tests/v5q15n_templates_browser.py
           python tests/v5q15o_phone_prize_browser.py
           python tests/v5q15p_toolbox_browser.py
+          python tests/v5q15q_tool_cards_browser.py
       - name: Phone controller regressions
         run: |
           python tests/v5p2_navigation_voice.py
