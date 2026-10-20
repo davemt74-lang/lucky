@@ -59,7 +59,7 @@ try {
    success(['id'=>$newId,'controllerToken'=>$token,'status'=>'pending']);
   }
   $id=strval($in['id']??'');$token=(string)($_SERVER['HTTP_X_CONTROLLER_TOKEN']??'');
-  $p=ControllerPairing::authenticate($db,$id,$token,$action==='command');
+  $p=ControllerPairing::authenticate($db,$id,$token,in_array($action,['command','select_package'],true));
   $status=ControllerPairing::status($p);
   if($action==='status'){
    $commandId=(int)($in['commandId']??0);$delivery=null;
@@ -91,6 +91,21 @@ try {
     }
    }
    success(['status'=>$status,'deviceName'=>$p['device_name'],'expiresAt'=>$p['paired_expires_at'],'game'=>$status==='paired'?($current??ControllerGame::snapshot($db)):null,'proof'=>$proof?['active'=>true,'claimId'=>$proof['claim_id'],'reviewCount'=>(int)$proof['review_count'],'consent'=>(bool)($proof['consent_ack']??false),'phase'=>(string)($proof['capture_phase']??'live'),'savedCount'=>(int)($proof['saved_count']??0)]:['active'=>false],'delivery'=>$delivery,'reason'=>$reason??null]);
+  }
+  if($action==='select_package'){
+   $package=PrizePackages::id($in['package']??null);
+   $db->beginTransaction();
+   try{
+    $q=$db->prepare('SELECT status,paired_expires_at,host_admin_id,controller_hash FROM controller_pairs WHERE id=? FOR UPDATE');
+    $q->execute([$id]);$locked=$q->fetch();
+    if(!$locked||!hash_equals((string)($locked['controller_hash']??''),ControllerPairing::tokenHash($token))||
+       ControllerPairing::status($locked)!=='paired')throw new DomainException('Phone pairing is no longer approved.',403);
+    // Selection is only a package preference for the next game, never a prize award.
+    PrizePackages::select($db,$package,true);
+    audit($db,'package.selected',null,['packageId'=>$package,'pairId'=>$id,'source'=>'paired-phone']);
+    $db->commit();
+   }catch(Throwable $e){$db->rollBack();throw $e;}
+   success(['selected'=>$package]);
   }
   if($action==='disconnect'){
    $db->beginTransaction();try{

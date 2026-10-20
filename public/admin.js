@@ -1,5 +1,5 @@
 (() => {
- 'use strict';const L=Lucky,$=L.$;let settings=null,activeTier='tier1',editIntroGame='spin-wheel',introConfig=null,history=[],sessions=[],readyGames=[];
+ 'use strict';const L=Lucky,$=L.$;let settings=null,activeTier='tier1',editIntroGame='spin-wheel',introConfig=null,history=[],sessions=[],readyGames=[],packages=[],packageId='',selectedPackage='',packageDirty=false,packagesAvailable=false;
  const amount=s=>{const n=Number(s);if(!Number.isFinite(n)||n<0||n>10000000)throw Error('Invalid dollar amount.');return Math.round(n*100);};
  const cents=c=>(Number(c||0)/100).toFixed(2);
  const elem=(tag,txt='',cls='')=>{const e=document.createElement(tag);if(txt)e.textContent=txt;if(cls)e.className=cls;return e;};
@@ -44,13 +44,80 @@
    row.append(name,value,url,videoUrl,image,upload,remove,proof);list.append(row);
   }
  }
- async function loadSettings(){const r=await L.api('settings',{query:{game:'spin-wheel'}});settings=r.settings;
-   for(const [k,v] of Object.entries(settings.config.odds))if($('odds-'+k))$('odds-'+k).value=v;
-   renderTier();}
+ function packageFor(id){return packages.find(p=>p.id===id);}
+ function markPackageDirty(){if(packagesAvailable)packageDirty=true;}
+ function drawPackageTabs(){
+  const root=$('prize-package-tabs');root.replaceChildren();
+  for(const p of packages){
+   const button=elem('button',p.name,'btn btn-outline');button.type='button';button.role='tab';button.dataset.packageId=p.id;
+   button.classList.toggle('selected',p.id===packageId);
+   button.classList.toggle('package-live-choice',p.id===selectedPackage);
+   button.classList.toggle('package-disabled',!p.enabled);
+   button.setAttribute('aria-selected',String(p.id===packageId));
+   button.onclick=()=>switchPackage(p.id);root.append(button);
+  }
+  $('package-selection-status').textContent=!packagesAvailable?'Run upgrade.php to enable package tabs.':
+   packageId===selectedPackage?'✓ Selected for the next game':'Editing package · not selected for the next game';
+  $('package-activate').disabled=!packagesAvailable||packageId===selectedPackage||!packageFor(packageId)?.enabled;
+  $('package-remove').disabled=!packagesAvailable||packageId===selectedPackage;
+ }
+ function switchPackage(id,force=false){
+  if(!force&&packageDirty&&!confirm('Discard unsaved changes to this prize package?'))return;
+  const p=packageFor(id);if(!p)return;
+  packageId=id;packageDirty=false;activeTier='tier1';settings.config=structuredClone(p.config);
+  $('package-name').value=p.name;$('package-enabled').checked=!!p.enabled;
+  $('package-player-choice').checked=!!p.playerSelectable;
+  for(const [k,v] of Object.entries(settings.config.odds))if($('odds-'+k))$('odds-'+k).value=v;
+  selectTier('tier1');drawPackageTabs();
+ }
+ async function reloadPackages(preferred=''){
+  const res=await L.api('prize_packages');
+  if(!Array.isArray(res.packages))throw Error('Run upgrade.php to enable prize packages.');
+  packagesAvailable=true;packages=res.packages;selectedPackage=res.selected;
+  switchPackage(packageFor(preferred)?preferred:(packageFor(packageId)?packageId:selectedPackage),true);
+ }
+ async function loadSettings(){
+  const r=await L.api('settings',{query:{game:'spin-wheel'}});settings=r.settings;
+  try{await reloadPackages();}catch(e){
+   packagesAvailable=false;
+   packages=[{id:'legacy',name:'Original Prizes',config:structuredClone(settings.config),enabled:true,playerSelectable:true,version:1}];
+   selectedPackage='legacy';switchPackage('legacy',true);
+   status('Run upgrade.php to enable multiple prize packages.',true);
+  }
+ }
  async function save(){try{
   setBudget();for(const k of Object.keys(settings.config.odds))settings.config.odds[k]=Number($('odds-'+k).value);
-  const r=await L.api('settings_save',{body:{game:'spin-wheel',...settings}});settings=r.settings;status('Prize pools and odds saved to MySQL.');renderTier();
- }catch(e){status(e.message,true);}}
+  if(!packagesAvailable){
+   const r=await L.api('settings_save',{body:{game:'spin-wheel',...settings}});settings=r.settings;renderTier();
+   status('Legacy prize settings saved. Run upgrade.php for packages.');return true;
+  }
+  const p=packageFor(packageId);if(!p)throw Error('Select a prize package.');
+  const response=await L.api('package_save',{body:{id:p.id,version:p.version,name:$('package-name').value.trim(),
+   config:settings.config,enabled:$('package-enabled').checked,playerSelectable:$('package-player-choice').checked}});
+  Object.assign(p,response.package);settings.config=structuredClone(p.config);packageDirty=false;
+  drawPackageTabs();renderTier();status('Prize package saved locally. Current sessions remain unchanged.');return true;
+ }catch(e){status(e.message,true);return false;}}
+ $('add-package').onclick=async()=>{
+  if(packageDirty&&!confirm('Create from the last saved version? Unsaved changes will be discarded.'))return;
+  const name=prompt('Name your new prize package:', 'Prize Package '+(packages.length+1));if(name===null)return;
+  try{const out=await L.api('package_create',{body:{name:name.trim(),cloneFrom:packageId}});await reloadPackages(out.package.id);
+   status('Prize package created. Configure its tiers and Save.');}catch(e){status(e.message,true);}
+ };
+ $('package-activate').onclick=async()=>{
+  if(packageDirty&&!(await save()))return;
+  try{await L.api('package_select',{body:{id:packageId}});selectedPackage=packageId;drawPackageTabs();
+   status('This prize package will be used for the next game.');}catch(e){status(e.message,true);}
+ };
+ $('package-remove').onclick=async()=>{
+  const p=packageFor(packageId);if(!p||packageId===selectedPackage)return;
+  if(!confirm('Delete prize package '+p.name+'? Existing game history will remain unchanged.'))return;
+  try{await L.api('package_delete',{body:{id:packageId}});await reloadPackages(selectedPackage);status('Package deleted.');}
+  catch(e){status(e.message,true);}
+ };
+ for(const id of ['package-name','package-enabled','package-player-choice'])$(id).addEventListener('change',markPackageDirty);
+ $('tab-prizes').addEventListener('change',e=>{
+  if(!e.target.closest('.prize-package-config')&&!e.target.closest('.prize-package-tabs'))markPackageDirty();
+ });
  $('tier-budget').onchange=()=>{try{setBudget();}catch(e){status(e.message,true);}};
  document.querySelectorAll('[data-tier]').forEach(b=>b.onclick=()=>{try{setBudget();selectTier(b.dataset.tier);}catch(e){status(e.message,true);}});
  $('add-prize').onsubmit=async e=>{e.preventDefault();try{setBudget();const f=e.currentTarget,pool=settings.config.pools[activeTier];
