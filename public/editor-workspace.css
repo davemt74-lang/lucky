@@ -299,3 +299,21 @@ body.editor-workspace .studio-inspector.is-open{z-index:151}
 body.editor-workspace .studio-inspector-backdrop:not([hidden]){z-index:140}
 body.editor-workspace .studio-clip-menu:not([hidden]){z-index:170}
 body.editor-workspace .studio-audio-dialog{z-index:180}
+
+/* V5Q.15L — timeline trimming and reordering are separate interactions. */
+body.editor-workspace .studio-track .editor-clip{user-select:none;-webkit-user-select:none}
+body.editor-workspace .studio-track .editor-clip-grip{
+ padding:3px 6px;cursor:grab;border:1px solid #536b87;background:#243951;
+ color:#eec785;border-radius:5px;font-size:15px;touch-action:pan-y
+}
+body.editor-workspace .studio-track .editor-clip-grip:active{cursor:grabbing}
+body.editor-workspace .studio-track .editor-trim-handle{
+ width:20px;z-index:5;touch-action:none;cursor:ew-resize;
+ -webkit-user-select:none;user-select:none
+}
+body.editor-workspace .studio-track .editor-trim-handle:focus-visible{
+ outline:3px solid #fff2c6;outline-offset:2px
+}
+body.editor-workspace .studio-track .editor-clip.is-trimming{
+ outline:2px solid #f2c773;outline-offset:1px
+}
