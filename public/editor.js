@@ -9,9 +9,28 @@
  const fresh=()=>window.crypto?.randomUUID?.()||('seg-'+Math.random().toString(36).slice(2));
  const looks={none:'none',vivid:'contrast(1.16) saturate(1.35)',warm:'sepia(.18) saturate(1.16) contrast(1.06)',mono:'grayscale(1) contrast(1.12)',cinematic:'contrast(1.22) saturate(.78) brightness(.91)',vintage:'sepia(.48) saturate(.76) contrast(.92)'};
  const templateLooks={clean:'none',highlight:'vivid',classic:'mono',film:'cinematic',retro:'vintage'};
- const applyLook=(c,look)=>{if(!c||!Object.hasOwn(looks,look))return false;c.lookPreset=look;dirty=true;render();select(c.instanceId);return true;};
- const overlayClip=(c,txt,position,size)=>{if(!c||typeof txt!=='string'||txt.length>120||/[\u0000-\u001f]/.test(txt)||!['top','center','bottom'].includes(position)||!['small','medium','large'].includes(size))return false;c.overlayText=txt;c.overlayPosition=position;c.overlaySize=size;dirty=true;render();select(c.instanceId);return true;};
- function currentLookControls(c){$('editor-look').value=Object.hasOwn(looks,c?.lookPreset)?c.lookPreset:'none';$('editor-overlay-text').value=c?.overlayText||'';$('editor-overlay-position').value=c?.overlayPosition||'bottom';$('editor-overlay-size').value=c?.overlaySize||'medium';}
+ const applyLook=(c,look)=>{if(!c||!Object.hasOwn(looks,look))return false;c.lookPreset=look;dirty=true;render();inform('Effect applied to '+c.title+'. Save edit to keep the change.');return true;};
+ const overlayClip=(c,txt,position,size)=>{if(!c||typeof txt!=='string'||txt.length>120||/[\u0000-\u001f]/.test(txt)||!['top','center','bottom'].includes(position)||!['small','medium','large'].includes(size))return false;c.overlayText=txt;c.overlayPosition=position;c.overlaySize=size;dirty=true;render();inform('Text overlay applied to '+c.title+'. Save edit to keep the change.');return true;};
+ function updateCards(selector,pick){document.querySelectorAll(selector).forEach(b=>b.setAttribute('aria-pressed',String(pick(b))))}
+ function currentLookControls(c){
+  $('editor-look').value=Object.hasOwn(looks,c?.lookPreset)?c.lookPreset:'none';
+  $('editor-overlay-text').value=c?.overlayText||'';
+  $('editor-overlay-position').value=c?.overlayPosition||'bottom';
+  $('editor-overlay-size').value=c?.overlaySize||'medium';
+  document.querySelectorAll('[data-editor-target]').forEach(n=>{n.textContent=c?'Selected V1 clip: '+c.title:'Select a clip in V1 to edit';});
+  updateCards('[data-look-preset]',b=>b.dataset.lookPreset===$('editor-look').value);
+  updateCards('[data-overlay-style]',b=>b.dataset.overlayPosition===$('editor-overlay-position').value&&b.dataset.overlaySize===$('editor-overlay-size').value);
+  updateCards('[data-template-preset]',b=>b.dataset.templatePreset===$('editor-template').value);
+ }
+ function showSelectedClip(c){
+  stop();const stage=$('editor-preview');
+  if(!c){const empty=document.createElement('p');empty.className='studio-empty-monitor';empty.textContent='Select a V1 timeline clip.';stage.append(empty);return;}
+  const el=document.createElement(c.kind==='photo'?'img':c.kind==='audio'?'audio':'video');
+  if(c.kind==='photo')el.alt=c.title;else{el.controls=true;el.preload='metadata';el.playsInline=true;el.muted=c.audioMode==='muted';}
+  stage.append(el);decoratePreview(stage,c);el.src=c.src;
+  if(c.kind==='video'&&Number(c.trimStartMs)>0)el.addEventListener('loadedmetadata',()=>{try{el.currentTime=Math.min(Number(c.trimStartMs)/1000,Math.max(0,el.duration-0.1));}catch(_){}},{once:true});
+  $('editor-caption').textContent='Selected '+c.title+' — effects preview';
+ }
  function decoratePreview(stage,c){const media=stage.querySelector('video,img');if(media)media.style.filter=looks[c.lookPreset]||'none';if(c.overlayText){const node=document.createElement('span');node.className='studio-monitor-caption';node.dataset.position=c.overlayPosition||'bottom';node.dataset.size=c.overlaySize||'medium';node.textContent=c.overlayText;stage.append(node);}}
 
  const name=c=>`${c.kind.toUpperCase()} · ${c.angleIndex?`View ${c.angleIndex}: `:''}${c.angleLabel||c.sourceLabel||'Imported'} · ${c.prize||'Prize'}`;
@@ -23,7 +42,7 @@
  function setupToolbox(){
  const body=document.querySelector('.studio-body'),split=$('studio-library-resizer');
  const buttons=[...document.querySelectorAll('[data-studio-pane]')],panels=[...document.querySelectorAll('[data-studio-panel]')];
- const keys=buttons.map(b=>b.dataset.studioPane);
+ const keys=panels.map(p=>p.dataset.studioPanel);
  const memory={get(k){try{return sessionStorage.getItem(k)}catch{return null}},set(k,v){try{sessionStorage.setItem(k,v)}catch{}}};
  const choose=(pane,focus=false)=>{
   if(!keys.includes(pane))pane='media';
@@ -39,6 +58,7 @@
    choose(buttons[j].dataset.studioPane,true);
   });
  });
+ window.LuckyToolbox={choose};
  choose(memory.get('studio.pane')||'media');
  if(!body||!split)return;
  const bounds=()=>({min:280,max:Math.max(280,Math.min(760,body.clientWidth-300))});
@@ -105,6 +125,18 @@ function renderBin(){const bin=$('editor-media-bin');if(!bin)return;bin.replaceC
    select.replaceChildren(new Option('Select a saved template',''));
    for(const item of savedTemplates)select.add(new Option(item.name,item.id));
    if(savedTemplates.some(x=>x.id===prior))select.value=prior;
+   const root=$('editor-template-cards');root.replaceChildren();
+   for(const item of savedTemplates){
+    const card=document.createElement('button');card.type='button';card.className='studio-choice-card studio-saved-card';
+    card.dataset.savedTemplate=item.id;card.setAttribute('aria-pressed',String(select.value===item.id));
+    const sample=document.createElement('span');sample.className='studio-filter-swatch is-cinematic';
+    const title=document.createElement('strong');title.textContent=item.name;
+    const label=document.createElement('small');label.textContent='Saved video template';
+    card.append(sample,title,label);
+    card.onclick=()=>{select.value=item.id;updateCards('[data-saved-template]',b=>b===card);applySavedTemplate();};
+    root.append(card);
+   }
+   if(!savedTemplates.length){const hint=document.createElement('p');hint.className='studio-tool-hint';hint.textContent='No saved templates yet. Select + Template to create one.';root.append(hint);}
   }catch(e){inform('Video template library: '+e.message,true);}
  }
  async function saveCurrentTemplate(){
@@ -113,6 +145,8 @@ function renderBin(){const bin=$('editor-media-bin');if(!bin)return;bin.replaceC
   try{
    const result=await api('save_template',{name,template:templateFromCurrent()},true);
    await loadSavedTemplates();$('editor-saved-template').value=result.template.id;
+   updateCards('[data-saved-template]',b=>b.dataset.savedTemplate===result.template.id);
+   window.LuckyToolbox?.choose('templates');
    inform('Reusable template saved. Original recordings were not copied.');
   }catch(e){inform(e.message,true);}
  }
@@ -295,6 +329,7 @@ function renderBin(){const bin=$('editor-media-bin');if(!bin)return;bin.replaceC
   document.querySelectorAll('.editor-clip').forEach(el=>el.classList.toggle('is-selected',el.dataset.instanceId===instanceId));
   currentLookControls(c);
    if(openPanel)setInspector(true);
+   else showSelectedClip(c);
  }
  function setInspector(open){
   inspectorOpen=!!open;
@@ -434,7 +469,7 @@ function renderBin(){const bin=$('editor-media-bin');if(!bin)return;bin.replaceC
    const row=document.createElement('article');row.className='editor-clip'+(c.audioMode==='muted'?' is-muted':'')+(c.audioMode==='detached'?' is-detached':'');row.dataset.instanceId=c.instanceId;row.dataset.kind=c.kind;row.style.width=visualWidth(c)+'px';row.draggable=false;
    row.ondragstart=e=>{if(e.target!==row)e.stopPropagation();else e.preventDefault();};
    row.ondragover=e=>e.preventDefault();row.ondrop=e=>{e.preventDefault();const sourceId=e.dataTransfer.getData('application/x-lucky-media-id');if(sourceId){addFromBin(sourceId);return;}reorder(clips.findIndex(x=>x.instanceId===e.dataTransfer.getData('text/plain')),i);};
-   const choose=document.createElement('button');choose.type='button';choose.className='editor-clip-select';choose.onclick=()=>select(c.instanceId,true);
+   const choose=document.createElement('button');choose.type='button';choose.className='editor-clip-select';choose.onclick=()=>{if(inspectorOpen)setInspector(false);select(c.instanceId);};
    const info=document.createElement('span');info.className='mini-label';info.textContent=`${i+1} · ${c.kind.toUpperCase()} · ${clock(lengthMs(c))}`;
    const strong=document.createElement('strong');strong.textContent=c.title;choose.append(info,strong);
    const actions=document.createElement('div');actions.className='editor-clip-controls';
@@ -736,12 +771,31 @@ function renderBin(){const bin=$('editor-media-bin');if(!bin)return;bin.replaceC
    }
   });
   $('editor-play').onclick=()=>preview([...clips]);$('editor-stop').onclick=stop;$('editor-save-project').onclick=save;$('editor-export').onclick=exportProject;
+    document.querySelectorAll('[data-look-preset]').forEach(b=>b.onclick=()=>{
+   $('editor-look').value=b.dataset.lookPreset;updateCards('[data-look-preset]',v=>v===b);
+   if(!applyLook(chosen,b.dataset.lookPreset))inform('Select a clip in V1 first.',true);
+  });
+  document.querySelectorAll('[data-overlay-style]').forEach(b=>b.onclick=()=>{
+   $('editor-overlay-position').value=b.dataset.overlayPosition;$('editor-overlay-size').value=b.dataset.overlaySize;
+   updateCards('[data-overlay-style]',v=>v===b);
+   if(chosen&&$('editor-overlay-text').value.trim())overlayClip(chosen,$('editor-overlay-text').value,$('editor-overlay-position').value,$('editor-overlay-size').value);
+  });
+  document.querySelectorAll('[data-template-preset]').forEach(b=>b.onclick=()=>{
+   $('editor-template').value=b.dataset.templatePreset;updateCards('[data-template-preset]',v=>v===b);
+   if(!applyLook(chosen,templateLooks[b.dataset.templatePreset]))inform('Select a clip in V1 or use Apply to entire timeline.',true);
+  });
+  document.querySelectorAll('[data-timed-title-style]').forEach(b=>b.onclick=()=>{
+   $('timeline-title-position').value=b.dataset.timedTitlePosition;$('timeline-title-size').value=b.dataset.timedTitleSize;
+   updateCards('[data-timed-title-style]',v=>v===b);if(selectedTitle)commitTitleForm();
+  });
   $('editor-apply-look').onclick=()=>{if(!applyLook(chosen,$('editor-look').value))inform('Select a timeline clip first.',true);};
   $('editor-apply-overlay').onclick=()=>{if(!overlayClip(chosen,$('editor-overlay-text').value,$('editor-overlay-position').value,$('editor-overlay-size').value))inform('Select a clip and enter a title of at most 120 characters.',true);};
   $('editor-clear-overlay').onclick=()=>{if(!chosen)return inform('Select a timeline clip first.',true);overlayClip(chosen,'','bottom','medium');};
   $('editor-apply-template').onclick=()=>{if(!applyLook(chosen,templateLooks[$('editor-template').value]))inform('Select a timeline clip first.',true);};
   $('editor-template-all').onclick=()=>{const look=templateLooks[$('editor-template').value];if(!clips.length||!look)return inform('Add a clip to apply a template.',true);clips.forEach(c=>c.lookPreset=look);dirty=true;render();inform('Starter template applied to all clips. Save edit to retain it.');};
   $('editor-save-template').onclick=saveCurrentTemplate;
+  $('editor-new-template').onclick=()=>window.LuckyToolbox?.choose('template-create');
+  $('editor-cancel-template').onclick=()=>window.LuckyToolbox?.choose('templates');
   $('editor-load-template').onclick=applySavedTemplate;
   $('editor-delete-template').onclick=deleteSavedTemplate;
   $('editor-open-inspector').onclick=()=>setInspector(!inspectorOpen);

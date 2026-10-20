@@ -16,7 +16,7 @@ async def main():
    ok(f'{width}: six toolbox categories',await page.locator('[data-studio-pane]').count()==6)
    ok(f'{width}: media bin defaults open',await page.locator('#studio-pane-media').is_visible() and await page.locator('.studio-media-item').count()==2)
    ok(f'{width}: only current pane visible',await page.locator('.studio-pane:visible').count()==1)
-   for key,control in [('filters','#editor-look'),('overlays','#editor-overlay-text'),('templates','#editor-template'),('titles','#timeline-title-text'),('audio','#timeline-music-select'),('media','#editor-media-bin')]:
+   for key,control in [('filters','[data-look-preset="mono"]'),('overlays','#editor-overlay-text'),('templates','[data-template-preset="film"]'),('titles','#timeline-title-text'),('audio','#timeline-music-select'),('media','#editor-media-bin')]:
     await page.locator('[data-studio-pane="'+key+'"]').click()
     ok(f'{width}: {key} content loads',await page.locator(control).is_visible() and await page.locator('.studio-pane:visible').count()==1)
    await page.locator('[data-studio-pane="media"]').focus()

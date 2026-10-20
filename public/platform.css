@@ -566,3 +566,12 @@ body.game-fullwidth .host-display-panel{min-height:300px}
 .phone-controller-page .phone-prize-offer [data-phone="prize-accept"]{min-height:58px;background:#f3c66e;color:#142033}
 .phone-controller-page .phone-prize-offer [data-phone="prize-decline"]{min-height:58px}
 @media(max-width:360px){.phone-controller-page .phone-prize-offer .phone-actions{grid-template-columns:1fr}}
+
+/* V5Q.15Q: clean wheel stage; host Start/Spin/Pause/End live in Game menu. */
+body.game-fullwidth #host-panel-game .platform-wheel-card{position:relative}
+body.game-fullwidth #host-panel-game #game-message{position:absolute;z-index:5;left:5%;right:5%;bottom:5%;max-width:90%;margin:0 auto;padding:9px 15px;border:1px solid #ffd88b;border-radius:12px;background:#091729e8;box-shadow:0 4px 24px #0009;color:#ffdf9c;font-size:clamp(13px,1.25vw,22px);font-weight:800;line-height:1.35;pointer-events:none}
+body.game-fullwidth #host-panel-game #game-message:not([data-highlight="true"]){display:none}
+body.game-fullwidth .console-host-wheel-controls .platform-control-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:10px 0 14px}
+body.game-fullwidth .console-host-wheel-controls .platform-control-row .btn{min-width:0;white-space:normal}
+body.game-fullwidth .console-dialog .postgame-review{margin:10px 0}
+@media(max-width:540px){body.game-fullwidth .console-host-wheel-controls .platform-control-row{grid-template-columns:1fr}}

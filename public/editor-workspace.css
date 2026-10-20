@@ -379,3 +379,33 @@ body.editor-workspace .studio-body.is-resizing,body.editor-workspace .studio-bod
  body.editor-workspace .studio-library-nav{flex-basis:104px}
  body.editor-workspace .studio-monitor-panel{height:310px;min-height:310px}
 }
+
+/* V5Q.15Q — photographic tool cards instead of dropdown selectors. */
+body.editor-workspace .studio-native-choice[hidden]{display:none!important}
+body.editor-workspace .studio-choice-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:8px 0 15px}
+body.editor-workspace .studio-choice-card{display:flex;flex-direction:column;align-items:stretch;gap:4px;text-align:left;min-width:0;padding:7px;background:#1b2b42;border:1px solid #455d7a;border-radius:10px;color:#ecf3ff;cursor:pointer;white-space:normal}
+body.editor-workspace .studio-choice-card strong{font-size:11px;line-height:1.3;overflow-wrap:anywhere}
+body.editor-workspace .studio-choice-card small{font-size:9px;color:#adc0d8}
+body.editor-workspace .studio-choice-card:hover{background:#28415e;border-color:#aec6e0}
+body.editor-workspace .studio-choice-card[aria-pressed=true]{background:#2f4861;outline:2px solid #f0c979;border-color:#f3d18d}
+body.editor-workspace .studio-choice-card:focus-visible{outline:3px solid #ffe4ac;outline-offset:1px}
+body.editor-workspace .studio-filter-swatch{height:60px;border-radius:6px;display:block;background:
+ radial-gradient(ellipse at 70% 28%,#e9c2a4 0 11%,transparent 12%),
+ linear-gradient(144deg,#203b56 0 35%,#8799a5 36% 63%,#30452f 64% 100%)}
+body.editor-workspace .studio-filter-swatch.is-vivid{filter:contrast(1.16) saturate(1.7)}
+body.editor-workspace .studio-filter-swatch.is-warm{filter:sepia(.36) saturate(1.4)}
+body.editor-workspace .studio-filter-swatch.is-mono{filter:grayscale(1) contrast(1.25)}
+body.editor-workspace .studio-filter-swatch.is-cinematic{filter:contrast(1.5) saturate(.75) brightness(.8)}
+body.editor-workspace .studio-filter-swatch.is-vintage{filter:sepia(.8) saturate(.7)}
+body.editor-workspace .studio-text-sample{height:60px;border-radius:6px;position:relative;display:block;background:linear-gradient(145deg,#37596b 15%,#151c38 50%,#5a4679)}
+body.editor-workspace .studio-text-sample i{position:absolute;left:18%;right:18%;height:8px;background:#fcf6eb;border-radius:2px;box-shadow:0 0 0 3px #10182794,0 6px 0 -2px #f8dba7;bottom:12px}
+body.editor-workspace .sample-headline i,body.editor-workspace .sample-banner i{top:12px;bottom:auto}
+body.editor-workspace .sample-center i,body.editor-workspace .sample-simple i{top:calc(50% - 3px);bottom:auto}
+body.editor-workspace .sample-caption i{height:4px}
+body.editor-workspace .studio-tool-target{font-size:11px;color:#f0d89b;margin:8px 0;padding:10px 12px;border:1px solid #526982;border-radius:8px;background:#25364c}
+body.editor-workspace .studio-create-label{font-size:12px;font-weight:700;color:#d4e2f5;margin:15px 0 3px;display:block}
+body.editor-workspace .studio-create-input{box-sizing:border-box;width:100%;min-width:0;border-radius:8px;border:1px solid #54708d;background:#0e1e33;color:#fff;padding:12px}
+body.editor-workspace .studio-card-heading{font-size:12px;margin:14px 0 4px}
+body.editor-workspace #editor-new-template{width:100%;margin:7px 0 13px}
+body.editor-workspace #studio-pane-template-create .btn{width:100%;margin-top:12px}
+body.editor-workspace .studio-sequence-lane.studio-titles-lane{border-top:1px solid #a369a6}
