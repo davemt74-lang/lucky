@@ -4,7 +4,9 @@
  const $=id=>document.getElementById(id);
  let session='',claim='',prize='Prize',feeds=new Map(),recordings=new Map(),audioStream=null,audioRecorder=null,recordTimer=null;
  let uploading=0,approvedCount=0,closing=false,previewGeneration=0,proofProfile=[],proofPlan=[],sequenceAbort=null,sequencePromise=null,cameraAuthorized=false;
- const drafts=new Map();let draftSerial=0,recordAttempt=0,priming=null;
+ const drafts=new Map();let draftSerial=0,recordAttempt=0,priming=null,capturePhase='live',replacementId=null,savedPreview=null,savedVideos=[];
+ const setPhase=phase=>{capturePhase=phase;window.dispatchEvent(new CustomEvent('lucky:proof-phase',{detail:{session,claim,phase,consent:!!$('capture-consent')?.checked}}));};
+ const consentChanged=()=>window.dispatchEvent(new CustomEvent('lucky:proof-phase',{detail:{session,claim,phase:capturePhase,consent:!!$('capture-consent')?.checked}}));
  // A user-initiated Start Game click obtains camera permission before the first prize.
  // Release the probe immediately so hardware remains available for live proof feeds.
  async function prime(){
@@ -16,30 +18,42 @@
  }
  function showDrafts(){
   const pane=$('capture-review'),list=$('capture-review-list'),controls=$('capture-recording-tools');if(!pane||!list)return;
-  list.replaceChildren();pane.hidden=drafts.size===0;if(controls)controls.hidden=drafts.size>0;
-  const retake=$('capture-rerecord-saved');if(retake)retake.hidden=drafts.size>0||approvedCount===0;
-  for(const [id,clip] of drafts){const tile=document.createElement('div');tile.className='review-tile';tile.dataset.draft=id;
+  list.replaceChildren();const reviewing=drafts.size>0||!!savedPreview;pane.hidden=!reviewing;if(controls)controls.hidden=reviewing;
+  const retake=$('capture-rerecord-saved');if(retake)retake.hidden=reviewing||approvedCount===0;
+  const entries=drafts.size?[...drafts.entries()]:savedPreview?[['saved',savedPreview]]:[];
+  for(const [id,clip] of entries){
+   const saved=id==='saved',tile=document.createElement('div');tile.className='review-tile';tile.dataset.draft=id;
    const title=document.createElement('strong');title.textContent=clip.angleLabel||clip.sourceLabel||'Recorded video';
    const player=document.createElement('video');player.controls=true;player.playsInline=true;player.preload='metadata';player.src=clip.url;
    const actions=document.createElement('div');actions.className='capture-actions';
-   for(const [label,fn] of [['▶ Play',()=>{player.currentTime=0;return player.play();}],['✓ Approve',()=>approveDraft(id)],['↻ Re-record',()=>rerecordDraft(id)],['🗑 Delete',()=>deleteDraft(id)]]){
-    const button=document.createElement('button');button.type='button';button.className='btn btn-outline';button.textContent=label;button.onclick=()=>Promise.resolve().then(fn).catch(e=>status(e.message,true));actions.append(button);
-   }
+   const choices=saved?[['▶ Play',()=>{player.currentTime=0;return player.play();}],['↻ Re-record',()=>rerecordSaved()]]:
+    [['▶ Play',()=>{player.currentTime=0;return player.play();}],['✓ Save',()=>approveDraft(id)],['↻ Re-record',()=>rerecordDraft(id)],['🗑 Delete',()=>deleteDraft(id)]];
+   for(const [label,fn] of choices){const button=document.createElement('button');button.type='button';button.className='btn btn-outline';button.textContent=label;button.onclick=()=>Promise.resolve().then(fn).catch(e=>status(e.message,true));actions.append(button);}
    tile.append(title,player,actions);list.append(tile);
   }
-  window.dispatchEvent(new CustomEvent('lucky:proof-review',{detail:{session,claim,reviewCount:drafts.size}}));
+  if(drafts.size)setPhase('review');
+  window.dispatchEvent(new CustomEvent('lucky:proof-review',{detail:{session,claim,reviewCount:drafts.size,approvedCount}}));
  }
  function stage(blob,filename,durationMs,sourceLabel,angleLabel='',angleIndex=0){
-  if(closing||!blob?.size)return;const id='video-'+(++draftSerial);drafts.set(id,{blob,filename,durationMs,sourceLabel,angleLabel,angleIndex,url:URL.createObjectURL(blob),session,claim});
-  showDrafts();status('Video recorded. Play it, then Approve to add it to this prize.');
+  if(closing||!blob?.size)return;const id='video-'+(++draftSerial);
+  drafts.set(id,{blob,filename,durationMs,sourceLabel,angleLabel,angleIndex,url:URL.createObjectURL(blob),session,claim,replaceClipId:replacementId||''});
+  replacementId=null;showDrafts();status('Recording processed. Review the video, then Save it to this prize.');
  }
- function deleteDraft(id){const clip=drafts.get(id);if(!clip)return;URL.revokeObjectURL(clip.url);drafts.delete(id);showDrafts();status('Recording discarded locally; no upload was made.');}
- async function approveDraft(id){const clip=drafts.get(id);if(!clip)throw Error('No recording to approve.');if(clip.session!==session||clip.claim!==claim)throw Error('Prize changed; recording not uploaded.');
-  await upload(clip.blob,clip.filename,'video',clip.durationMs,clip.sourceLabel,clip.angleLabel,clip.angleIndex);
-  deleteDraft(id);status('Approved video saved to this prize.');
+ function deleteDraft(id){const clip=drafts.get(id);if(!clip)return;URL.revokeObjectURL(clip.url);drafts.delete(id);showDrafts();if(!drafts.size)setPhase('live');status('Recording discarded locally; no upload was made.');}
+ async function approveDraft(id){const clip=drafts.get(id);if(!clip)throw Error('No recording to save.');if(clip.session!==session||clip.claim!==claim)throw Error('Prize changed; recording not uploaded.');
+  setPhase('saving');
+  try{const uploaded=await upload(clip.blob,clip.filename,'video',clip.durationMs,clip.sourceLabel,clip.angleLabel,clip.angleIndex,clip.replaceClipId||'');
+   savedPreview={url:uploaded.src,sourceLabel:clip.sourceLabel,angleLabel:clip.angleLabel};deleteDraft(id);
+   setPhase('saved');showDrafts();status('Video saved to this prize and automatically placed in the main editor timeline.');
+  }catch(e){setPhase('review');throw e;}
  }
- async function rerecordDraft(id){const clip=drafts.get(id);if(!clip)return;const cameraId=[...feeds.entries()].find(([_,f])=>f.label===clip.sourceLabel)?.[0]||selected()[0];
-  deleteDraft(id);if(!cameraId)throw Error('Select the camera to record again.');await record([cameraId]);
+ async function rerecordDraft(id){const clip=drafts.get(id);if(!clip)return;
+  const cameraId=[...feeds.entries()].find(([_,f])=>f.label===clip.sourceLabel)?.[0]||selected()[0];
+  replacementId=clip.replaceClipId||null;deleteDraft(id);savedPreview=null;
+  if(!cameraId)throw Error('Select a camera to re-record.');await record([cameraId]);
+ }
+ async function rerecordSaved(){const latest=savedVideos.filter(c=>c.kind==='video').at(-1);if(!latest)throw Error('No saved video available to replace.');
+  replacementId=latest.id;savedPreview=null;showDrafts();setPhase('live');await record();
  }
  function clearDrafts(){for(const id of [...drafts.keys()])deleteDraft(id);}
  async function phoneAction(action){
