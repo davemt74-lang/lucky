@@ -1,0 +1,87 @@
+"""V5Q.20 prize tabs, clone/save/activation across desktop and phone sizes."""
+import asyncio
+from playwright.async_api import async_playwright
+from v5p_pairing import make_html
+from v5q16_admin_browser import MOCK
+
+PACKAGE_MOCK="""<script>
+const existingFetch=window.fetch;
+const ORIGINAL='a'.repeat(32),NEW='b'.repeat(32);
+window.packageCalls=[];
+window.packageItems=[
+ {id:ORIGINAL,name:'Original Prizes',enabled:true,playerSelectable:true,version:1,config:structuredClone(cfg.config)},
+ {id:NEW,name:'Family Night',enabled:true,playerSelectable:true,version:1,config:structuredClone(cfg.config)}
+];
+packageItems[1].config.pools.tier1.prizes[0].name='Family Prize';
+window.packageSelected=ORIGINAL;
+window.fetch=async(url,opts={})=>{
+ const action=new URL(String(url),'https://example.test/').searchParams.get('action');
+ if(action==='prize_packages')return new Response(JSON.stringify({ok:true,selected:packageSelected,packages:packageItems}));
+ if(['package_save','package_create','package_select','package_delete'].includes(action)){
+  const data=JSON.parse(opts.body||'{}');packageCalls.push({action,data});
+  if(action==='package_create'){
+   const next='c'.repeat(32);
+   const selected=packageItems.find(p=>p.id===packageSelected);
+   packageItems.push({id:next,name:data.name,enabled:true,playerSelectable:true,version:1,config:structuredClone(selected.config)});
+   return new Response(JSON.stringify({ok:true,package:packageItems.at(-1)}));
+  }
+  if(action==='package_save'){
+   const p=packageItems.find(p=>p.id===data.id);
+   if(!p||p.version!==data.version)return new Response(JSON.stringify({ok:false,error:'Conflict'}),{status:409});
+   Object.assign(p,{name:data.name,config:data.config,enabled:data.enabled,playerSelectable:data.playerSelectable,version:p.version+1});
+   return new Response(JSON.stringify({ok:true,package:p}));
+  }
+  if(action==='package_select'){packageSelected=data.id;return new Response(JSON.stringify({ok:true,package:{selected:packageSelected}}));}
+  packageItems=packageItems.filter(p=>p.id!==data.id);
+  return new Response(JSON.stringify({ok:true,package:{deleted:true}}));
+ }
+ return existingFetch(url,opts);
+};
+</script>"""
+
+async def main():
+ checks=[];errors=[]
+ def check(name,value):checks.append((name,bool(value)))
+ async with async_playwright() as pw:
+  browser=await pw.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox'])
+  for width in (1440,375):
+   page=await browser.new_page(viewport={'width':width,'height':850},reduced_motion='reduce')
+   page.set_default_timeout(10000)
+   page.on('pageerror',lambda e:errors.append(str(e)))
+   html=make_html('admin').replace('</head>',MOCK+PACKAGE_MOCK+'</head>',1)
+   await page.set_content(html,wait_until='domcontentloaded')
+   await page.wait_for_function("document.querySelectorAll('#prize-package-tabs button').length===2")
+   check(f'{width}: packages visible as tabs',await page.locator('#prize-package-tabs button').count()==2)
+   check(f'{width}: plus next to package tabs',await page.locator('#add-package').is_visible())
+   await page.locator('[data-package-id="'+NEW+'"]').click()
+   check(f'{width}: each tab loads own prizes',await page.locator('#prize-items input[aria-label="Prize name"]').first.input_value()=='Family Prize')
+   await page.locator('#tier-budget').fill('60')
+   await page.locator('#tier-budget').dispatch_event('change')
+   await page.locator('#save-prizes').click()
+   await page.wait_for_function("packageCalls.some(c=>c.action==='package_save')")
+   check(f'{width}: budget saved only to selected package',await page.evaluate("packageItems.find(p=>p.id===NEW).config.pools.tier1.budgetCents===6000 && packageItems.find(p=>p.id===ORIGINAL).config.pools.tier1.budgetCents===1500"))
+   await page.locator('[data-package-id="'+ORIGINAL+'"]').click()
+   check(f'{width}: switching back preserves original',await page.locator('#tier-budget').input_value()=='15.00')
+   page.once('dialog',lambda d:asyncio.create_task(d.accept('Game Night Special')))
+   await page.locator('#add-package').click()
+   await page.wait_for_function("document.querySelectorAll('#prize-package-tabs button').length===3")
+   check(f'{width}: plus creates new complete tier layer',await page.locator('#package-name').input_value()=='Game Night Special' and await page.locator('#prize-items input[aria-label="Prize name"]').count()==1)
+   await page.locator('#package-player-choice').uncheck()
+   await page.locator('#save-prizes').click()
+   await page.wait_for_function("packageItems.find(p=>p.id==='c'.repeat(32)).playerSelectable===false")
+   check(f'{width}: player permissions saved with package',await page.evaluate("packageItems.find(p=>p.id==='c'.repeat(32)).playerSelectable===false"))
+   await page.locator('#package-activate').click()
+   await page.wait_for_function("packageSelected==='c'.repeat(32)")
+   check(f'{width}: next-game selection is separate from tab editing',await page.evaluate("packageCalls.some(c=>c.action==='package_select'&&c.data.id==='c'.repeat(32))"))
+   check(f'{width}: selected tab marked',await page.locator('.package-live-choice').count()==1)
+   if width<500:
+    check('phone-width prize page has no horizontal body scroll',await page.evaluate("document.documentElement.scrollWidth<=innerWidth+2"))
+   await page.close()
+  await browser.close()
+ check('no browser exceptions',not errors)
+ for name,value in checks:print(('PASS' if value else 'FAIL')+' '+name,flush=True)
+ if errors:print('EXCEPTIONS:',errors)
+ print('PRIZE PACKAGE UI',sum(v for _,v in checks),'/',len(checks),flush=True)
+ if not all(v for _,v in checks):raise SystemExit(1)
+
+if __name__=='__main__':asyncio.run(main())
