@@ -37,6 +37,7 @@ jobs:
           php tests/timeline_audio.php
           php tests/timeline_visuals.php
           php tests/timeline_layers.php
+          php tests/timeline_templates.php
           php tests/auto_draft.php
           php tests/proof_revisions.php
           node tests/proof_plan.js
@@ -84,6 +85,7 @@ jobs:
           python tests/v5q15k_host_viewport_browser.py
           python tests/v5q15l_trim_browser.py
           python tests/v5q15m_editor_tracks_browser.py
+          python tests/v5q15n_templates_browser.py
       - name: Phone controller regressions
         run: |
           python tests/v5p2_navigation_voice.py
