@@ -78,5 +78,5 @@ shellStart('Video Studio','editor','editor-workspace');
  </dialog>
  <p id="editor-feedback" role="status" class="studio-feedback studio-feedback-overlay" aria-live="polite"></p><span id="editor-caption" class="sr-only" role="status">No clip playing.</span>
 </section>
-<script src="public/client.js" defer></script><script src="public/proof-sequence.js?v=5q8b" defer></script><script src="public/editor.js?v=5q15q" defer></script><script src="public/ui-receiver.js?v=5q8" defer></script>
+<script src="public/client.js" defer></script><script src="public/proof-sequence.js?v=5q8b" defer></script><script src="public/editor.js?v=5q17" defer></script><script src="public/ui-receiver.js?v=5q8" defer></script>
 <?php shellEnd(); ?>
