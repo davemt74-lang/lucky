@@ -40,38 +40,20 @@ async def run():
   ck('capture still requires recording consent',await pg.evaluate("document.querySelector('#capture-consent').checked===false"))
   ck('no erroneous missing-claim error', 'No prize claim selected' not in await pg.locator('#capture-feedback').inner_text())
   await pg.close()
-  # Construct standalone timeline editor with both shared capture scripts locally (no network).
-  html=editor.html.replace('<script>'+editor.SCRIPT+'</script>','<script>'+PREVIEW+'\n'+(BASE/'public/proof-sequence.js').read_text()+'\n'+(BASE/'public/claim-capture.js').read_text()+'</script><script>'+editor.SCRIPT+'</script>')
+  # Live camera capture now belongs exclusively to proof.php; the editor is clean.
   pg=await b.new_page(viewport={'width':1440,'height':900})
   pg.set_default_timeout(3500)
   pg.on('pageerror',lambda e:errors.append(str(e)))
-  await pg.set_content(html,wait_until='domcontentloaded')
+  await pg.set_content(editor.html,wait_until='domcontentloaded')
   await pg.wait_for_function("document.querySelectorAll('.studio-media-item').length===2")
-  await pg.evaluate('''() => {
-   const old=Lucky.api;
-   Lucky.api=async(a,arg)=>a==='session'?{session:{claims:[{id:'%s',name:'Camera Prize',tier:'tier1',prizeId:'p1'}],pools:{tier1:{prizes:[{id:'p1',proofAngles:[]}]}}}}:old(a,arg);
-   document.getElementById('editor-session').dispatchEvent(new Event('change'));
-  }'''%CID)
-  await pg.wait_for_function("document.querySelectorAll('#studio-proof-claim option').length===2")
-  await pg.locator('#studio-proof-claim').select_option(CID)
-  ck('timeline editor selects a real claim',not await pg.locator('#camera-enable').is_disabled())
-  await pg.locator('#camera-enable').click()
-  ck('timeline editor shows two live USB previews',await pg.locator('.studio-camera-panel video:not([hidden])').count()==2)
-  ck('both editors include camera source labels', 'USB Front Camera' in await pg.locator('#camera-grid').inner_text())
-  ck('timeline existing edit clips retained',await pg.locator('.editor-clip').count()==2)
-  # Upload directly to a validated claim, then confirm it is appended rather than replacing the edit.
-  await pg.evaluate('''() => {const orig=window.fetch;window.fetch=async(u,options={})=>{
-    if(String(u).includes('action=upload')){
-      const clip={id:'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',claimId:'%s',kind:'photo',title:'USB evidence',sourceLabel:'USB Front Camera',durationMs:0,trimStartMs:0,trimEndMs:0,photoDurationMs:4000,src:'https://example.test/new.png'};
-      media.push(clip);return new Response(JSON.stringify({ok:true,clip}),{status:201,headers:{'Content-Type':'application/json'}});
-    }
-    return orig(u,options);
-   };}'''%CID)
-  await pg.locator('#capture-consent').check()
-  await pg.locator('#capture-file').set_input_files({'name':'photo.png','mimeType':'image/png','buffer':b'fake-picture'})
-  await pg.wait_for_function("document.querySelectorAll('.studio-track .editor-clip').length===3",timeout=3500)
-  ck('new prize proof auto-added to montage timeline',await pg.locator('.editor-clip').count()==3)
-  ck('original edit and source media are preserved',await pg.locator('.studio-media-item').count()==3 and 'USB evidence' in await pg.locator('#editor-timeline').inner_text())
+  ck('timeline editor has no duplicate live-camera panel',await pg.locator('.studio-camera-panel').count()==0)
+  ck('main video monitor remains available',await pg.locator('#editor-preview').is_visible())
+  ck('original edit clips remain intact',await pg.locator('.editor-clip').count()==2)
+  ck('render/export moved to header button',await pg.locator('#open-render-dialog').is_visible())
+  await pg.locator('#open-render-dialog').click()
+  ck('render/export settings shown in modal',await pg.locator('#render-dialog').is_visible() and await pg.locator('#render-queue').is_visible())
+  await pg.locator('#close-render-dialog').click()
+  ck('modal closes without changing edit',await pg.locator('#render-dialog').is_hidden() and await pg.locator('.editor-clip').count()==2)
   await pg.close();await b.close()
  ck('no browser exceptions',not errors)
  for k,v in tests:print(('PASS ' if v else 'FAIL ')+k,flush=True)
