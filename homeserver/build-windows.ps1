@@ -25,11 +25,13 @@ $dbZip=Download 'mariadb.zip' 'https://archive.mariadb.org/mariadb-11.8.5/winx64
 $caddyZip=Download 'caddy.zip' 'https://github.com/caddyserver/caddy/releases/download/v2.10.2/caddy_2.10.2_windows_amd64.zip' '88347875f0cd4b5e26bb39cd1f359613f932d54158d560e03244004d1ba6e61aae0cd625ba7c913bd46df096ef973fef2249396b0bb81143414378cb4447aeb8' 'SHA512'
 $ffmpegZip=Download 'ffmpeg.zip' 'https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-10-16-13-04/ffmpeg-n9.0.2-28-g669f5ab083-win64-gpl-shared-9.0.zip'
 $ffmpegDigest=(Get-FileHash $ffmpegZip -Algorithm SHA256).Hash.ToLowerInvariant()
-# GitHub release asset metadata supplies a server-side sha256 digest when available.
-$ffrelease=Invoke-RestMethod -Headers @{'User-Agent'='LuckyGameHubBuild'} -Uri 'https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/tags/autobuild-2026-10-16-13-04'
+# Verify the pinned FFmpeg GitHub release digest using an authenticated CI token.
+if(!$env:GITHUB_TOKEN){throw 'GITHUB_TOKEN required for authenticated FFmpeg asset verification.'}
+$headers=@{'User-Agent'='LuckyGameHubBuild';'Authorization'="Bearer $env:GITHUB_TOKEN";'Accept'='application/vnd.github+json'}
+$ffrelease=Invoke-RestMethod -Headers $headers -Uri 'https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/tags/autobuild-2026-10-16-13-04'
 $asset=$ffrelease.assets|Where-Object {$_.name -eq 'ffmpeg-n9.0.2-28-g669f5ab083-win64-gpl-shared-9.0.zip'}|Select-Object -First 1
-if(!$asset){throw 'FFmpeg asset missing from pinned GitHub release'}
-if($asset.digest -and $asset.digest.StartsWith('sha256:') -and $ffmpegDigest -ne $asset.digest.Substring(7)){throw 'FFmpeg digest does not match release asset'}
+if(!$asset -or !$asset.digest -or !$asset.digest.StartsWith('sha256:')){throw 'Pinned FFmpeg asset digest unavailable'}
+if($ffmpegDigest -ne $asset.digest.Substring(7)){throw 'FFmpeg digest mismatch'}
 # Build the application and runtime directories.
 $runtime=Join-Path $stage 'runtime'
 $app=Join-Path $stage 'app'
