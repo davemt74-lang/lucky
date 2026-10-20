@@ -13,7 +13,7 @@ final class GameEngine {
     public static function defaultPools(): array {
         $names=['Gift Card','Store Credit','Drink Voucher','Mystery Box','Shipping Credit','Merch Pack','Discount Voucher','Grand Prize'];
         $tier1=[];
-        foreach ($names as $i=>$name) $tier1[]=['id'=>'t1-'.($i+1),'name'=>$name,'cents'=>3750,'url'=>'','image'=>''];
+        foreach ($names as $i=>$name) $tier1[]=['id'=>'t1-'.($i+1),'name'=>$name,'cents'=>3750,'url'=>'','image'=>'','video'=>''];
         return ['tier1'=>['budgetCents'=>30000,'prizes'=>$tier1],
                 'tier2'=>['budgetCents'=>0,'prizes'=>[]], 'bonus'=>['budgetCents'=>0,'prizes'=>[]]];
     }
@@ -34,9 +34,9 @@ final class GameEngine {
                 if(!is_string($id)||!preg_match('/^[A-Za-z0-9_-]{1,64}$/D',$id)||isset($used[$id]) ||
                    !is_string($name)||trim($name)===''||strlen($name)>160 ||
                    !is_int($amount)||$amount<0||$amount>1000000000) throw new DomainException('Invalid or duplicate prize.');
-                $url=$p['url']??''; $image=$p['image']??'';
-                if(!is_string($url)||!self::validUrl($url)||!is_string($image)||!self::validUrl($image))
-                   throw new DomainException('Prize links must be blank or valid HTTP(S) URLs.');
+                $url=$p['url']??''; $image=$p['image']??''; $video=$p['video']??'';
+                if(!is_string($url)||!self::validUrl($url)||!is_string($image)||!self::validUrl($image)||!is_string($video)||!self::validUrl($video))
+                   throw new DomainException('Prize links and video must be blank or valid HTTP(S) URLs.');
                 $angles=$p['proofAngles']??[];
                 if(!is_array($angles)||count($angles)>4)throw new DomainException('Proof angles must have 0–4 camera views.',422);
                 $proof=[];
@@ -48,7 +48,7 @@ final class GameEngine {
                     $proof[]=['label'=>$label,'seconds'=>$seconds];
                 }
                 $used[$id]=true;$sum+=$amount;
-                $items[]=['id'=>$id,'name'=>trim($name),'cents'=>$amount,'url'=>$url,'image'=>$image,'proofAngles'=>$proof];
+                $items[]=['id'=>$id,'name'=>trim($name),'cents'=>$amount,'url'=>$url,'image'=>$image,'video'=>$video,'proofAngles'=>$proof];
             }
             if($sum>$pool['budgetCents']) throw new DomainException($tier.' prizes exceed their budget.');
             $validated[$tier]=['budgetCents'=>$pool['budgetCents'],'prizes'=>$items];
@@ -163,7 +163,7 @@ final class GameEngine {
         $index=$bonusMode?array_search($pick['id'],array_column($beforeSlices,'prizeId'),true):$slotIndex;
         $s['lastSpin']=['type'=>'award','index'=>$index,'slices'=>$beforeSlices,'at'=>gmdate('c'),'spinCount'=>$s['spinCount']];
         $claim=['id'=>bin2hex(random_bytes(16)),'prizeId'=>$pick['id'],'tier'=>$tier,'name'=>$pick['name'],
-            'cents'=>$pick['cents'],'url'=>$pick['url'],'image'=>$pick['image'],'slot'=>$slotIndex===null?null:$slotIndex+1,
+            'cents'=>$pick['cents'],'url'=>$pick['url'],'image'=>$pick['image'],'video'=>$pick['video']??'','slot'=>$slotIndex===null?null:$slotIndex+1,
             'at'=>gmdate('c'),'method'=>'spin'];
         $s['claims'][]=$claim;
         if($slotIndex!==null){
@@ -190,7 +190,7 @@ final class GameEngine {
             $slotIdx=null;
             foreach($s['slots'] as $i=>$slot){if($slot['prizeId']===$p['id']){$slotIdx=$i;break;}}
             $claim=['id'=>bin2hex(random_bytes(16)),'prizeId'=>$p['id'],'tier'=>$c['tier'],'name'=>$p['name'],'cents'=>$p['cents'],
-                'url'=>$p['url'],'image'=>$p['image'],'slot'=>$slotIdx===null?null:$slotIdx+1,'at'=>gmdate('c',strtotime($at)),'method'=>'import'];
+                'url'=>$p['url'],'image'=>$p['image'],'video'=>$p['video']??'','slot'=>$slotIdx===null?null:$slotIdx+1,'at'=>gmdate('c',strtotime($at)),'method'=>'import'];
             $s['claims'][]=$claim;$seen[$p['id']]=true;
             if($slotIdx!==null){$next=$c['tier']==='tier1'?'tier2':($c['tier']==='tier2'?'bonus':null);
                 $s['slots'][$slotIdx]=['tier'=>null,'prizeId'=>null,'pending'=>$next];if($next)self::promote($s,$slotIdx);}
