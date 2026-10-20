@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-require __DIR__.'/../lib/Bootstrap.php';require_once __DIR__.'/../lib/GameCatalog.php';require_once __DIR__.'/../lib/ProductCatalog.php';require_once __DIR__.'/../lib/ControllerGame.php';require_once __DIR__.'/../lib/PrizeDecision.php';require_once __DIR__.'/../lib/GameSessionLifecycle.php';headerSecurity();
+require __DIR__.'/../lib/Bootstrap.php';require_once __DIR__.'/../lib/CloudGameUpdates.php';require_once __DIR__.'/../lib/GameCatalog.php';require_once __DIR__.'/../lib/ProductCatalog.php';require_once __DIR__.'/../lib/ControllerGame.php';require_once __DIR__.'/../lib/PrizeDecision.php';require_once __DIR__.'/../lib/GameSessionLifecycle.php';headerSecurity();
 $action=strval($_GET['action']??'');$method=$_SERVER['REQUEST_METHOD']??'GET';
 function setting(PDO $db,string $game='spin-wheel'):array {
  $q=$db->prepare('SELECT * FROM game_settings WHERE game_id=?');$q->execute([$game]);$r=$q->fetch();
@@ -62,6 +62,9 @@ try {
   if($action==='manifest')success(['games'=>GameRegistry::manifest()]);
   if($action==='game_catalog'){
    requireAdmin();success(['games'=>GameCatalog::all()]);
+  }
+  if($action==='game_update_connection'){
+   requireAdmin();success(['connection'=>CloudGameUpdates::summary()]);
   }
   if($action==='catalog'||$action==='catalog_admin'){
    if($action==='catalog_admin')requireAdmin();
@@ -142,6 +145,21 @@ try {
    throw new DomainException('Select a JPG, PNG, or WebP game image.',422);
   $result=GameCatalog::saveImage($id,$slot,$file['tmp_name']);
   audit($db,'game.artwork',null,['game'=>$id,'slot'=>$slot]);success($result,201);
+ }
+ if($action==='game_update_connect'){
+  $data=jsonInput();$status=CloudGameUpdates::connect($data);
+  audit($db,'game_updates.connected',null,['feedHost'=>parse_url($status['url'],PHP_URL_HOST),'keyFingerprint'=>$status['keyFingerprint']]);
+  success(['connection'=>$status]);
+ }
+ if($action==='game_update_disconnect'){
+  $status=CloudGameUpdates::disconnect();
+  audit($db,'game_updates.disconnected');success(['connection'=>$status]);
+ }
+ if($action==='game_update_check'){
+  // No background or automatic network access. The operator explicitly requested this check.
+  $updates=CloudGameUpdates::check();
+  audit($db,'game_updates.checked',null,['releaseCount'=>count($updates['releases'])]);
+  success(['updates'=>$updates]);
  }
  if($action==='game_catalog_save'){
   $data=jsonInput();$id=GameCatalog::slug($data['id']??null);
