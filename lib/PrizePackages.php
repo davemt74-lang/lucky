@@ -31,8 +31,12 @@ final class PrizePackages {
   if($config===false)throw new DomainException('Game configuration is missing.',409);
   $legacy=GameEngine::validateConfig(json_decode($config,true,512,JSON_THROW_ON_ERROR));
   $default=hash('md5','lucky:spin-wheel:default');
-  $insert=$db->prepare('INSERT IGNORE INTO prize_packages(id,game_id,name,config_json,enabled,player_selectable) VALUES (?,?,?, ?,1,1)');
-  $insert->execute([$default,$game,'Original Prizes',json_encode($legacy,JSON_THROW_ON_ERROR)]);
+  $q=$db->prepare('SELECT id FROM prize_packages WHERE game_id=? ORDER BY created_at,id LIMIT 1');
+  $q->execute([$game]);$existing=$q->fetchColumn();
+  if($existing===false){
+   $insert=$db->prepare('INSERT IGNORE INTO prize_packages(id,game_id,name,config_json,enabled,player_selectable) VALUES (?,?,?, ?,1,1)');
+   $insert->execute([$default,$game,'Original Prizes',json_encode($legacy,JSON_THROW_ON_ERROR)]);
+  }else $default=(string)$existing;
   $q=$db->prepare('INSERT IGNORE INTO prize_package_selection(game_id,package_id) VALUES (?,?)');
   $q->execute([$game,$default]);
  }
