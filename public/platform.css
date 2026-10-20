@@ -646,3 +646,10 @@ body.admin-studio-page .admin-session-actions .btn{padding:9px 12px;font-size:11
  body.admin-studio-page .admin-session-toolbar>*{flex-basis:100%}
  body.admin-studio-page .platform-admin-panel{padding:14px}
 }
+
+/* V5Q.17 — destructive session action is distinct from ordinary controls. */
+body.admin-studio-page .admin-session-actions .admin-session-delete{
+ margin-left:auto;border-color:#9c6571;color:#ffccd0;background:#352233;
+}
+body.admin-studio-page .admin-session-actions .admin-session-delete:hover{background:#713745;border-color:#ffb6bc}
+@media(max-width:570px){body.admin-studio-page .admin-session-actions .admin-session-delete{margin-left:0}}
