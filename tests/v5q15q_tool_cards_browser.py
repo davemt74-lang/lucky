@@ -60,8 +60,18 @@ async def main():
   await page.locator('#open-render-dialog').click()
   await page.locator('#render-queue').click()
   ok('failed project save prevents stale MP4 queue',await page.evaluate("demo.queued===null && !demo.calls.includes('queue')"))
-  await page.wait_for_function("document.querySelector('#render-feedback')?.textContent?.includes('Could not save')")
-  ok('export dialog visibly reports failed save',await page.locator('#render-feedback').is_visible() and 'Could not save' in await page.locator('#render-feedback').inner_text())
+  await page.wait_for_timeout(400)
+  diagnostic=await page.evaluate("""() => ({
+    dialog:document.querySelector('#render-dialog')?.open,
+    visible:getComputedStyle(document.querySelector('#render-feedback')).display,
+    render:document.querySelector('#render-feedback')?.textContent,
+    editor:document.querySelector('#editor-feedback')?.textContent,
+    button:document.querySelector('#render-queue')?.disabled,
+    calls:window.demo.calls.slice(-12),
+    queued:!!window.demo.queued
+  })""")
+  print('EXPORT DIAGNOSTIC',diagnostic,flush=True)
+  ok('export dialog visibly reports failed save',diagnostic['dialog'] and 'Could not save' in (diagnostic['render'] or '') and await page.locator('#render-feedback').is_visible())
   await page.locator('#close-render-dialog').click()
   ok('no browser errors',not errors)
   # The TV/desktop wheel stage stays clear while fallback host controls remain reachable.
