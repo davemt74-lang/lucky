@@ -7,7 +7,7 @@
  };
  const show=(name)=>{for(const id of ['phone-join','phone-wait','phone-controls'])$(id).hidden=id!==name;$('phone-disconnect').hidden=name==='phone-join';};
  const safeName=()=>String($('phone-name').value||'').trim().slice(0,48);
- function forget(){toggleListening(false);commandQueue=[];feedback=null;pendingCommand=null;game=null;gameVersion=-1;updateProof(null);state=null;try{sessionStorage.removeItem(storageKey);}catch(_){}active=false;show('phone-join');message('Connection expired. Scan a new QR code on the host screen.',true);}
+ function forget(){lastPrizeOffer='';clearPrizeVideo();try{window.speechSynthesis?.cancel();}catch(_){}toggleListening(false);commandQueue=[];feedback=null;pendingCommand=null;game=null;gameVersion=-1;updateProof(null);state=null;try{sessionStorage.removeItem(storageKey);}catch(_){}active=false;show('phone-join');message('Connection expired. Scan a new QR code on the host screen.',true);}
  async function request(action,body={},authenticated=true){const headers={'Content-Type':'application/json'};
   if(authenticated){if(!state)throw Error('Phone not paired.');headers['X-Controller-Token']=state.token;body={id:state.id,...body};}
   const response=await fetch('api/controller.php?action='+encodeURIComponent(action),{method:'POST',headers,credentials:'omit',cache:'no-store',body:JSON.stringify(body)});
@@ -34,6 +34,55 @@
    if(location.protocol!=='about:')history.replaceState(null,'','controller.php');show('phone-wait');message('Connection requested. The host must approve your phone.');
   }catch(e){message(e.message,true);}finally{busy=false;$('phone-join-form').querySelector('button').disabled=false;}
  }
+
+ let lastPrizeOffer='',prizeMedia=null;
+ function safePrizeVideo(raw){
+  if(typeof raw!=='string'||!raw||raw.length>2048)return null;
+  let url;try{url=new URL(raw);}catch(_){return null;}
+  if(url.protocol!=='https:'||url.username||url.password)return null;
+  if(['.mp4','.webm','.m4v','.ogv'].some(ext=>url.pathname.toLowerCase().endsWith(ext)))return {kind:'video',src:url.href};
+  const host=url.hostname.toLowerCase();let id='';
+  if(host==='youtu.be'||host==='www.youtu.be')id=url.pathname.split('/')[1]||'';
+  else if(['youtube.com','www.youtube.com','m.youtube.com','youtube-nocookie.com','www.youtube-nocookie.com'].includes(host)){
+   id=url.pathname==='/watch'?(url.searchParams.get('v')||''):((url.pathname.startsWith('/embed/')||url.pathname.startsWith('/shorts/'))?(url.pathname.split('/')[2]||''):'');
+  }
+  if(/^[A-Za-z0-9_-]{11}$/.test(id))return {kind:'iframe',src:'https://www.youtube-nocookie.com/embed/'+id+'?autoplay=1&mute=1&playsinline=1'};
+  if(['vimeo.com','www.vimeo.com','player.vimeo.com'].includes(host)){
+   const parts=url.pathname.split('/').filter(Boolean);id=((parts.length===1||parts.length===2&&parts[0]==='video')&&/^[0-9]{1,12}$/.test(parts[parts.length-1]||''))?parts[parts.length-1]:'';
+   if(id)return {kind:'iframe',src:'https://player.vimeo.com/video/'+id+'?autoplay=1&muted=1'};
+  }
+  return null;
+ }
+ function speakOffer(offer){
+  if(!offer)return;
+  if(!window.speechSynthesis||typeof SpeechSynthesisUtterance!=='function'){message('Speech unavailable. Your prize is shown below.',true);return;}
+  try{window.speechSynthesis.cancel();const line=new SpeechSynthesisUtterance('Congratulations! You won '+offer.name+'!');
+   line.lang='en-US';line.rate=.93;window.speechSynthesis.speak(line);
+  }catch(_){message('Tap Hear prize again to allow phone speech.',true);}
+ }
+ function clearPrizeVideo(){
+  const target=$('phone-offer-media');if(target){target.replaceChildren();target.hidden=true;}
+  prizeMedia=null;$('phone-offer-play-video').hidden=true;
+ }
+ function showPrizeVideo(entry){
+  clearPrizeVideo();if(!entry)return;
+  const target=$('phone-offer-media');let player;
+  if(entry.kind==='video'){player=document.createElement('video');player.src=entry.src;player.playsInline=true;player.autoplay=true;player.muted=true;player.controls=true;player.preload='metadata';}
+  else {player=document.createElement('iframe');player.src=entry.src;player.title='Prize video';player.loading='eager';player.referrerPolicy='no-referrer';
+   player.allow='autoplay; encrypted-media; picture-in-picture';player.setAttribute('sandbox','allow-scripts allow-same-origin allow-presentation');}
+  player.className='phone-prize-player';target.replaceChildren(player);target.hidden=false;
+  prizeMedia=player;$('phone-offer-play-video').hidden=false;
+  if(entry.kind==='video')player.play().catch(()=>{});
+ }
+ function presentPrize(offer){
+  if(!offer||offer.status!=='pending'){if(lastPrizeOffer){lastPrizeOffer='';clearPrizeVideo();}return;}
+  const key=String(game?.id||'')+':'+String(offer.claimId||'');
+  if(lastPrizeOffer===key)return;
+  lastPrizeOffer=key;showPrizeVideo(safePrizeVideo(offer.videoUrl||''));
+  const storage='lucky-prize-announced-'+key;
+  let seen=false;try{seen=sessionStorage.getItem(storage)==='1';}catch(_){}
+  if(!seen){try{sessionStorage.setItem(storage,'1');}catch(_){}speakOffer(offer);}
+ }
  function applyMode(){
   const proof=!!proofState?.active,offer=!proof&&game?.offer?.status==='pending';
   const gameShell=$('phone-gameplay-shell'),proofMode=$('phone-proof-mode'),audio=$('phone-game-audio'),offerMode=$('phone-prize-offer');
@@ -42,6 +91,7 @@
   if(audio)audio.hidden=proof||offer;
   if(offerMode)offerMode.hidden=!offer;
   if(offer&&$('phone-offer-name'))$('phone-offer-name').textContent=game.offer.name+' · $'+(Number(game.offer.cents)/100).toFixed(2);
+  presentPrize(offer?game.offer:null);
  }
  function updateGame(current){
   if(!current)return;game=current;applyMode();
@@ -139,6 +189,14 @@
  }
  mic?.addEventListener('click',()=>toggleListening(!listening));
  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'&&listening)toggleListening(false);});
+ $('phone-offer-speak').addEventListener('click',()=>{if(game?.offer?.status==='pending')speakOffer(game.offer);});
+ $('phone-offer-play-video').addEventListener('click',()=>{
+  if(!prizeMedia)return;
+  if(prizeMedia.tagName==='VIDEO'){
+   prizeMedia.muted=false;
+   prizeMedia.play().catch(()=>message('Tap Play in the player to start the video.',true));
+  }else{const src=prizeMedia.src;prizeMedia.src=src;}
+ });
  $('phone-join-form').addEventListener('submit',join);
  document.querySelectorAll('[data-phone]').forEach(button=>button.addEventListener('click',()=>send(button.dataset.phone)));
  $('phone-proof-consent')?.addEventListener('change',e=>send(e.target.checked?'proof-consent-on':'proof-consent-off'));

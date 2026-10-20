@@ -546,3 +546,23 @@ body.game-fullwidth .host-display-panel{min-height:300px}
  body.game-fullwidth #host-panel-display .platform-viewer-link{flex-direction:column;align-items:stretch}
  body.game-fullwidth .host-workspace-panels .platform-wheel-card{padding:4px}
 }
+
+/* V5Q.15O — the phone is the only prize acceptance / video presentation surface. */
+.phone-controller-page .phone-prize-offer{
+ display:grid;gap:14px;padding:clamp(18px,5vw,28px);border-radius:22px;
+ background:linear-gradient(165deg,#292b50 0%,#172740 65%,#112039 100%);
+ border:1px solid #c5a46b;box-shadow:0 12px 44px #05081788;text-align:center
+}
+.phone-controller-page .phone-prize-offer[hidden],.phone-controller-page .phone-prize-media[hidden]{display:none!important}
+.phone-controller-page .phone-prize-offer>.mini-label{font-size:11px;letter-spacing:.14em;color:#ffd587;margin:0}
+.phone-controller-page .phone-prize-offer h2{font-size:clamp(28px,7vw,38px);margin:0;color:#fff}
+.phone-controller-page .phone-prize-title{font-size:clamp(20px,5vw,28px);font-weight:800;line-height:1.32;color:#fbd48d;margin:0;overflow-wrap:anywhere}
+.phone-controller-page .phone-prize-media{width:100%;background:#050a11;border:1px solid #4b5f80;border-radius:12px;overflow:hidden;aspect-ratio:16/9;display:grid;place-items:center}
+.phone-controller-page .phone-prize-player{display:block;width:100%;height:100%;aspect-ratio:16/9;object-fit:contain;border:0}
+.phone-controller-page .phone-offer-actions{display:flex;flex-wrap:wrap;justify-content:center;gap:8px}
+.phone-controller-page .phone-offer-actions button{flex:1 1 150px;min-height:42px;font-size:12px}
+.phone-controller-page .phone-prize-help{font-size:12px;color:#b8cce1;line-height:1.4;margin:0}
+.phone-controller-page .phone-prize-offer .phone-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.phone-controller-page .phone-prize-offer [data-phone="prize-accept"]{min-height:58px;background:#f3c66e;color:#142033}
+.phone-controller-page .phone-prize-offer [data-phone="prize-decline"]{min-height:58px}
+@media(max-width:360px){.phone-controller-page .phone-prize-offer .phone-actions{grid-template-columns:1fr}}

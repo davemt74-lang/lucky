@@ -140,7 +140,7 @@
      await revealSpin(view.id,spin.spinCount);
      if(spin.type==='award'){
       const claim=data?.view?.claims?.[data.view.claims.length-1];
-      if(claim){L.beep('win');msg(`🎉 ${claim.name} claimed from your phone!`);
+      if(claim){L.beep('win');msg(`🎉 ${claim.name} · ${L.money(claim.cents)}!`);
        // The public view intentionally omits image/URL; prize details are still
        // available in the signed-in session snapshot.
        pollOffer();
@@ -168,7 +168,6 @@
  async function pollOffer(){
   if(offerBusy||!data?.view?.id||busy)return;offerBusy=true;
   try{const result=await L.api('prize_offer',{query:{session:data.view.id}});currentOffer=result.offer||null;
-   const stage=$('prize-offer-stage');if(stage){stage.hidden=currentOffer?.status!=='pending';if(!stage.hidden)$('prize-offer-description').textContent=currentOffer.name+' · '+L.money(currentOffer.cents);}
    if(currentOffer?.status==='accepted'&&currentOffer.claimId&&!offerRouted.has(currentOffer.claimId)){
     const when=Date.parse((currentOffer.decidedAt||'').replace(' ','T')+'Z');
     let prior='';try{prior=sessionStorage.getItem('lucky-proof-accepted-'+currentOffer.claimId)||'';}catch(_){}
@@ -210,8 +209,7 @@
    L.beep('tick');await wheel.spinTo(animation.index,animation.slices,matchMedia('(prefers-reduced-motion: reduce)').matches?350:3900);
    await revealSpin(id,animation.spinCount);updateProofStates();syncedSpin=data.view.lastSpin?.spinCount||0;
    if(event.type==='bonus_trigger'){msg('✧ BONUS ROUND! Spin again to reveal the bonus prize.');L.beep('bonus');L.speak('Surprise bonus round!');}
-   else {msg(`🎉 ${event.claim.name} · ${L.money(event.claim.cents)} won! Accept or decline on the connected phone.`);L.beep('win');pollOffer();
-    if($('speak-winners').checked)L.speak(`Congratulations! You won ${event.claim.name}!`);}
+   else {msg(`🎉 ${event.claim.name} · ${L.money(event.claim.cents)}!`);L.beep('win');pollOffer();}
   }catch(e){msg(e.message,true);}finally{busy=false;render();}
  }
  async function pause(){if(busy||!data||!['active','paused'].includes(data.view.status))return;busy=true;render();
@@ -329,9 +327,7 @@
   const controls=$('spin-game')?.closest('.platform-control-row');
   const top=wrap.getBoundingClientRect().top;
   const controlsHeight=controls?.getBoundingClientRect().height||54;
-  const offer=$('prize-offer-stage');
-  const offerHeight=offer&&!offer.hidden?offer.getBoundingClientRect().height+12:0;
-  const available=Math.floor(innerHeight-top-controlsHeight-offerHeight-76);
+  const available=Math.floor(innerHeight-top-controlsHeight-76);
   const width=wrap.parentElement?.clientWidth||innerWidth;
   wrap.style.setProperty('--wheel-viewport-size',Math.max(160,Math.min(available,width-20,780))+'px');
  }
@@ -363,7 +359,7 @@
  
  window.addEventListener('lucky:paired-phones',e=>{const count=$('host-phone-count');if(count)count.textContent=Number(e.detail?.count||0)>0?String(e.detail.count):'';});
  window.LuckyHostRemote=remoteCommand;
- $('prize-offer-accept').onclick=()=>decideOffer('accepted');$('prize-offer-decline').onclick=()=>decideOffer('declined');
+
  $('start-game').onclick=start;$('spin-game').onclick=spin;$('pause-game').onclick=pause;$('end-game').onclick=end;
  $('copy-viewer').onclick=()=>{navigator.clipboard?.writeText(viewerUrl).then(()=>msg('Display link copied.')).catch(()=>{$('viewer-link').select();});};
  $('voice-toggle').onclick=()=>{if(stopVoice){stopVoice();stopVoice=null;$('voice-toggle').textContent='🎙 Enable listening';L.note('voice-status','Microphone off.');return;}
