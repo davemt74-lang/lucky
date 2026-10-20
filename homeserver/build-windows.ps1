@@ -48,6 +48,11 @@ try{
   Copy-Item -LiteralPath $src -Destination $dst -Force
  }
 }finally{Pop-Location}
+# The supervisor launches from {app}\homeserver while the PHP initializer
+# remains private under {app}\app\homeserver.
+New-Item -ItemType Directory -Force -Path (Join-Path $stage 'homeserver') | Out-Null
+Copy-Item -LiteralPath (Join-Path $repo 'homeserver\start.ps1') -Destination (Join-Path $stage 'homeserver\start.ps1')
+Copy-Item -LiteralPath (Join-Path $repo 'homeserver\OFFLINE_NOTICE.txt') -Destination (Join-Path $stage 'homeserver\OFFLINE_NOTICE.txt')
 Expand-Archive -LiteralPath $phpZip -DestinationPath (Join-Path $runtime 'php') -Force
 Expand-Archive -LiteralPath $dbZip -DestinationPath (Join-Path $downloads 'db-extracted') -Force
 $dbroot=Get-ChildItem (Join-Path $downloads 'db-extracted') -Directory |Where-Object {Test-Path (Join-Path $_.FullName 'bin\mariadbd.exe')}|Select-Object -First 1
