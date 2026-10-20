@@ -535,8 +535,15 @@ function renderBin(){const bin=$('editor-media-bin');if(!bin)return;bin.replaceC
   catch(e){inform(e.message,true);}
  }
  async function save(){if(!session)return false;
-  try{await api('save_project',{edits:clips.map(fields),layers},true);dirty=false;inform('Your non-destructive timeline has been saved.');return true;}
-  catch(e){inform('Could not save the timeline: '+e.message,true);return false;}
+  const snapshot={edits:clips.map(fields),layers:JSON.parse(JSON.stringify(layers))};
+  const signature=JSON.stringify(snapshot);
+  try{
+   await api('save_project',snapshot,true);
+   // Never mark edits saved if the timeline changed while the request was in flight.
+   dirty=JSON.stringify({edits:clips.map(fields),layers})!==signature;
+   if(dirty){inform('New edits arrived during saving. Save again before exporting.',true);return false;}
+   inform('Your non-destructive timeline has been saved.');return true;
+  }catch(e){inform('Could not save the timeline: '+e.message,true);return false;}
  }
  function updateSelected(event){event.preventDefault();if(!chosen)return;
   const start=ms($('editor-trim-start').value),end=ms($('editor-trim-end').value),photo=ms($('editor-photo-seconds').value);
