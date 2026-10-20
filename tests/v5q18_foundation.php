@@ -43,7 +43,7 @@ try{GameFoundation::checkSession($example,$bad,$id);throw new RuntimeException('
 catch(DomainException $e){yes($e->getCode()===422,'module contract rejects wrong session identity');}
 $api=file_get_contents(__DIR__.'/../api/index.php');
 $bootstrap=file_get_contents(__DIR__.'/../lib/GameFoundation.php');
-yes(str_contains($api,"'game_action'")&&str_contains($api,"$"."module->action($"."s,$"."verb)") ,'API dispatches arbitrary game rules through the registered module');
+yes(str_contains($api,"'game_action'")&&str_contains($api,"$"."module->action($"."s,$"."verb,$"."payload)") ,'API dispatches arbitrary game rules through the registered module');
 yes(str_contains($api,"$"."s['game']==='spin-wheel'&&$"."verb==='spin'"),'wheel-only prize rules are isolated from Game 2');
 yes(str_contains($api,'GameFoundation::checkSession'),'shared API validates newly created session');
 yes(str_contains($bootstrap,'INSERT IGNORE INTO game_settings')&&str_contains($bootstrap,'FOR UPDATE'),'settings can initialize from registered module without migration');
