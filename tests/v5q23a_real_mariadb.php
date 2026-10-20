@@ -130,6 +130,11 @@ try {
  v23db($reopened['status']==='active'&&stateFromRow($reopened)['packageVersion']==='1.0.0','Saved game resumes with original data after simulated restart.');
  $apply('end',PackageControllerBridge::key($pairId,'end-'.$nonce));
  v23db(sessionRow($db,$sessionId)['status']==='ended','Phone End Game archives session in local MariaDB.');
+ $endedRow=sessionRow($db,$sessionId);
+ v23db(is_string($endedRow['ended_at'])&&preg_match('/^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}$/D',$endedRow['ended_at'])===1,
+   'Phone End Game stores SQL DATETIME while retaining ISO timestamp in JSON.');
+ v23db(str_contains(stateFromRow($endedRow)['endedAt'],'T'),
+   'Session JSON retains the immutable ISO end timestamp.');
  v23dbConflict(fn()=>$apply('input',PackageControllerBridge::key($pairId,'later-'.$nonce),['name'=>'tap','value'=>1]),'Ended game rejects further phone actions.');
  // The second game is completely independent.
  v23db(sessionRow($db,$otherId)['status']==='active','Unrelated no-phone game remains active.');
