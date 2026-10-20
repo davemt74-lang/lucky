@@ -34,7 +34,7 @@ HTML=HTML.replace(
 )
 HTML=HTML.replace(
  "  if(__applied.has(input.nonce))return",
- "  sessionStorage.setItem('cert-commands',JSON.stringify(__commands));\\n"
+ "  sessionStorage.setItem('cert-commands',JSON.stringify(__commands));\n"
  "  if(__applied.has(input.nonce))return"
 )
 HTML=HTML.replace(
@@ -43,7 +43,7 @@ HTML=HTML.replace(
 )
 HTML=HTML.replace(
  "  if(input.verb==='input'&&__dropOnce){__dropOnce=false;throw",
- "  sessionStorage.setItem('cert-game',JSON.stringify(__game));\\n"
+ "  sessionStorage.setItem('cert-game',JSON.stringify(__game));\n"
  "  if(input.verb==='input'&&__dropOnce){__dropOnce=false;sessionStorage.setItem('cert-dropped','yes');throw"
 )
 
