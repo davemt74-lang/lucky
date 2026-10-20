@@ -30,7 +30,8 @@ final class GameCatalog {
    'publisherName'=>'','publisherWebsite'=>'','category'=>'Games','version'=>$registered?'bundled':'0.1.0',
    'ageRating'=>'','playersMin'=>1,'playersMax'=>8,'controllerMode'=>$registered?(GameRegistry::controller($id)===null?'none':'custom'):'custom',
    'enabled'=>$registered,'images'=>['cover'=>null,'hero'=>null,'logo'=>null,'gallery'=>[]],
-   'status'=>$registered?'ready':'draft','source'=>$registered?'bundled':'catalog-only'];
+   'status'=>$registered?'ready':'draft','source'=>$registered?'bundled':'catalog-only',
+   'builtIn'=>$registered,'canDelete'=>!$registered];
  }
  private static function path(string $id,?string $root=null):string {
   return self::base($root).'/'.self::slug($id);
@@ -47,6 +48,7 @@ final class GameCatalog {
   $registered=isset(GameRegistry::modules()[$id]);
   $base['status']=$registered?'ready':'draft';
   $base['source']=$registered?'bundled':'catalog-only';
+  $base['builtIn']=$registered;$base['canDelete']=!$registered;
   if($registered)$base['controllerMode']=GameRegistry::controller($id)===null?'none':'custom';
   return $base;
  }
