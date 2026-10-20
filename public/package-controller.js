@@ -10,6 +10,9 @@
   if(cached&&valid(cached.session,hex32)&&valid(cached.viewer,hex48)&&
     valid(cached.id,hex32)&&valid(cached.token,/^[a-f0-9]{64}$/))pair=cached;
  }catch(_){}
+ if(pair&&query.has('session')&&(pair.session!==query.get('session')||pair.viewer!==query.get('viewer'))){
+  pair=null;sessionStorage.removeItem(key);
+ }
  const session=query.get('session')||pair?.session;
  const viewer=query.get('viewer')||pair?.viewer;
  if(!valid(session,hex32)||!valid(viewer,hex48)){status('Scan the current game QR code to connect.');$('package-phone-join-form').querySelector('button').disabled=true;return;}
@@ -46,8 +49,12 @@
    const reply=await request('package_status',{session,viewer});
    if(reply.status==='pending'){show('wait');status('Waiting for host approval…');}
    else if(reply.status==='paired')refreshGame(reply.game);
-  }catch(e){status(e.message);show('wait');}
-  finally{polling=false;}
+  }catch(e){
+   status(e.message);
+   if(/expired|disconnected|revoked|authorization|invalid/i.test(e.message)){
+    sessionStorage.removeItem(key);pair=null;show('join');
+   }else show('wait');
+  }finally{polling=false;}
  }
  $('package-phone-join-form').onsubmit=async event=>{
   event.preventDefault();
