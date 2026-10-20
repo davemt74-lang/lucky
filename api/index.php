@@ -152,10 +152,7 @@ try {
    // cannot be resolved through GameRegistry::module().
    $q=$db->prepare('SELECT game_id FROM game_settings WHERE game_id=? FOR UPDATE');
    $q->execute([$id]);$q->fetch();
-   $q=$db->prepare("SELECT COUNT(*) FROM game_sessions WHERE game_id=? AND status IN ('active','paused')");
-   $q->execute([$id]);
-   if((int)$q->fetchColumn()>0)
-    throw new DomainException('Save or finish live sessions before recovering the game.',409);
+   GamePackageActivation::assertNoLiveSessions($db,$id);
    $result=GamePackageActivation::recover($id,$version,true);
    audit($db,'game.package_recovered',null,['game'=>$id,'version'=>$version]);
    $db->commit();
@@ -174,9 +171,7 @@ try {
   try{
    $q=$db->prepare('SELECT game_id FROM game_settings WHERE game_id=? FOR UPDATE');
    $q->execute([$id]);
-   $q=$db->prepare("SELECT COUNT(*) FROM game_sessions WHERE game_id=? AND status IN ('active','paused')");
-   $q->execute([$id]);
-   if((int)$q->fetchColumn()>0)throw new DomainException('End or save the live game before changing versions.',409);
+   GamePackageActivation::assertNoLiveSessions($db,$id);
    $result=GamePackageActivation::activate($id,$version,$expected,true);
    audit($db,'game.package_activated',null,['game'=>$id,'version'=>$version,
       'previous'=>$result['previous']??null]);
