@@ -25,13 +25,13 @@ final class GameCatalog {
  }
  public static function defaults(string $id):array {
   $modules=GameRegistry::modules();
-  $registered=isset($modules[$id]);$manifest=$registered?$modules[$id]->manifest():[];
+  $registered=isset($modules[$id]);$builtIn=$id==='spin-wheel';$manifest=$registered?$modules[$id]->manifest():[];
   return ['id'=>$id,'title'=>(string)($manifest['name']??$id),'tagline'=>'','description'=>(string)($manifest['description']??''),
-   'publisherName'=>'','publisherWebsite'=>'','category'=>'Games','version'=>$registered?'bundled':'0.1.0',
+   'publisherName'=>'','publisherWebsite'=>'','category'=>'Games','version'=>$registered?($builtIn?'bundled':(string)($manifest['packageVersion']??'0.1.0')):'0.1.0',
    'ageRating'=>'','playersMin'=>1,'playersMax'=>8,'controllerMode'=>$registered?(GameRegistry::controller($id)===null?'none':'custom'):'custom',
    'enabled'=>$registered,'images'=>['cover'=>null,'hero'=>null,'logo'=>null,'gallery'=>[]],
-   'status'=>$registered?'ready':'draft','source'=>$registered?'bundled':'catalog-only',
-   'builtIn'=>$registered,'canDelete'=>!$registered];
+   'status'=>$registered?'ready':'draft','source'=>$registered?($builtIn?'bundled':'package'):'catalog-only',
+   'builtIn'=>$builtIn,'canDelete'=>!$builtIn];
  }
  private static function path(string $id,?string $root=null):string {
   return self::base($root).'/'.self::slug($id);
@@ -45,10 +45,11 @@ final class GameCatalog {
   if(!is_array($data)||($data['id']??null)!==$id)throw new RuntimeException('Corrupt game catalog metadata.');
   $base=array_replace($base,$data);
   // Catalog metadata may not promote an unregistered game to playable.
-  $registered=isset(GameRegistry::modules()[$id]);
+  $modules=GameRegistry::modules();$registered=isset($modules[$id]);$builtIn=$id==='spin-wheel';
   $base['status']=$registered?'ready':'draft';
-  $base['source']=$registered?'bundled':'catalog-only';
-  $base['builtIn']=$registered;$base['canDelete']=!$registered;
+  $base['source']=$registered?($builtIn?'bundled':'package'):'catalog-only';
+  $base['builtIn']=$builtIn;$base['canDelete']=!$builtIn;
+  if($registered&&!$builtIn)$base['version']=(string)($modules[$id]->manifest()['packageVersion']??$base['version']);
   if($registered)$base['controllerMode']=GameRegistry::controller($id)===null?'none':'custom';
   return $base;
  }
