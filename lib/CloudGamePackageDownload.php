@@ -40,7 +40,7 @@ final class CloudGamePackageDownload {
    if(file_put_contents($path,$bytes,LOCK_EX)!==strlen($bytes))
     throw new RuntimeException('Unable to stage downloaded ZIP.');
    @chmod($path,0600);
-   $package=GamePackageInstaller::install($path,null,$configuration['publicKey']);
+   $package=GamePackageInstaller::install($path,null,$configuration['publicKey'],$id,$version);
    if($package['id']!==$id||$package['version']!==$version)
     throw new DomainException('Downloaded package identity does not match signed release.',403);
    return $package;
