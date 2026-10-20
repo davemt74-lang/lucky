@@ -5,7 +5,7 @@ if(!installed()){header('Location: install.php');exit;}
 if(!isAdmin()){header('Location: login.php');exit;}
 shellStart('Video Studio','editor','editor-workspace');
 ?>
-<link rel="stylesheet" href="public/editor-workspace.css?v=5q15j">
+<link rel="stylesheet" href="public/editor-workspace.css?v=5q15l">
 <section class="media-editor-studio" aria-label="Video Studio workspace">
  <div class="studio-topbar">
   <a id="editor-back-game" class="btn btn-outline studio-back" href="game.php">← Back to game</a>
@@ -56,5 +56,5 @@ shellStart('Video Studio','editor','editor-workspace');
  </dialog>
  <p id="editor-feedback" role="status" class="studio-feedback studio-feedback-overlay" aria-live="polite"></p><span id="editor-caption" class="sr-only" role="status">No clip playing.</span>
 </section>
-<script src="public/client.js" defer></script><script src="public/proof-sequence.js?v=5q8b" defer></script><script src="public/editor.js?v=5q15j" defer></script><script src="public/ui-receiver.js?v=5q8" defer></script>
+<script src="public/client.js" defer></script><script src="public/proof-sequence.js?v=5q8b" defer></script><script src="public/editor.js?v=5q15l" defer></script><script src="public/ui-receiver.js?v=5q8" defer></script>
 <?php shellEnd(); ?>
