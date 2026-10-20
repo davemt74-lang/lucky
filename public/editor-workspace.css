@@ -230,7 +230,7 @@ body.editor-workspace #editor-audio-status{color:#bdcce0;font-size:13px;line-hei
 body.editor-workspace .media-editor-studio{grid-template-rows:54px minmax(0,1fr) minmax(182px,31vh);gap:8px}
 body.editor-workspace .studio-body{grid-template-columns:minmax(345px,29%) minmax(0,1fr)}
 body.editor-workspace .studio-monitor-panel{min-height:0}
-body.editor-workspace .media-preview.studio-monitor{height:calc(100% - 16px);width:calc(100% - 16px);margin:8px;flex:1 1 auto}
+body.editor-workspace .media-preview.studio-monitor{box-sizing:border-box;height:auto;min-height:0;max-height:calc(100% - 16px);width:calc(100% - 16px);margin:8px;flex:1 1 0}
 body.editor-workspace .studio-sequence-head{min-height:48px;padding:5px 12px}
 body.editor-workspace .studio-sequence-left,body.editor-workspace .studio-sequence-right{display:flex;align-items:center;gap:9px;min-width:0}
 body.editor-workspace .studio-sequence-left strong{margin-left:10px;white-space:nowrap}
@@ -280,4 +280,15 @@ body.editor-workspace .studio-monitor{position:relative;isolation:isolate}
  body.editor-workspace .studio-sequence-right{gap:5px}
  body.editor-workspace .studio-sequence-head{padding:6px;flex-wrap:wrap}
  body.editor-workspace .studio-tool-library{max-height:110px}
+}
+
+/* Prevent contained media elements from painting or receiving clicks over the timeline. */
+body.editor-workspace .studio-body{position:relative;z-index:0;overflow:hidden;min-height:0}
+body.editor-workspace .studio-monitor-panel{height:100%;max-height:100%;min-height:0;overflow:hidden;isolation:isolate}
+body.editor-workspace .studio-monitor{overflow:hidden}
+body.editor-workspace .studio-sequence{position:relative;z-index:2;overflow:hidden}
+body.editor-workspace .studio-sequence-head{position:relative;z-index:3}
+@media(max-width:700px){
+ body.editor-workspace .studio-body{height:auto;max-height:none;overflow:visible}
+ body.editor-workspace .studio-monitor-panel{height:310px;min-height:310px;max-height:310px}
 }
