@@ -9,7 +9,7 @@ shellStart('Edit Prize Proof','claims');
 <div class="proof-editor-layout"><section class="claim-capture" aria-label="Capture prize reaction">
   <div class="proof-video-stage"><div id="camera-grid" class="camera-grid" aria-label="Live camera feeds"><div class="camera-waiting">Live video appears here after camera permission is granted.</div></div><canvas id="capture-photo-canvas" hidden></canvas>
    <section id="capture-review" class="capture-review" hidden aria-label="Review recorded video"><h3>Review recording</h3><div id="capture-review-list" class="capture-review-list"></div></section>
-  <label class="platform-checkbox proof-consent-overlay"><input type="checkbox" id="capture-consent"> Everyone recorded has agreed to this private video.</label>
+  <input type="checkbox" id="capture-consent" hidden aria-hidden="true" tabindex="-1">
   <details id="proof-camera-settings" class="proof-camera-settings"><summary>⚙ Camera settings</summary>
   
   <div id="capture-recording-tools" class="capture-recording-tools">
