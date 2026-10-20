@@ -24,7 +24,7 @@ final class ClaimMedia {
   $kind=self::validateUpload($mime,$bytes,$dimensions);
   if($mime==='video/webm'&&$claimedKind==='audio'){
    $header=@file_get_contents($temporaryFile,false,null,0,65536);
-   if(!is_string($header)||!preg_match('/A_(?:OPUS|VORBIS|AAC)\\b/',$header)||
+   if(!is_string($header)||!preg_match('/A_(?:OPUS|VORBIS|AAC)/',$header)||
       preg_match('/V_(?:VP8|VP9|AV1|MPEG4|THEORA)/',$header))
     throw new DomainException('This WebM file does not contain an audio-only microphone recording.',422);
    return 'audio';
