@@ -15,7 +15,7 @@ window.fetch=async (url,opts={})=>{
  let action=new URL(String(url),'https://example.test/').searchParams.get('action');
  if(action==='last'||action==='session'){
   let response={ok:true,view:window.mockView,session:{game:'spin-wheel',claims:window.mockView.claims.map(c=>({...c,url:'',image:''})),pools:{bonus:{prizes:[]}},odds:{bonusChance:0}},viewerToken:'c'.repeat(48)};
-  return new Response(JSON.stringify({ok:true,data:response}),{status:200});
+  return new Response(JSON.stringify(action==='last'?{ok:true,data:response}:response),{status:200});
  }
  return priorFetch(url,opts);
 };
@@ -56,7 +56,7 @@ async def main():
     mockView.lastSpin={type:'award',spinCount:1,index:0,slices:[{name:'Test Gift',cents:1000,tier:'tier1',kind:'prize'}],at:new Date().toISOString()};
     mockView.claims=[{id:'b'.repeat(32),name:'Test Gift',tier:'tier1',cents:1000}];}
   ''')
-  await page.wait_for_timeout(1900)
+  await page.wait_for_function("document.querySelector('#claim-list').textContent.includes('Test Gift')&&document.querySelector('#spin-game').disabled===false",timeout=6000)
   ok('phone-awarded claim does not bypass prize acceptance',await page.evaluate('!window.__proofRoute'))
   ok('host shows claimed prize after phone spin', 'Test Gift' in await page.locator('#claim-list').inner_text())
   ok('host remains active and spin-again is available',await page.locator('#spin-game').is_enabled())

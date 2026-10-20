@@ -31,11 +31,11 @@ jobs:
               exit 1
             fi
           done
-          (cd dist/work && zip -qr ../Lucky_Game_Hub_V5Q15D_Full_Deploy.zip .)
-          unzip -t dist/Lucky_Game_Hub_V5Q15D_Full_Deploy.zip | tail -n 1
-          (cd dist && sha256sum Lucky_Game_Hub_V5Q15D_Full_Deploy.zip > SHA256SUMS.txt)
+          (cd dist/work && zip -qr ../Lucky_Game_Hub_V5Q15E_Full_Deploy.zip .)
+          unzip -t dist/Lucky_Game_Hub_V5Q15E_Full_Deploy.zip | tail -n 1
+          (cd dist && sha256sum Lucky_Game_Hub_V5Q15E_Full_Deploy.zip > SHA256SUMS.txt)
           {
-            echo "Lucky Game Hub V5Q.15D — Full Deployment"
+            echo "Lucky Game Hub V5Q.15E — Full Deployment"
             echo "Source: davemt74-lang/lucky"
             echo "Branch: main"
             echo "Commit: $GITHUB_SHA"
@@ -48,9 +48,9 @@ jobs:
       - name: Upload verified deployment ZIP and checksum
         uses: actions/upload-artifact@v4
         with:
-          name: lucky-v5q15d-complete-deployment
+          name: lucky-v5q15e-complete-deployment
           path: |
-            dist/Lucky_Game_Hub_V5Q15D_Full_Deploy.zip
+            dist/Lucky_Game_Hub_V5Q15E_Full_Deploy.zip
             dist/SHA256SUMS.txt
             dist/BUILD_INFO.txt
           if-no-files-found: error

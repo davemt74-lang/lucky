@@ -51,7 +51,7 @@
   if(focused.matches('select')){focused.focus();return true;}if(focused.matches('input[type="range"]'))return true;return focused.focus?mark(focused):false;
  }
  on('select',select);on('done',done);on('menu',toggleMenu);
- on('back',()=>{if(done())return true;const proofReturn=document.getElementById('proof-return');if(proofReturn?.getAttribute('href')){location.assign(proofReturn.href);return true;}if(menu()?.open||displayMenu()&&!displayMenu().hidden)return closeMenu();if(game())return toggleMenu();location.href='index.php';return true;});
+ on('back',()=>{if(done())return true;const proofReturn=document.getElementById('proof-return');if(proofReturn?.getAttribute('href')){location.assign(proofReturn.href);return true;}if(menu()?.open||displayMenu()&&!displayMenu().hidden)return closeMenu();if(game())return true;location.href='index.php';return true;});
  for(const dir of ['up','down','left','right'])on(dir,()=>move(dir));
  on('spin',()=>{if(!menu()?.open&&!win()?.open&&!game()?.disabled){game()?.click();return true;}return false;});
  if(settings.keyboard)document.addEventListener('keydown',ev=>{

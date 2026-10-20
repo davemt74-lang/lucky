@@ -81,7 +81,8 @@ try {
   if($action==='prize_offer'){
    requireAdmin();$session=(string)($_GET['session']??'');sessionRow($db,$session);
    PrizeDecision::requireReady($db);
-   success(['offer'=>PrizeDecision::latest($db,$session)]);
+   $state=stateFromRow(sessionRow($db,$session));
+    success(['offer'=>SpinReveal::pending($state)?null:PrizeDecision::latest($db,$session)]);
   }
   if($action==='session')success(getSessionView($db,strval($_GET['id']??'')));
   if($action==='watch')success(['view'=>getSessionView($db,strval($_GET['id']??''),true,strval($_GET['token']??''))]);
@@ -107,9 +108,23 @@ try {
  if($action==='login')throw new DomainException('Use the sign-in page.',400);
  requireAdmin();
  if($action==='logout') {session_unset();session_destroy();success(['loggedOut'=>true]);}
- if($action==='prize_decide'){
+ if($action==='spin_revealed'){
+   $input=jsonInput();$session=(string)($input['session']??'');$spinCount=(int)($input['spinCount']??0);
+   if($spinCount<1)throw new DomainException('Invalid spin number.',400);
+   $db->beginTransaction();
+   try {
+    $state=stateFromRow(sessionRow($db,$session,true));
+    $changed=SpinReveal::complete($state,$spinCount);
+    if($changed)saveState($db,$state);
+    $db->commit();
+   }catch(Throwable $e){$db->rollBack();throw $e;}
+   success(['revealed'=>true,'spinCount'=>$spinCount,'version'=>$state['version']]);
+  }
+  if($action==='prize_decide'){
   $data=jsonInput();$session=(string)($data['session']??'');$claim=(string)($data['claim']??'');$choice=(string)($data['choice']??'');
-  sessionRow($db,$session);PrizeDecision::requireReady($db);if(!preg_match('/^[a-f0-9]{32}$/D',$claim))throw new DomainException('Invalid claim ID.',400);
+  $spinState=stateFromRow(sessionRow($db,$session));
+   if(SpinReveal::pending($spinState))throw new DomainException('Wait for the wheel to stop before accepting the prize.',409);
+   PrizeDecision::requireReady($db);if(!preg_match('/^[a-f0-9]{32}$/D',$claim))throw new DomainException('Invalid claim ID.',400);
   $db->beginTransaction();try{
    $offer=PrizeDecision::pending($db,$session,true);
    if(!$offer||$offer['claim_id']!==$claim)throw new DomainException('This prize is not awaiting a decision.',409);
