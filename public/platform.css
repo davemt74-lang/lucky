@@ -428,3 +428,49 @@ body.game-fullwidth #win-dialog{display:none!important}
 .proof-editor-page .proof-revision-clip .proof-load-clip{white-space:nowrap;margin-left:auto;font-size:11px}
 .proof-editor-page .proof-video-stage #capture-review .review-tile img{width:100%;max-height:70vh;object-fit:contain;background:#050910}
 .proof-editor-page #capture-consent{display:none!important}
+
+/* V5Q.15H: each saved prize video gets a compact still thumbnail on game.php. */
+body.game-fullwidth .game-claims-side .claim-proof-row{gap:10px;align-items:center}
+body.game-fullwidth .game-claims-side .claim-video-thumbnail{
+ display:block;width:92px;height:64px;flex:0 0 92px;object-fit:cover;
+ border:1px solid #3c5873;border-radius:8px;background:#030910;
+ pointer-events:none
+}
+body.game-fullwidth .game-claims-side .claim-proof-info{flex:1;min-width:0;overflow-wrap:anywhere}
+body.game-fullwidth .game-claims-side .claim-proof-row .btn{white-space:nowrap;font-size:11px;padding:8px}
+@media(max-width:650px){
+ body.game-fullwidth .game-claims-side .claim-video-thumbnail{width:74px;height:52px;flex-basis:74px}
+ body.game-fullwidth .game-claims-side .claim-proof-row{gap:7px;padding:8px}
+}
+
+/* V5Q.15H — shared authenticated account avatar and menu. */
+.header>.account-menu{margin-left:auto;flex-shrink:0}
+.account-menu{position:relative;z-index:45;font-size:13px}
+.account-menu summary{list-style:none;display:flex;align-items:center;gap:8px;cursor:pointer;border-radius:12px;border:1px solid #425675;padding:5px 9px;background:#17253d;color:#eef3fc;font-weight:750;min-height:40px}
+.account-menu summary::-webkit-details-marker{display:none}
+.account-menu summary:focus-visible{outline:2px solid #ffd58a;outline-offset:3px}
+.account-menu[open] summary{border-color:#eebc74;background:#26364e}
+.profile-avatar{display:flex;align-items:center;justify-content:center;flex:none;width:32px;height:32px;border-radius:50%;background:#d0a65f;color:#101a29;font-size:19px;overflow:hidden;border:1px solid #e6c580}
+.profile-avatar img{height:100%;width:100%;object-fit:cover}
+.profile-avatar-fallback{display:grid;place-items:center;width:100%;height:100%;font-size:20px}
+.account-name{max-width:115px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.account-dropdown{position:absolute;right:0;top:calc(100% + 8px);z-index:300;width:218px;box-sizing:border-box;background:#15243a;border:1px solid #647a98;border-radius:12px;padding:8px;box-shadow:0 15px 35px #000a;display:grid;gap:2px}
+.account-dropdown-name{padding:10px 8px;font-size:12px;color:#b6c6dd;border-bottom:1px solid #354961;margin-bottom:3px}
+.account-dropdown-name strong{color:#fff}
+.account-dropdown a,.account-dropdown button{box-sizing:border-box;display:block;width:100%;border:0;border-radius:7px;text-align:left;background:transparent;color:#f1f5fb;padding:10px 9px;text-decoration:none;font:inherit;font-size:12px;cursor:pointer}
+.account-dropdown a:hover,.account-dropdown button:hover{background:#2d4562}
+.account-dropdown form{margin:0}
+.account-settings-page{max-width:700px;margin:28px auto;padding:28px;border-radius:16px}
+.account-settings-heading{display:flex;justify-content:space-between;gap:20px;align-items:start;margin-bottom:25px}
+.account-settings-heading h1{margin:5px 0 8px}
+.account-settings-heading p{color:#b1c1d5}
+.account-settings-form{display:grid;gap:18px}
+.account-settings-form>label,.account-photo-preview>label{display:grid;gap:7px;font-size:14px;color:#ecf2fa}
+.account-settings-form input:not([type=file]){width:100%;box-sizing:border-box;border:1px solid #4d607b;border-radius:8px;padding:12px;background:#0c1728;color:#fff}
+.account-settings-form input[type=file]{max-width:100%;font-size:12px}
+.account-settings-form small{color:#98aec8;font-size:11px}
+.account-photo-preview{display:flex;align-items:center;gap:24px;padding:18px;background:#1c2a41;border-radius:10px}
+.account-avatar-large{width:90px;height:90px;border-radius:50%;font-size:48px}
+.account-avatar-large .profile-avatar-fallback{font-size:48px}
+.account-settings-form .btn{justify-self:start}
+@media(max-width:700px){.header{gap:12px;flex-wrap:wrap;height:auto;min-height:80px;padding:12px 0}.header>.account-menu{margin-left:auto}.account-menu .account-name{display:none}.account-settings-page{margin:14px 0;padding:18px}.account-settings-heading{flex-wrap:wrap}.account-photo-preview{gap:14px}}

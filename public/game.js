@@ -5,6 +5,30 @@
  let proofStates={},proofSessionId='',proofPending=false;
  let currentOffer=null,offerBusy=false,offerRouted=new Set();
  let wheelOutcome=null;
+ // Private saved videos, linked to an authenticated claim, are never sent to the TV.
+ let thumbSession='',thumbs=new Map(),thumbLoading=false,thumbFetchedAt=0;
+ const validId=id=>typeof id==='string'&&/^[a-f0-9]{32}$/.test(id);
+ async function refreshThumbs(force=false){
+  const sid=data?.view?.id;if(!validId(sid))return;
+  if(thumbSession!==sid){thumbSession=sid;thumbs=new Map();thumbFetchedAt=0;}
+  if(thumbLoading||(!force&&Date.now()-thumbFetchedAt<7000))return;
+  thumbLoading=true;thumbFetchedAt=Date.now();
+  try{
+   const response=await fetch('api/claim-media.php?action=list&session='+encodeURIComponent(sid),
+    {credentials:'same-origin',cache:'no-store'});
+   if(!response.ok)throw Error('Private media unavailable');
+   const result=await response.json();if(!result.ok||!Array.isArray(result.clips))throw Error('Invalid media listing');
+   if(data?.view?.id!==sid)return;
+   const found=new Map();
+   // The most recently saved video for a claim is its current take.
+   for(const c of result.clips)if(c.sessionId===sid&&validId(c.claimId)&&validId(c.id)&&c.kind==='video')
+    found.set(c.claimId,c.id);
+   const changed=found.size!==thumbs.size||[...found].some(([id,clip])=>thumbs.get(id)!==clip);
+   thumbs=found;if(changed)render();
+  }catch(_){/* No saved video yet or an installation awaiting upgrade. */}
+  finally{thumbLoading=false;}
+ }
+
  let data=null,busy=false,stopVoice=null,lastVersion=0,activeId='',viewerUrl='',syncedSpin=0,initialSync=true,syncPending=false;
  const msg=(s,bad=false)=>L.note(bad?'game-error':'game-message',s,bad);
  function toSlices(view){
@@ -39,12 +63,38 @@
   $('claims-page-link').href=view?.id?'claims.php?session='+encodeURIComponent(view.id):'game.php';
   $('claims-page-link').hidden=!view?.id;
   $('session-totals').textContent=`${items.length} claimed · ${L.money(awarded)} awarded · ${L.money(available)} available to win`;
-  const root=$('claim-list');root.replaceChildren();if(!items.length){const empty=document.createElement('p');empty.textContent='No prizes claimed yet. Spin the wheel to begin.';root.append(empty);}
-  for(const c of items){const row=document.createElement('div');row.className='platform-claim claim-proof-row';const info=document.createElement('div');info.className='claim-proof-info';const name=document.createElement('strong');name.textContent=c.name;
-   const amount=document.createElement('span');amount.textContent=`${c.tier.toUpperCase()} · ${L.money(c.cents)}`;info.append(name,amount);
-   const state=proofStates[c.id];if(state?.needsRevision){const flag=document.createElement('span');flag.className='proof-revision-needed';flag.textContent='Needs revision';info.append(flag);}else if(state?.latestRevision){const flag=document.createElement('span');flag.textContent=`Proof v${state.latestRevision}`;info.append(flag);}
-   const edit=document.createElement('a');if(!/^[a-f0-9]{32}$/.test(c.id)){edit.textContent='Proof unavailable';edit.className='btn btn-outline';edit.setAttribute('aria-disabled','true');row.append(info,edit);root.append(row);continue;}edit.href=`proof.php?session=${encodeURIComponent(view.id)}&claim=${encodeURIComponent(c.id)}&from=game`;
-   edit.addEventListener('click',()=>{try{sessionStorage.setItem('lucky-proof-origin',JSON.stringify({session:view.id,claim:c.id,from:'game',at:Date.now()}));}catch(_){}});edit.textContent=state?.needsRevision?'Revise proof':'Edit proof';edit.className='btn btn-outline';row.append(info,edit);root.append(row);}
+  const root=$('claim-list');
+  const signature=JSON.stringify({session:view?.id||'',claims:items.map(c=>[c.id,c.name,c.tier,c.cents,
+   proofStates[c.id]?.needsRevision||false,proofStates[c.id]?.latestRevision||0,
+   thumbSession===view?.id?thumbs.get(c.id)||'':''])});
+  // Keep thumbnail elements attached through frequent game-state polls.
+  if(root.dataset.claimSignature!==signature){
+   root.dataset.claimSignature=signature;root.replaceChildren();
+   if(!items.length){const empty=document.createElement('p');empty.textContent='No prizes claimed yet. Spin the wheel to begin.';root.append(empty);}
+   for(const c of items){
+    const row=document.createElement('div');row.className='platform-claim claim-proof-row';row.dataset.claimId=c.id;
+    const thumb=thumbSession===view?.id?thumbs.get(c.id):null;
+    if(validId(thumb)){
+     const preview=document.createElement('video');preview.className='claim-video-thumbnail';
+     preview.muted=true;preview.defaultMuted=true;preview.playsInline=true;
+     preview.preload='metadata';preview.setAttribute('aria-label',c.name+' recorded prize video');
+     preview.src='api/claim-media.php?action=stream&id='+encodeURIComponent(thumb);
+     preview.addEventListener('loadedmetadata',()=>{
+      if(Number.isFinite(preview.duration)&&preview.duration>0.2){
+       try{preview.currentTime=Math.min(0.15,preview.duration/2);}catch(_){}
+      }
+     },{once:true});row.append(preview);
+    }
+    const info=document.createElement('div');info.className='claim-proof-info';const name=document.createElement('strong');name.textContent=c.name;
+    const amount=document.createElement('span');amount.textContent=`${c.tier.toUpperCase()} · ${L.money(c.cents)}`;info.append(name,amount);
+    const state=proofStates[c.id];if(state?.needsRevision){const flag=document.createElement('span');flag.className='proof-revision-needed';flag.textContent='Needs revision';info.append(flag);}
+    else if(state?.latestRevision){const flag=document.createElement('span');flag.textContent=`Proof v${state.latestRevision}`;info.append(flag);}
+    const edit=document.createElement('a');if(!validId(c.id)){edit.textContent='Proof unavailable';edit.className='btn btn-outline';edit.setAttribute('aria-disabled','true');row.append(info,edit);root.append(row);continue;}
+    edit.href=`proof.php?session=${encodeURIComponent(view.id)}&claim=${encodeURIComponent(c.id)}&from=game`;
+    edit.addEventListener('click',()=>{try{sessionStorage.setItem('lucky-proof-origin',JSON.stringify({session:view.id,claim:c.id,from:'game',at:Date.now()}));}catch(_){}});
+    edit.textContent=state?.needsRevision?'Revise proof':'Edit proof';edit.className='btn btn-outline';row.append(info,edit);root.append(row);
+   }
+  }
   if(!busy)wheel.setSlices(wheelOutcome&&wheelOutcome.session===view?.id&&wheelOutcome.spinCount===view?.lastSpin?.spinCount?wheelOutcome.slices:toSlices(view));
   if(data?.view?.id){$('open-game-editor').href='editor.php?session='+encodeURIComponent(data.view.id);}else $('open-game-editor').href='editor.php';
   const finished=view?.status==='ended';
@@ -59,7 +109,7 @@
   if(proofPending)return;proofPending=true;try{const r=await fetch('api/claim-proof.php?action=summary&session='+encodeURIComponent(session),{credentials:'same-origin'});const out=await r.json();if(out.ok&&data?.view?.id===session){proofStates=out.states||{};proofSessionId=session;render();}}catch(_){/* Optional proof status recovers on next refresh. */}finally{proofPending=false;}}
  async function refresh(){const requested=new URL(location.href).searchParams.get('session');const r=requested&&/^[a-f0-9]{32}$/.test(requested)?{data:await L.api('session',{query:{id:requested}})}:await L.api('last');
   data=r.data||null;lastVersion=data?.view?.version||0;activeId=data?.view?.id||'';wheelOutcome=null;
-  syncedSpin=data?.view?.lastSpin?.spinCount||0;initialSync=false;render();updateProofStates();
+  syncedSpin=data?.view?.lastSpin?.spinCount||0;initialSync=false;render();updateProofStates();refreshThumbs(true);
  }
  // The phone applies gameplay on the server. The desktop must animate the persisted
  // result instead of trying to replay the command and awarding the prize twice.
@@ -77,7 +127,7 @@
    const spin=view.lastSpin;
    const age=spin?.at?Date.now()-Date.parse(spin.at):Infinity;
    const shouldAnimate=!!spin&&(spin.spinCount>(changedId?0:syncedSpin))&&age>=-5000&&age<7500;
-   activeId=view.id;lastVersion=view.version;data=fresh;updateProofStates();
+   activeId=view.id;lastVersion=view.version;data=fresh;updateProofStates();refreshThumbs();
    if(shouldAnimate){
     syncedSpin=spin.spinCount;busy=true;wheelOutcome={session:view.id,spinCount:spin.spinCount,slices:spin.slices};msg('The wheel is spinning…');render();
     try{
@@ -102,7 +152,7 @@
     stream.getTracks().forEach(t=>t.stop());try{sessionStorage.setItem('lucky-cameras-authorized','1');}catch(_){}
    }).catch(()=>{/* Permission can still be granted from the proof page. */});}
   busy=true;render();
-  try{const r=await L.api('start',{body:{game:'spin-wheel'}});data=r.data;if(new URL(location.href).searchParams.has('session'))history.replaceState(null,'','game.php?session='+encodeURIComponent(data.view.id));activeId=data.view.id;lastVersion=data.view.version;syncedSpin=0;proofStates={};updateProofStates();msg('Game started! Spin whenever you are ready.');L.beep('bonus');L.speak('Welcome to Spin the Wheel. Start spinning!');}
+  try{const r=await L.api('start',{body:{game:'spin-wheel'}});data=r.data;if(new URL(location.href).searchParams.has('session'))history.replaceState(null,'','game.php?session='+encodeURIComponent(data.view.id));activeId=data.view.id;lastVersion=data.view.version;syncedSpin=0;proofStates={};updateProofStates();refreshThumbs(true);msg('Game started! Spin whenever you are ready.');L.beep('bonus');L.speak('Welcome to Spin the Wheel. Start spinning!');}
   catch(e){msg(e.message,true);}finally{busy=false;render();}}
  async function decideOffer(choice){
   if(!currentOffer||currentOffer.status!=='pending'||!data?.view?.id)return;
@@ -290,4 +340,7 @@
   }
  }).catch(e=>msg(e.message,true));
  setInterval(syncGame,900);setInterval(pollOffer,800);
+ setInterval(refreshThumbs,8000);
+ window.addEventListener('focus',()=>refreshThumbs(true));
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshThumbs(true);});
 })();

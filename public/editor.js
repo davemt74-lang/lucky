@@ -167,6 +167,15 @@
  }
  async function init(){
   $('editor-play').onclick=()=>preview([...clips]);$('editor-stop').onclick=stop;$('editor-auto').onclick=auto;$('editor-save-project').onclick=save;$('editor-export').onclick=exportProject;
+  const exportDialog=$('render-dialog');
+  $('open-render-dialog').onclick=()=>{if(!exportDialog.open)exportDialog.showModal();loadRenders();};
+  $('close-render-dialog').onclick=()=>exportDialog.close();
+  exportDialog.addEventListener('click',e=>{if(e.target===exportDialog)exportDialog.close();});
+  $('editor-fullscreen').onclick=()=>{
+   const player=$('editor-preview');
+   if(document.fullscreenElement)document.exitFullscreen?.().catch(()=>{});
+   else player.requestFullscreen?.().catch(()=>inform('Fullscreen preview is unavailable in this browser.',true));
+  };
   $('editor-form').onsubmit=updateSelected;$('editor-split').onclick=split;$('editor-remove').onclick=remove;$('editor-delete').onclick=permanentDelete;
   $('render-queue').onclick=queue;$('render-refresh').onclick=loadRenders;
   window.addEventListener('lucky:media-uploaded',receiveCapturedClip);
