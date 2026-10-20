@@ -80,11 +80,14 @@ try {
    $nonce=ControllerPairing::nonce($in['nonce']??null);
    $db->beginTransaction();
    try{
-    GameSessionLifecycle::lockGame($db,(string)$pre['game_id']);
+    // Existing wheel controller transactions lock pair before game settings.
+    // Keep the same ordering so two games sharing an approved phone cannot
+    // deadlock on reversed pair/game locks.
     $q=$db->prepare('SELECT * FROM controller_pairs WHERE id=? FOR UPDATE');$q->execute([$id]);$locked=$q->fetch();
     if(!$locked||!hash_equals((string)($locked['controller_hash']??''),ControllerPairing::tokenHash($token))||
        ControllerPairing::status($locked)!=='paired')
      throw new DomainException('The phone connection was revoked or expired.',403);
+    GameSessionLifecycle::lockGame($db,(string)$pre['game_id']);
     $q=$db->prepare('SELECT id FROM controller_commands WHERE pair_id=? AND client_nonce=?');$q->execute([$id,$nonce]);
     if($q->fetch()){
      $current=sessionRow($db,$session);$db->commit();
