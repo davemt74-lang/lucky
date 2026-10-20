@@ -16,6 +16,16 @@ function pass(bool $b,string $message):void{if(!$b)throw new RuntimeException($m
 try{
  runCmd(['ffmpeg','-hide_banner','-v','error','-y','-f','lavfi','-i','color=c=blue:s=320x180:r=15','-f','lavfi','-i','sine=frequency=440:sample_rate=48000','-t','1.1','-c:v','libx264','-c:a','aac','-f','mp4',$root.'/storage/claim-media/'.$video.'.bin']);
  runCmd(['ffmpeg','-hide_banner','-v','error','-y','-f','lavfi','-i','sine=frequency=900:sample_rate=48000','-t','1.1','-c:a','libopus','-f','webm',$root.'/storage/claim-media/'.$voice.'.bin']);
+ $webmFile=$root.'/storage/claim-media/'.$voice.'.bin';
+ $webmMime=(new finfo(FILEINFO_MIME_TYPE))->file($webmFile);
+ pass(ClaimMedia::captureKind($webmMime,(int)filesize($webmFile),null,'audio',$webmFile)==='audio',
+  'Chrome-style audio-only WebM accepted as microphone audio');
+ $disguised=$root.'/video.webm';
+ runCmd(['ffmpeg','-hide_banner','-v','error','-y','-f','lavfi','-i','color=c=red:s=160x90:r=15','-f','lavfi','-i','sine=frequency=800','-t','0.6','-c:v','libvpx','-c:a','libopus','-f','webm',$disguised]);
+ $rejected=false;
+ try{ClaimMedia::captureKind('video/webm',(int)filesize($disguised),null,'audio',$disguised);}
+ catch(DomainException $e){$rejected=true;}
+ pass($rejected,'WebM containing a video track cannot impersonate audio-only microphone recording');
  $engine=new VideoRender();
  $base=['id'=>$video,'instanceId'=>'clip-a','kind'=>'video','duration_ms'=>1100,'trim_start_ms'=>0,'trim_end_ms'=>1000,'photo_duration_ms'=>4000,'transition'=>'cut','audio_mode'=>'normal'];
  $normal=$root.'/normal.mp4';$silent=$root.'/muted.mp4';$mixed=$root.'/mixed.mp4';
