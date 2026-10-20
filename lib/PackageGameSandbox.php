@@ -18,7 +18,7 @@ final class PackageGameSandbox {
   // HTML can contain its own inline game code; browser CSP+iframe sandbox
   // constrains capabilities. Static module JS/CSS are embedded inline.
   $base=GamePackageInstaller::base($root).'/'.$game.'/versions/'.$version;
-  $assets='';$size=0;
+  $assets='';$size=0;$localScripts=[];$localStyles=[];
   $hashes=$receipt['fileHashes']??null;
   // Packages staged before V5Q.23B have no stored hash map, but remain
   // readable; newer ones must validate every asset against its signed or
@@ -42,13 +42,27 @@ final class PackageGameSandbox {
    $verify(str_replace(DIRECTORY_SEPARATOR,'/',$path),$bytes);
    $size+=strlen($bytes);
    if($size>2*1024*1024)throw new DomainException('Game scripts and styles exceed 2 MB sandbox budget.',422);
-   if(str_ends_with($path,'.css'))$assets.='<style>'.str_replace('</style','<\/style',$bytes).'</style>';
-   else $assets.='<script>'.str_replace('</script','<\/script',$bytes).'</script>';
+   $safe=str_replace(DIRECTORY_SEPARATOR,'/',$path);
+   if(str_ends_with($path,'.css'))$localStyles[$safe]='<style>'.str_ireplace('</style','<\\/style',$bytes).'</style>';
+   else $localScripts[$safe]='<script>'.str_ireplace('</script','<\\/script',$bytes).'</script>';
   }
-  // Remove external scripts and stylesheet links: package resources are
-  // embedded above, while all network requests are denied by CSP.
-  $raw=preg_replace('~<script\b(?=[^>]*\bsrc\s*=)[^>]*>\s*</script\s*>~is','',$raw);
-  $raw=preg_replace('~<link\b(?=[^>]*\brel\s*=\s*["\']?stylesheet)[^>]*>~is','',$raw);
+  // Local JS/CSS references are expanded in document order; remote sources
+  // stay forbidden. Unreferenced legacy assets still load at the end.
+  $used=[];
+  $raw=preg_replace_callback('~<script\\s+src=["\\']([^"\\']+)["\\']\\s*>\\s*</script\\s*>~i',
+    static function(array $m)use(&$used,$localScripts):string {
+     if(!isset($localScripts[$m[1]]))return '';
+     $used[$m[1]]=true;return $localScripts[$m[1]];
+    },$raw);
+  $raw=preg_replace_callback('~<link\\s+rel=["\\']stylesheet["\\']\\s+href=["\\']([^"\\']+)["\\']\\s*/?>~i',
+    static function(array $m)use(&$used,$localStyles):string {
+     if(!isset($localStyles[$m[1]]))return '';
+     $used[$m[1]]=true;return $localStyles[$m[1]];
+    },$raw);
+  $raw=preg_replace('~<script\\b(?=[^>]*\\bsrc\\s*=)[^>]*>\\s*</script\\s*>~is','',$raw);
+  $raw=preg_replace('~<link\\b(?=[^>]*\\brel\\s*=\\s*["\\']?stylesheet)[^>]*>~is','',$raw);
+  foreach($localStyles as $asset=>$style)if(!isset($used[$asset]))$assets.=$style;
+  foreach($localScripts as $asset=>$script)if(!isset($used[$asset]))$assets.=$script;
   $bridge='<script>document.addEventListener("click",function(e){const b=e.target.closest("[data-game-input]");if(!b)return;parent.postMessage({type:"lucky:input",name:b.dataset.gameInput,value:b.dataset.gameValue||null},"*");});</script>';
   $inject=$assets.$bridge;
   $document=stripos($raw,'</body>')!==false
