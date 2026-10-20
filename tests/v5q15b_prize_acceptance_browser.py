@@ -20,7 +20,9 @@ async def main():
    if(a==='session'&&__offerStatus!=='accepted'&&result.session)result.session.claims=[]; // stale original game snapshot
    return result;
   }}""")
-  await pg.locator('#spin-game').click()
+  await pg.evaluate("document.querySelector('#console-menu').showModal()")
+   await pg.locator('#spin-game').click()
+   await pg.evaluate("document.querySelector('#console-menu').close()")
   await pg.wait_for_function("document.querySelector('#game-message').textContent.includes('Camera Prize')",timeout=9000)
   tests.append(('desktop has no prize acceptance controls',await pg.locator('#prize-offer-stage,#prize-offer-accept,#prize-offer-decline').count()==0))
   tests.append(('desktop shows winner without the phone decision prompt','Camera Prize' in await pg.locator('#game-message').inner_text() and 'Accept or decline' not in await pg.locator('#game-message').inner_text()))
