@@ -321,7 +321,11 @@ try {
   }catch(Throwable $e){$db->rollBack();throw $e;}
   success(['result'=>$out,'repeat'=>false]);
  }
- if(in_array($action,['spin','end','pause','resume'],true)){
+ if(in_array($action,['spin','end','pause','resume','game_action'],true)){
+  $verb=$action==='game_action'?strval($in['verb']??''):$action;
+  if(!preg_match('/^[a-z][a-z0-9_-]{0,39}$/D',$verb)
+     ||in_array($verb,['start','save_session','resume_saved','finish_saved','delete_session'],true))
+   throw new DomainException('Invalid gameplay action.',400);
   $id=strval($in['id']??'');$key=strval($in['idempotencyKey']??'');
   if(!preg_match('/^[A-Za-z0-9_-]{12,80}$/D',$key))throw new DomainException('Missing unique request key.',400);
   $db->beginTransaction();try{
@@ -329,10 +333,14 @@ try {
    $q=$db->prepare('SELECT payload_json FROM game_events WHERE session_id=? AND idempotency_key=?');$q->execute([$id,$key]);
    if($old=$q->fetch()){$out=json_decode($old['payload_json'],true,512,JSON_THROW_ON_ERROR);$db->commit();success(['result'=>$out,'repeat'=>true]);}
    $s=stateFromRow($r);$module=GameRegistry::module($s['game']);
-   if($action==='spin'){ControllerGame::spinReady($s);PrizeDecision::assertReady($db,$id);}
-   $result=$module->action($s,$action);$type=$result['type'];
+   if($s['game']==='spin-wheel'&&$verb==='spin'){ControllerGame::spinReady($s);PrizeDecision::assertReady($db,$id);}
+   $beforeVersion=(int)($s['version']??0);
+   $result=$module->action($s,$verb);
+   $type=(string)($result['type']??'');
+   if(!preg_match('/^[a-z][a-z0-9_-]{0,39}$/D',$type)||($s['version']??0)!==$beforeVersion+1)
+    throw new DomainException('Game module returned an invalid action or state version.',422);
    saveState($db,$s);
-   if($type==='award'){
+   if($type==='award'&&$s['game']==='spin-wheel'){
       $c=$result['claim'];$q=$db->prepare('INSERT INTO game_claims(id,session_id,prize_id,tier,prize_name,cents,created_at) VALUES (?,?,?,?,?,?,UTC_TIMESTAMP())');
       $q->execute([$c['id'],$id,$c['prizeId'],$c['tier'],$c['name'],$c['cents']]);
       PrizeDecision::create($db,$id,$c['id']);
@@ -340,7 +348,7 @@ try {
    $out=['event'=>$result,'view'=>GameRegistry::module($s['game'])->publicView($s)];
    $q=$db->prepare('INSERT INTO game_events(session_id,idempotency_key,event_type,payload_json) VALUES (?,?,?,?)');
    $q->execute([$id,$key,$type,json_encode($out,JSON_THROW_ON_ERROR)]);
-   audit($db,$action==='spin'?'game.spin':'session.end',$id,['result'=>$type]);$db->commit();
+   audit($db,'game.'.$verb,$id,['game'=>$s['game'],'result'=>$type]);$db->commit();
   }catch(Throwable $e){$db->rollBack();throw $e;}
   success(['result'=>$out,'repeat'=>false]);
  }
