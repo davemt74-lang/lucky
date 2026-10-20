@@ -95,6 +95,20 @@
  }
  function updateGame(current){
   if(!current)return;game=current;applyMode();
+  const picker=$('phone-package-picker'),select=$('phone-package-select');
+  if(picker&&select){
+   const canChoose=['ready','saved','ended'].includes(current.status);
+   const options=(current.packages||[]).filter(p=>p.enabled&&p.playerSelectable);
+   picker.hidden=!canChoose||options.length<2||!!current.offer;
+   const signature=JSON.stringify(options.map(p=>[p.id,p.name]));
+   if(select.dataset.signature!==signature){
+    select.dataset.signature=signature;select.replaceChildren();
+    for(const p of options)select.add(new Option(p.name,p.id));
+   }
+   const available=options.find(p=>p.id===current.selectedPackage);
+   if(available)select.value=current.selectedPackage;
+   select.disabled=!active||!canChoose||busy;
+  }
   const panel=$('phone-game-state');if(!panel)return;
   if(current.upgradeRequired){
    panel.textContent='HOST DATABASE UPDATE REQUIRED · On desktop, sign in and run upgrade.php. Your phone is still paired.';
@@ -198,6 +212,15 @@
   }else{const src=prizeMedia.src;prizeMedia.src=src;}
  });
  $('phone-join-form').addEventListener('submit',join);
+ $('phone-package-select').addEventListener('change',async event=>{
+  if(!active||busy||!['ready','saved','ended'].includes(game?.status))return;
+  const target=event.target.value;busy=true;
+  try{const out=await request('select_package',{package:target});
+   if(game)game.selectedPackage=out.selected;message('Prize package ready for the next game.');
+   appendChat('Prize package selected for the next game.');}
+  catch(e){message(e.message,true);if(game)updateGame(game);}
+  finally{busy=false;}
+ });
  document.querySelectorAll('[data-phone]').forEach(button=>button.addEventListener('click',()=>send(button.dataset.phone)));
  $('phone-proof-consent')?.addEventListener('change',e=>send(e.target.checked?'proof-consent-on':'proof-consent-off'));
  $('phone-disconnect').addEventListener('click',async()=>{try{await request('disconnect');}catch(_){}forget();});
