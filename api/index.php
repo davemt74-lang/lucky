@@ -141,6 +141,27 @@ try {
  if($action==='login')throw new DomainException('Use the sign-in page.',400);
  requireAdmin();
  if($action==='logout') {session_unset();session_destroy();success(['loggedOut'=>true]);}
+ if($action==='game_package_recover'){
+  $input=jsonInput();$id=GameCatalog::slug($input['game']??null);
+  $version=GamePackageInstaller::version($input['version']??null);
+  if(($input['confirm']??false)!==true)
+   throw new DomainException('Confirm recovery of this damaged game installation.',403);
+  $db->beginTransaction();
+  try {
+   // Lock the existing settings row directly: a damaged package intentionally
+   // cannot be resolved through GameRegistry::module().
+   $q=$db->prepare('SELECT game_id FROM game_settings WHERE game_id=? FOR UPDATE');
+   $q->execute([$id]);$q->fetch();
+   $q=$db->prepare("SELECT COUNT(*) FROM game_sessions WHERE game_id=? AND status IN ('active','paused')");
+   $q->execute([$id]);
+   if((int)$q->fetchColumn()>0)
+    throw new DomainException('Save or finish live sessions before recovering the game.',409);
+   $result=GamePackageActivation::recover($id,$version,true);
+   audit($db,'game.package_recovered',null,['game'=>$id,'version'=>$version]);
+   $db->commit();
+  }catch(Throwable $e){$db->rollBack();throw $e;}
+  success(['recovery'=>$result]);
+ }
  if($action==='game_package_activate'){
   $input=jsonInput();$id=GameCatalog::slug($input['game']??null);
   $version=GamePackageInstaller::version($input['version']??null);
