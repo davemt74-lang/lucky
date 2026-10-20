@@ -2,7 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__.'/../lib/GameEngine.php';
 function check(bool $ok,string $label):void {if(!$ok)throw new RuntimeException($label);echo "PASS ".$label."\n";}
-$s=GameEngine::createSession(GameEngine::defaults(),str_repeat('a',32));
+$s=GameEngine::newSession(GameEngine::defaults(),str_repeat('a',32));
 $s['lastSpin']=['type'=>'award','at'=>gmdate('c',time()-2),'spinCount'=>1,'index'=>0,'slices'=>[['name'=>'Original winner','cents'=>1000]]];
 $s['spinCount']=1;$s['version']=2;
 check(SpinReveal::pending($s),'new persisted win remains private until animation completes');
