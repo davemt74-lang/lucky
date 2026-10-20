@@ -32,7 +32,7 @@ async def main():
   p=await b.new_page(viewport={'width':390,'height':844});p.on('pageerror',lambda e:errors.append(str(e)))
   await p.set_content(markup,wait_until='domcontentloaded')
   await p.locator('#phone-name').fill('Camera remote');await p.locator('#phone-join-form button').click()
-  await p.wait_for_function("document.querySelector('#phone-proof-consent')?.disabled===false")
+  await p.wait_for_function("document.querySelector('#phone-proof-mode')?.hidden===false && document.querySelector('[data-phone=proof-record]')?.disabled===true")
   check('phone consent starts unchecked',not await p.locator('#phone-proof-consent').is_checked())
   check('phone cannot record without consent',await p.locator('[data-phone="proof-record"]').is_disabled())
   await p.locator('#phone-proof-consent').check()
