@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-require __DIR__.'/../lib/Bootstrap.php';require_once __DIR__.'/../lib/CloudGameUpdates.php';require_once __DIR__.'/../lib/GamePackageInstaller.php';require_once __DIR__.'/../lib/GamePackageActivation.php';require_once __DIR__.'/../lib/CloudGamePackageDownload.php';require_once __DIR__.'/../lib/GamePublisherChannels.php';require_once __DIR__.'/../lib/GameCatalog.php';require_once __DIR__.'/../lib/ProductCatalog.php';require_once __DIR__.'/../lib/ControllerGame.php';require_once __DIR__.'/../lib/PrizeDecision.php';require_once __DIR__.'/../lib/GameSessionLifecycle.php';require_once __DIR__.'/../lib/GamePluginCapabilities.php';headerSecurity();
+require __DIR__.'/../lib/Bootstrap.php';require_once __DIR__.'/../lib/CloudGameUpdates.php';require_once __DIR__.'/../lib/GamePackageInstaller.php';require_once __DIR__.'/../lib/GamePackageActivation.php';require_once __DIR__.'/../lib/CloudGamePackageDownload.php';require_once __DIR__.'/../lib/GamePublisherChannels.php';require_once __DIR__.'/../lib/GameCatalog.php';require_once __DIR__.'/../lib/ProductCatalog.php';require_once __DIR__.'/../lib/ControllerGame.php';require_once __DIR__.'/../lib/PrizeDecision.php';require_once __DIR__.'/../lib/GameSessionLifecycle.php';require_once __DIR__.'/../lib/GamePluginCapabilities.php';require_once __DIR__.'/../lib/PhoneGameDashboard.php';headerSecurity();
 $action=strval($_GET['action']??'');$method=$_SERVER['REQUEST_METHOD']??'GET';
 function setting(PDO $db,string $game='spin-wheel'):array {
  $q=$db->prepare('SELECT * FROM game_settings WHERE game_id=?');$q->execute([$game]);$r=$q->fetch();
@@ -60,6 +60,9 @@ try {
  if($method==='GET'){
   if($action==='health')success(['service'=>'Lucky Game Hub','installed'=>true,'database'=>'connected','build'=>'5P']);
   if($action==='manifest')success(['games'=>GameRegistry::manifest()]);
+  if($action==='phone_dashboard_next'){
+   requireAdmin();success(['launch'=>PhoneGameDashboard::next($db,(int)$_SESSION['admin_id'])]);
+  }
   if($action==='game_catalog'){
    requireAdmin();success(['games'=>GameCatalog::all()]);
   }
@@ -248,6 +251,13 @@ try {
   audit($db,'game_updates.package_staged',null,['game'=>$id,'version'=>$version,
    'signatureVerified'=>$package['signatureVerified']]);
   success(['package'=>$package],201);
+ }
+ if($action==='phone_dashboard_accept'){
+  $input=jsonInput();$id=$input['id']??0;$game=$input['game']??null;
+  if(!is_int($id)||!is_string($game))throw new DomainException('Invalid phone launch.',400);
+  $launch=PhoneGameDashboard::accept($db,(int)$_SESSION['admin_id'],$id,$game);
+  audit($db,'controller.game_launch_accepted',null,['game'=>$game,'launchId'=>$id]);
+  success(['launch'=>$launch]);
  }
  if($action==='game_catalog_save'){
   $data=jsonInput();$id=GameCatalog::slug($data['id']??null);
