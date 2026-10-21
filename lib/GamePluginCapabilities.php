@@ -11,7 +11,9 @@ final class GamePluginCapabilities {
  public const SUPPORTED=[
   'storage.read','storage.write','players.read','players.write',
   'scores.read','scores.write','rounds.read','rounds.write',
-  'turns.read','turns.write','timers.read','timers.write','session.write'
+  'turns.read','turns.write','timers.read','timers.write',
+  'teams.read','teams.write','achievements.read','achievements.write',
+  'events.read','events.write','session.write'
  ];
  private const OPERATIONS=[
   'storage.get'=>'storage.read','storage.set'=>'storage.write',
@@ -20,7 +22,10 @@ final class GamePluginCapabilities {
   'rounds.get'=>'rounds.read','rounds.next'=>'rounds.write',
   'turns.get'=>'turns.read','turns.set'=>'turns.write',
   'timers.get'=>'timers.read','timers.start'=>'timers.write','timers.stop'=>'timers.write',
-  'session.save'=>'session.write'
+  'teams.list'=>'teams.read','teams.add'=>'teams.write','teams.assign'=>'teams.write',
+  'achievements.list'=>'achievements.read','achievements.unlock'=>'achievements.write',
+  'events.list'=>'events.read','events.emit'=>'events.write',
+  'storage.delete'=>'storage.write','session.save'=>'session.write'
  ];
  public static function validateDeclarations(mixed $value):array {
   if(!is_array($value)||!array_is_list($value)||count($value)>count(self::SUPPORTED))
@@ -46,7 +51,9 @@ final class GamePluginCapabilities {
  public static function changesState(string $operation):bool {
   return str_ends_with($operation,'.set')||str_ends_with($operation,'.add')||
    str_ends_with($operation,'.next')||str_ends_with($operation,'.start')||
-   str_ends_with($operation,'.stop');
+   str_ends_with($operation,'.stop')||str_ends_with($operation,'.assign')||
+   str_ends_with($operation,'.unlock')||str_ends_with($operation,'.emit')||
+   str_ends_with($operation,'.delete');
  }
  public static function validateArgs(string $operation,mixed $value):array {
   if(!isset(self::OPERATIONS[$operation]))throw new DomainException('Unsupported SDK operation.',400);
@@ -69,7 +76,8 @@ final class GamePluginCapabilities {
  }
  private static function plugin(array &$state):array {
   if(!isset($state['plugin']))$state['plugin']=[
-   'players'=>[],'scores'=>[],'round'=>0,'turn'=>null,'timers'=>[]
+   'players'=>[],'scores'=>[],'round'=>0,'turn'=>null,'timers'=>[],
+   'teams'=>[],'achievements'=>[],'events'=>[]
   ];
   return $state['plugin'];
  }
@@ -96,6 +104,13 @@ final class GamePluginCapabilities {
   if($operation==='storage.get')
    return ['key'=>$key,'scope'=>$scope,'value'=>$found?json_decode($found['value_json'],true,64,JSON_THROW_ON_ERROR):null,
     'revision'=>$found?(int)$found['revision']:0];
+  if($operation==='storage.delete'){
+   $expected=$args['expectedRevision']??null;$current=$found?(int)$found['revision']:0;
+   if(!is_int($expected)||$expected!==$current)throw new DomainException('Game storage changed.',409);
+   if($found){$del=$db->prepare('DELETE FROM game_plugin_storage WHERE game_id=? AND scope_id=? AND storage_key=?');
+     $del->execute([$game,$id,$key]);}
+   return ['key'=>$key,'scope'=>$scope,'deleted'=>$found!==false];
+  }
   if(!array_key_exists('value',$args))throw new DomainException('Storage value is required.',422);
   $raw=json_encode($args['value'],JSON_THROW_ON_ERROR);
   if(strlen($raw)>8192)throw new DomainException('Game storage values must be 8 KB or less.',413);
@@ -129,6 +144,7 @@ final class GamePluginCapabilities {
   if(str_starts_with($operation,'storage.'))$result=self::storage($db,$game,$session,$operation,$args);
   else{
    $p=self::plugin($state);
+   foreach(['teams','achievements','events'] as $field)if(!isset($p[$field]))$p[$field]=[];
    switch($operation){
     case 'players.list':$result=$p['players'];break;
     case 'players.add':
@@ -138,6 +154,36 @@ final class GamePluginCapabilities {
      if(count($p['players'])>=16)throw new DomainException('Player limit reached.',413);
      $p['players'][$id]=['id'=>$id,'name'=>$name];$p['scores'][$id]=0;
      $result=$p['players'][$id];break;
+    case 'teams.list':$result=$p['teams'];break;
+    case 'teams.add':
+     $id=self::slug($args['id']??null,'team ID');$name=self::label($args['name']??null);
+     if(isset($p['teams'][$id]))throw new DomainException('Team already exists.',409);
+     if(count($p['teams'])>=8)throw new DomainException('Team limit reached.',413);
+     $p['teams'][$id]=['id'=>$id,'name'=>$name];$result=$p['teams'][$id];break;
+    case 'teams.assign':
+     $team=self::slug($args['teamId']??null,'team ID');
+     $player=self::slug($args['playerId']??null,'player ID');
+     if(!isset($p['teams'][$team])||!isset($p['players'][$player]))
+      throw new DomainException('Unknown team or player.',404);
+     $p['players'][$player]['teamId']=$team;
+     $result=['teamId'=>$team,'playerId'=>$player];break;
+    case 'achievements.list':$result=$p['achievements'];break;
+    case 'achievements.unlock':
+     $code=self::slug($args['id']??null,'achievement ID');
+     if(isset($p['achievements'][$code]))throw new DomainException('Achievement already unlocked.',409);
+     if(count($p['achievements'])>=64)throw new DomainException('Achievement limit reached.',413);
+     $p['achievements'][$code]=['id'=>$code,'unlockedAt'=>gmdate('c')];
+     $result=$p['achievements'][$code];break;
+    case 'events.list':$result=$p['events'];break;
+    case 'events.emit':
+     $name=self::slug($args['name']??null,'event name');
+     $value=$args['value']??null;
+     if(!(is_bool($value)||is_int($value)||is_string($value)||$value===null)||
+        is_string($value)&&strlen($value)>240)
+      throw new DomainException('Event values must be small primitives.',422);
+     $event=['name'=>$name,'value'=>$value,'at'=>gmdate('c')];
+     $p['events'][]=$event;$p['events']=array_slice($p['events'],-32);
+     $result=$event;break;
     case 'scores.list':$result=$p['scores'];break;
     case 'scores.add':
      $id=self::slug($args['playerId']??null,'player ID');
@@ -183,11 +229,13 @@ final class GamePluginCapabilities {
  }
  public static function publicView(array $state):array {
   $p=$state['plugin']??null;
-  if(!is_array($p))$p=['players'=>[],'scores'=>[],'round'=>0,'turn'=>null,'timers'=>[]];
+  if(!is_array($p))$p=['players'=>[],'scores'=>[],'round'=>0,'turn'=>null,'timers'=>[],
+   'teams'=>[],'achievements'=>[],'events'=>[]];
   $timers=[];
   foreach($p['timers'] as $name=>$timer)
    $timers[$name]=max(0,((int)($timer['expiresAt']??0))-time());
   return ['players'=>$p['players'],'scores'=>$p['scores'],'round'=>$p['round'],
-   'turn'=>$p['turn'],'timers'=>$timers];
+   'turn'=>$p['turn'],'timers'=>$timers,'teams'=>$p['teams']??[],
+   'achievements'=>$p['achievements']??[],'events'=>$p['events']??[]];
  }
 }
