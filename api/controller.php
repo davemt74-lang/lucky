@@ -5,6 +5,7 @@ require __DIR__.'/../lib/ControllerPairing.php';
 require __DIR__.'/../lib/ControllerGame.php';require_once __DIR__.'/../lib/PackageControllerBridge.php';require_once __DIR__.'/../lib/GameSessionLifecycle.php';require_once __DIR__.'/../lib/PrizeDecision.php';
 require_once __DIR__.'/../lib/SchemaGuard.php';
 require_once __DIR__.'/../lib/ControllerRate.php';
+require_once __DIR__.'/../lib/PhoneGameDashboard.php';
 headerSecurity();
 header('Referrer-Policy: no-referrer');
 header('X-Robots-Tag: noindex, nofollow');
@@ -25,7 +26,7 @@ try {
   if(!$originHost||strcasecmp((string)$originHost,$host)!==0)throw new DomainException('Origin not permitted.',403);
  }
  $action=strval($_GET['action']??'');$in=jsonInput();$db=db();
- $phoneActions=['claim','claim_display','status','command','disconnect','package_status','package_command'];
+ $phoneActions=['claim','claim_display','status','command','disconnect','package_status','package_command','dashboard_games','dashboard_launch'];
  if(in_array($action,$phoneActions,true)){
   if($action==='claim'){
    $id=strval($in['id']??'');$key=strval($in['key']??'');$name=ControllerPairing::label($in['name']??'');
@@ -59,7 +60,7 @@ try {
    success(['id'=>$newId,'controllerToken'=>$token,'status'=>'pending']);
   }
   $id=strval($in['id']??'');$token=(string)($_SERVER['HTTP_X_CONTROLLER_TOKEN']??'');
-  $p=ControllerPairing::authenticate($db,$id,$token,in_array($action,['command','select_package','package_command'],true));
+  $p=ControllerPairing::authenticate($db,$id,$token,in_array($action,['command','select_package','package_command','dashboard_games','dashboard_launch'],true));
   $status=ControllerPairing::status($p);
   if(in_array($action,['package_status','package_command'],true)){
    $session=(string)($in['session']??'');$viewer=(string)($in['viewer']??'');
@@ -115,6 +116,27 @@ try {
     $view=$module->publicView($state);$db->commit();
    }catch(Throwable $e){$db->rollBack();throw $e;}
    success(['applied'=>true,'repeat'=>false,'game'=>$view]);
+  }
+  if($action==='dashboard_games'){
+   if($status!=='paired')throw new DomainException('Approve the phone before browsing games.',403);
+   success(['games'=>PhoneGameDashboard::catalog()]);
+  }
+  if($action==='dashboard_launch'){
+   if($status!=='paired')throw new DomainException('Approve the phone before launching games.',403);
+   if(($in['confirm']??null)!==true)throw new DomainException('Confirm the selected game on your phone.',403);
+   $game=GameCatalog::slug($in['game']??null);
+   $nonce=ControllerPairing::nonce($in['nonce']??null);
+   $db->beginTransaction();
+   try{
+    $q=$db->prepare('SELECT * FROM controller_pairs WHERE id=? FOR UPDATE');
+    $q->execute([$id]);$locked=$q->fetch(PDO::FETCH_ASSOC);
+    if(!$locked||!hash_equals((string)$locked['controller_hash'],ControllerPairing::tokenHash($token))||
+        ControllerPairing::status($locked)!=='paired')
+     throw new DomainException('Phone approval was revoked or expired.',403);
+    $out=PhoneGameDashboard::launch($db,$game,$id,$nonce,(int)$locked['host_admin_id']);
+    $db->commit();
+   }catch(Throwable $e){$db->rollBack();throw $e;}
+   success(['launch'=>$out]);
   }
   if($action==='status'){
    $commandId=(int)($in['commandId']??0);$delivery=null;
