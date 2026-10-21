@@ -6,6 +6,7 @@ sys.path.insert(0,str(Path(__file__).parent))
 from v5p_pairing import make_html,ID
 MOCK = '''<script>
 window.__uploads=[];window.__stops=0;window.__countdowns=[];
+const __store={};Object.defineProperty(window,'localStorage',{configurable:true,value:{getItem:k=>Object.prototype.hasOwnProperty.call(__store,k)?__store[k]:null,setItem:(k,v)=>{__store[k]=String(v);},removeItem:k=>{delete __store[k];}}});
 Object.defineProperty(navigator,'mediaDevices',{configurable:true,value:{
  getUserMedia:async()=>new MediaStream(),
  enumerateDevices:async()=>[{kind:'videoinput',deviceId:'camera-A',label:'USB Front Cam'},{kind:'videoinput',deviceId:'camera-B',label:'USB Side Cam'}],
