@@ -16,6 +16,19 @@
   if(!response.ok||!data.ok)throw Error((data.error||'Connection failed.')+` (HTTP ${response.status})`);return data;
  }
  let dashboardGames=[],dashboardLoading=false,dashboardRequested=location.hash==='#dashboard';
+ function updateDashboardPackages(){
+  const picker=$('phone-dashboard-package-picker'),select=$('phone-dashboard-package-select');
+  if(!picker||!select)return;
+  const options=(game?.packages||[]).filter(p=>p.enabled&&p.playerSelectable&&(p.publicationStatus||'published')==='published');
+  picker.hidden=options.length<2||!!game?.upgradeRequired;
+  const signature=JSON.stringify(options.map(p=>[p.id,p.name]));
+  if(select.dataset.signature!==signature){
+   select.dataset.signature=signature;select.replaceChildren();
+   for(const p of options)select.add(new Option(p.name,p.id));
+  }
+  if(options.some(p=>p.id===game?.selectedPackage))select.value=game.selectedPackage;
+  select.disabled=!active||busy||game?.status==='active';
+ }
  function dashboardNote(text,bad=false){const e=$('phone-dashboard-status');if(e){e.textContent=text;e.classList.toggle('platform-error',bad);}}
  async function loadDashboard(){
   if(dashboardLoading||!active)return;
@@ -70,7 +83,7 @@
   try{const data=await request('status',pendingCommand?{commandId:pendingCommand.id}:{});if(data.status==='paired'){const wasActive=active,wasFailing=failures>=3;failures=0;active=true;
     const needsDashboard=dashboardRequested||(!data.game?.upgradeRequired&&!data.proof?.active&&['ready','saved','ended'].includes(data.game?.status));
     if(needsDashboard){
-     show('phone-dashboard');game=data.game;clearPrizeVideo();updateProof(null);
+     show('phone-dashboard');game=data.game;clearPrizeVideo();updateProof(null);updateDashboardPackages();
      if(!wasActive||!dashboardGames.length)void loadDashboard();
     }else{show('phone-controls');updateGame(data.game);updateProof(data.proof);}
     if((!wasActive||wasFailing)&&!data.game?.upgradeRequired)message(wasFailing?'Connected again.':'Phone connected.');if(pendingCommand){
@@ -270,6 +283,16 @@
   }else{const src=prizeMedia.src;prizeMedia.src=src;}
  });
  $('phone-join-form').addEventListener('submit',join);
+ $('phone-dashboard-package-select')?.addEventListener('change',async event=>{
+  if(!active||busy||!['ready','saved','ended'].includes(game?.status))return;
+  const target=event.target.value;busy=true;
+  try{
+   const out=await request('select_package',{package:target});
+   game.selectedPackage=out.selected;updateDashboardPackages();
+   dashboardNote('Prize package saved for your next Spin the Wheel game.');
+  }catch(e){dashboardNote(e.message,true);updateDashboardPackages();}
+  finally{busy=false;updateDashboardPackages();}
+ });
  $('phone-package-select').addEventListener('change',async event=>{
   if(!active||busy||!['ready','saved','ended'].includes(game?.status))return;
   const target=event.target.value;busy=true;
