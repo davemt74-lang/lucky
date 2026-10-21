@@ -7,7 +7,7 @@
  };
  const show=(name)=>{for(const id of ['phone-join','phone-wait','phone-controls'])$(id).hidden=id!==name;$('phone-disconnect').hidden=name==='phone-join';};
  const safeName=()=>String($('phone-name').value||'').trim().slice(0,48);
- function forget(){lastPrizeOffer='';clearPrizeVideo();try{window.speechSynthesis?.cancel();}catch(_){}toggleListening(false);commandQueue=[];feedback=null;pendingCommand=null;game=null;gameVersion=-1;updateProof(null);state=null;try{sessionStorage.removeItem(storageKey);}catch(_){}active=false;show('phone-join');message('Connection expired. Scan a new QR code on the host screen.',true);}
+ function forget(){lastPrizeOffer='';clearPrizeVideo();try{window.speechSynthesis?.cancel();}catch(_){}toggleListening(false);commandQueue=[];feedback=null;pendingCommand=null;game=null;gameVersion=-1;dashboardItems=[];dashboardLaunch=null;dashboardLoaded=0;updateProof(null);state=null;try{sessionStorage.removeItem(storageKey);}catch(_){}active=false;show('phone-join');message('Connection expired. Scan a new QR code on the host screen.',true);}
  async function request(action,body={},authenticated=true){const headers={'Content-Type':'application/json'};
   if(authenticated){if(!state)throw Error('Phone not paired.');headers['X-Controller-Token']=state.token;body={id:state.id,...body};}
   const response=await fetch('api/controller.php?action='+encodeURIComponent(action),{method:'POST',headers,credentials:'omit',cache:'no-store',body:JSON.stringify(body)});
@@ -15,7 +15,21 @@
   if(!response.ok||!data.ok)throw Error((data.error||'Connection failed.')+` (HTTP ${response.status})`);return data;
  }
  async function status(){if(!state||busy||statusBusy)return;statusBusy=true;
-  try{const data=await request('status',pendingCommand?{commandId:pendingCommand.id}:{});if(data.status==='paired'){const wasActive=active,wasFailing=failures>=3;failures=0;active=true;show('phone-controls');updateGame(data.game);updateProof(data.proof);if((!wasActive||wasFailing)&&!data.game?.upgradeRequired)message(wasFailing?'Connected again.':'Phone connected.');if(pendingCommand){
+  try{const data=await request('status',pendingCommand?{commandId:pendingCommand.id}:{});if(data.status==='paired'){
+   if(data.packageGame?.session&&data.packageGame?.viewer){
+    // Carry the same owner-approved phone pairing into the selected package's
+    // custom controller; its server bridge verifies the game owner and token.
+    const pkg=data.packageGame;
+    try{sessionStorage.setItem('lucky-package-controller-v1',JSON.stringify({
+     id:state.id,token:state.token,session:pkg.session,viewer:pkg.viewer
+    }));}catch(_){}
+    location.assign('package-controller.php?'+new URLSearchParams({session:pkg.session,viewer:pkg.viewer}));
+    return;
+   }
+   if(data.launch?.id!==dashboardLaunch?.id||data.launch?.status!==dashboardLaunch?.status){
+    dashboardLaunch=data.launch||null;dashboardLoaded=0;
+   }const wasActive=active,wasFailing=failures>=3;failures=0;active=true;show('phone-controls');updateGame(data.game);updateProof(data.proof);
+    if(dashboardVisible())void loadDashboard();if((!wasActive||wasFailing)&&!data.game?.upgradeRequired)message(wasFailing?'Connected again.':'Phone connected.');if(pendingCommand){
     if(data.delivery==='executed'){feedback={text:`${pendingCommand.label} completed on game screen.`,until:Date.now()+6500};message(feedback.text);appendChat(feedback.text);pendingCommand=null;}
     else if(data.delivery==='failed'){const err=`${pendingCommand.label} failed: ${data.reason||'The screen could not perform this action.'}`;message(err,true);appendChat(err);pendingCommand=null;}
     else if(data.delivery==='expired'){const err=`${pendingCommand.label} was not executed. Open the game/TV screen and try again.`;message(err,true);appendChat(err);pendingCommand=null;}
@@ -35,6 +49,59 @@
   }catch(e){message(e.message,true);}finally{busy=false;$('phone-join-form').querySelector('button').disabled=false;}
  }
 
+ let dashboardLoaded=0,dashboardBusy=false,dashboardItems=[],dashboardLaunch=null;
+ const dashboardPanel=()=>$('phone-game-dashboard');
+ function dashboardVisible(){
+  return !!active&&!!game&&['ready','saved','ended'].includes(game.status)&&
+    !proofState?.active;
+ }
+ async function loadDashboard(force=false){
+  if(!dashboardVisible()||dashboardBusy||(!force&&Date.now()-dashboardLoaded<5000))return;
+  dashboardBusy=true;
+  try{
+   const reply=await request('dashboard_catalog');
+   dashboardLoaded=Date.now();
+   dashboardItems=reply.games||[];
+   dashboardLaunch=reply.launch||dashboardLaunch;
+   const list=$('phone-dashboard-games');list.replaceChildren();
+   if(!dashboardItems.length){
+    const empty=document.createElement('p');empty.textContent='No playable games are installed yet.';
+    list.append(empty);
+   }
+   for(const item of dashboardItems){
+    const card=document.createElement('article');card.className='phone-dashboard-game';
+    const title=document.createElement('strong');title.textContent=item.title;
+    const about=document.createElement('small');about.textContent=item.description||
+      (item.controllerMode==='custom'?'Game-specific phone controls available':'Desktop/TV game');
+    const button=document.createElement('button');button.type='button';button.className='btn btn-primary';
+    button.textContent='▶ Choose & start game';
+    button.disabled=!reply.canLaunch||dashboardLaunch?.status==='queued';
+    button.addEventListener('click',()=>launchGame(item.id));
+    card.append(title,about,button);list.append(card);
+   }
+   const status=$('phone-dashboard-status');
+   if(dashboardLaunch?.status==='queued')status.textContent='Waiting for the host dashboard to open this game…';
+   else if(dashboardLaunch?.status==='accepted')status.textContent='Game selected. Starting on the computer…';
+   else if(!reply.canLaunch)status.textContent='Finish the current game before choosing another.';
+   else status.textContent='Connected · choose a game to start on the computer or TV.';
+  }catch(e){$('phone-dashboard-status').textContent='Could not load games: '+e.message;}
+  finally{dashboardBusy=false;}
+ }
+ async function launchGame(id){
+  if(!active||busy||!dashboardVisible()||dashboardLaunch?.status==='queued')return;
+  busy=true;
+  const status=$('phone-dashboard-status');
+  status.textContent='Requesting game launch on the computer…';
+  $('phone-dashboard-games').querySelectorAll('button').forEach(b=>b.disabled=true);
+  try{
+   const nonce=(crypto.randomUUID?.()||('launch_'+Date.now()+'_'+Math.random().toString(36).slice(2))).replaceAll('.','_');
+   const reply=await request('dashboard_launch',{game:id,nonce});
+   dashboardLaunch=reply.launch;
+   status.textContent='Open the Lucky Games dashboard on your computer. Starting '+(dashboardItems.find(g=>g.id===id)?.title||'game')+'…';
+   await loadDashboard(true);
+  }catch(e){status.textContent=e.message;dashboardLaunch=null;dashboardLoaded=0;await loadDashboard(true);}
+  finally{busy=false;}
+ }
  let lastPrizeOffer='',prizeMedia=null;
  function safePrizeVideo(raw){
   if(typeof raw!=='string'||!raw||raw.length>2048)return null;
@@ -86,10 +153,13 @@
  function applyMode(){
   const proof=!!proofState?.active,offer=!proof&&game?.offer?.status==='pending';
   const gameShell=$('phone-gameplay-shell'),proofMode=$('phone-proof-mode'),audio=$('phone-game-audio'),offerMode=$('phone-prize-offer');
-  if(gameShell)gameShell.hidden=proof||offer;
-  if(proofMode)proofMode.hidden=!proof;
-  if(audio)audio.hidden=proof||offer;
-  if(offerMode)offerMode.hidden=!offer;
+  const dashboard=dashboardVisible()&&!proof;
+  if(dashboardPanel())dashboardPanel().hidden=!dashboard;
+  if(gameShell)gameShell.hidden=proof||offer||dashboard;
+  if(proofMode)proofMode.hidden=!proof||dashboard;
+  if(audio)audio.hidden=proof||offer||dashboard;
+  if(offerMode)offerMode.hidden=!offer||dashboard;
+  if(dashboard)void loadDashboard();
   if(offer&&$('phone-offer-name'))$('phone-offer-name').textContent=game.offer.name+' · $'+(Number(game.offer.cents)/100).toFixed(2);
   presentPrize(offer?game.offer:null);
  }
@@ -211,6 +281,7 @@
    prizeMedia.play().catch(()=>message('Tap Play in the player to start the video.',true));
   }else{const src=prizeMedia.src;prizeMedia.src=src;}
  });
+ $('phone-dashboard-refresh').addEventListener('click',()=>{dashboardLoaded=0;void loadDashboard(true);});
  $('phone-join-form').addEventListener('submit',join);
  $('phone-package-select').addEventListener('change',async event=>{
   if(!active||busy||!['ready','saved','ended'].includes(game?.status))return;
