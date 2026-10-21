@@ -19,19 +19,6 @@ final class PrizePackages {
    throw new DomainException('Enter a package name up to 100 characters.',422);
   return $name;
  }
- // Explicit admin creation can bootstrap an older Cloud installation safely.
- // Run outside the package write transaction; all SQL is bundled and fixed.
- public static function prepareForCreate(PDO $db):void {
-  require_once __DIR__.'/MigrationSql.php';
-  require_once __DIR__.'/PrizePublicationMigration.php';
-  $q=$db->query("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ('prize_packages','prize_package_selection')");
-  if((int)$q->fetchColumn()!==2){
-   foreach(MigrationSql::statements((string)file_get_contents(__DIR__.'/migrations/v5q20_prize_packages.sql')) as $sql)$db->exec($sql);
-  }
-  PrizePublicationMigration::ensure($db);
-  self::ensureBudgetColumn($db);
-  self::requireReady($db);
- }
  public static function ensureBudgetColumn(PDO $db):bool {
   $q=$db->query("SHOW TABLES LIKE 'prize_packages'");
   if(!$q->fetchColumn())return false;
