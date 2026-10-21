@@ -9,7 +9,7 @@ require_once __DIR__.'/GameCatalog.php';
  * Each protected channel is bound to exactly one game slug.
  */
 final class GamePublisherChannels {
- public const SDK_VERSION='1.0.0';
+ public const SDK_VERSION='2.0.0';
  private static function root(?string $root=null):string {
   return ($root??dirname(__DIR__).'/storage/game-updates').'/channels';
  }
