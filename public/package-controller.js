@@ -66,8 +66,14 @@
   if(ended||!view)return;
   game=view;
   if(view.status==='ended'||view.status==='saved'){
-   ended=true;clearPending();closeGame();show('finished');
-   status('Game ended · controller disconnected from gameplay.');return;
+   ended=true;clearPending();closeGame();
+   // Approved pairing survives the session transition, so the same phone
+   // can choose the next installed game without rescanning a new QR code.
+   if(pair?.id&&pair?.token){
+    try{sessionStorage.setItem('lucky-phone-controller-v5p',JSON.stringify({id:pair.id,token:pair.token}));}catch(_){}
+    location.assign('controller.php');return;
+   }
+   show('finished');status('Game finished. Return to the game dashboard.');return;
   }
   const playing=view.status==='active';
   show('play');
