@@ -4,7 +4,7 @@ require __DIR__.'/../lib/Bootstrap.php';
 require __DIR__.'/../lib/ControllerPairing.php';
 require __DIR__.'/../lib/ControllerGame.php';require_once __DIR__.'/../lib/PackageControllerBridge.php';require_once __DIR__.'/../lib/GameSessionLifecycle.php';require_once __DIR__.'/../lib/PrizeDecision.php';
 require_once __DIR__.'/../lib/SchemaGuard.php';
-require_once __DIR__.'/../lib/ControllerRate.php';
+require_once __DIR__.'/../lib/ControllerRate.php';require_once __DIR__.'/../lib/PhoneGameDashboard.php';
 headerSecurity();
 header('Referrer-Policy: no-referrer');
 header('X-Robots-Tag: noindex, nofollow');
@@ -25,7 +25,7 @@ try {
   if(!$originHost||strcasecmp((string)$originHost,$host)!==0)throw new DomainException('Origin not permitted.',403);
  }
  $action=strval($_GET['action']??'');$in=jsonInput();$db=db();
- $phoneActions=['claim','claim_display','status','command','disconnect','package_status','package_command'];
+ $phoneActions=['claim','claim_display','status','command','disconnect','package_status','package_command','dashboard_catalog','dashboard_launch'];
  if(in_array($action,$phoneActions,true)){
   if($action==='claim'){
    $id=strval($in['id']??'');$key=strval($in['key']??'');$name=ControllerPairing::label($in['name']??'');
@@ -59,8 +59,21 @@ try {
    success(['id'=>$newId,'controllerToken'=>$token,'status'=>'pending']);
   }
   $id=strval($in['id']??'');$token=(string)($_SERVER['HTTP_X_CONTROLLER_TOKEN']??'');
-  $p=ControllerPairing::authenticate($db,$id,$token,in_array($action,['command','select_package','package_command'],true));
+  $p=ControllerPairing::authenticate($db,$id,$token,in_array($action,['command','select_package','package_command','dashboard_catalog','dashboard_launch'],true));
   $status=ControllerPairing::status($p);
+  if($action==='dashboard_catalog'){
+   if($status!=='paired')throw new DomainException('Approve the phone before selecting a game.',403);
+   success(['games'=>PhoneGameDashboard::catalog(),'canLaunch'=>!PhoneGameDashboard::active($db),
+    'launch'=>PhoneGameDashboard::progress($db,$id)]);
+  }
+  if($action==='dashboard_launch'){
+   if($status!=='paired')throw new DomainException('Approve the phone before starting a game.',403);
+   $game=GameCatalog::slug($in['game']??null);
+   $nonce=ControllerPairing::nonce($in['nonce']??null);
+   $launch=PhoneGameDashboard::request($db,$p,$game,$nonce);
+   audit($db,'controller.game_launch_queued',null,['game'=>$game,'pairId'=>$id]);
+   success(['launch'=>$launch],202);
+  }
   if(in_array($action,['package_status','package_command'],true)){
    $session=(string)($in['session']??'');$viewer=(string)($in['viewer']??'');
    ControllerPairing::checkId($session);
@@ -117,6 +130,22 @@ try {
    success(['applied'=>true,'repeat'=>false,'game'=>$view]);
   }
   if($action==='status'){
+   // Approved phones can seamlessly switch from generic controls to a
+   // package's own phone UI, but only for an owner-matched active session.
+   $packageGame=null;
+   if($status==='paired'){
+    $q=$db->prepare("SELECT s.id,s.viewer_token,s.game_id FROM game_sessions s
+      JOIN audit_log a ON a.session_id=s.id AND a.event='session.start'
+      WHERE a.admin_id=? AND s.status IN ('active','paused') AND s.game_id<>'spin-wheel'
+      ORDER BY s.created_at DESC LIMIT 1");
+    $q->execute([(int)$p['host_admin_id']]);
+    if($candidate=$q->fetch()){
+     $module=GameRegistry::module((string)$candidate['game_id']);
+     if(PackageControllerBridge::isPackage($module))
+      $packageGame=['game'=>$candidate['game_id'],'session'=>$candidate['id'],'viewer'=>$candidate['viewer_token']];
+    }
+   }
+
    $commandId=(int)($in['commandId']??0);$delivery=null;
    if($commandId>0){
     SchemaGuard::require($db,['controller_ui_events'],'Phone controller acknowledgements');
@@ -145,7 +174,8 @@ try {
     }
     }
    }
-   success(['status'=>$status,'deviceName'=>$p['device_name'],'expiresAt'=>$p['paired_expires_at'],'game'=>$status==='paired'?($current??ControllerGame::snapshot($db)):null,'proof'=>$proof?['active'=>true,'claimId'=>$proof['claim_id'],'reviewCount'=>(int)$proof['review_count'],'consent'=>(bool)($proof['consent_ack']??false),'phase'=>(string)($proof['capture_phase']??'live'),'savedCount'=>(int)($proof['saved_count']??0)]:['active'=>false],'delivery'=>$delivery,'reason'=>$reason??null]);
+   success(['status'=>$status,'deviceName'=>$p['device_name'],'expiresAt'=>$p['paired_expires_at'],'game'=>$status==='paired'?($current??ControllerGame::snapshot($db)):null,'proof'=>$proof?['active'=>true,'claimId'=>$proof['claim_id'],'reviewCount'=>(int)$proof['review_count'],'consent'=>(bool)($proof['consent_ack']??false),'phase'=>(string)($proof['capture_phase']??'live'),'savedCount'=>(int)($proof['saved_count']??0)]:['active'=>false],'delivery'=>$delivery,'reason'=>$reason??null,
+     'packageGame'=>$packageGame,'launch'=>$status==='paired'?PhoneGameDashboard::progress($db,$id):null]);
   }
   if($action==='select_package'){
    $package=PrizePackages::id($in['package']??null);
