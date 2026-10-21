@@ -5,7 +5,8 @@
  const message=(m,warning=false)=>{const e=$('phone-status');if(!e)return;clearTimeout(noticeTimer);e.textContent=m;e.classList.toggle('platform-error',warning);
   if(active)noticeTimer=setTimeout(()=>{e.textContent='';e.classList.remove('platform-error');},warning?6500:2300);
  };
- const show=(name)=>{for(const id of ['phone-join','phone-wait','phone-controls'])$(id).hidden=id!==name;$('phone-disconnect').hidden=name==='phone-join';};
+ const show=(name)=>{for(const id of ['phone-join','phone-wait','phone-controls','phone-dashboard'])$(id).hidden=id!==name;
+  $('phone-disconnect').hidden=name==='phone-join';};
  const safeName=()=>String($('phone-name').value||'').trim().slice(0,48);
  function forget(){lastPrizeOffer='';clearPrizeVideo();try{window.speechSynthesis?.cancel();}catch(_){}toggleListening(false);commandQueue=[];feedback=null;pendingCommand=null;game=null;gameVersion=-1;updateProof(null);state=null;try{sessionStorage.removeItem(storageKey);}catch(_){}active=false;show('phone-join');message('Connection expired. Scan a new QR code on the host screen.',true);}
  async function request(action,body={},authenticated=true){const headers={'Content-Type':'application/json'};
@@ -14,8 +15,59 @@
   let data;try{data=await response.json();}catch(_){throw Error(`Game server returned HTTP ${response.status}. Check the hosting error log.`);}
   if(!response.ok||!data.ok)throw Error((data.error||'Connection failed.')+` (HTTP ${response.status})`);return data;
  }
+ let dashboardGames=[],dashboardLoading=false,dashboardRequested=location.hash==='#dashboard';
+ function dashboardNote(text,bad=false){const e=$('phone-dashboard-status');if(e){e.textContent=text;e.classList.toggle('platform-error',bad);}}
+ async function loadDashboard(){
+  if(dashboardLoading||!active)return;
+  dashboardLoading=true;
+  try{
+   const result=await request('dashboard_games');
+   dashboardGames=Array.isArray(result.games)?result.games:[];
+   const root=$('phone-dashboard-games');root.replaceChildren();
+   for(const row of dashboardGames){
+    const card=document.createElement('article');card.className='surface phone-dashboard-tile';
+    const icon=document.createElement('span');icon.className='phone-dashboard-icon';icon.textContent='✦';icon.setAttribute('aria-hidden','true');
+    const name=document.createElement('h2');name.textContent=row.title;
+    const publisher=document.createElement('p');publisher.textContent=row.publisher+(row.hasPhone?' · Phone controls':' · Desktop controls');
+    const btn=document.createElement('button');btn.type='button';btn.className='btn btn-primary';
+    btn.textContent='▶ Start '+row.title;btn.addEventListener('click',()=>launchFromPhone(row.id,btn));
+    card.append(icon,name,publisher,btn);root.append(card);
+   }
+   dashboardNote(dashboardGames.length?'Select a game to begin on your desktop or TV.':'No games are available yet.');
+  }catch(e){dashboardNote('Game library unavailable: '+e.message,true);}
+  finally{dashboardLoading=false;}
+ }
+ let launchingGame=false;
+ async function launchFromPhone(id,button){
+  if(!active||launchingGame||!dashboardGames.some(g=>g.id===id))return;
+  launchingGame=true;button.disabled=true;dashboardNote('Starting the selected game on the desktop…');
+  const nonce=(crypto.randomUUID?.().replace(/-/g,'')||'ph'+Date.now().toString(36)+Math.random().toString(36).slice(2)).padEnd(14,'0');
+  try{
+   const res=await request('dashboard_launch',{game:id,nonce,confirm:true});
+   const out=res.launch;
+   if(!out||out.game!==id||!/^[a-f0-9]{32}$/.test(out.id))throw Error('The game launch receipt was invalid.');
+   dashboardRequested=false;
+   if(out.game==='spin-wheel'){
+    dashboardNote('Spin the Wheel started. Opening phone controls…');
+    show('phone-controls');await status();return;
+   }
+   if(!/^[a-f0-9]{48}$/.test(out.viewer))throw Error('The custom game controller link is unavailable.');
+   sessionStorage.setItem('lucky-package-controller-v1',JSON.stringify({
+    id:state.id,token:state.token,session:out.id,viewer:out.viewer
+   }));
+   dashboardNote('Game started. Opening its own phone controller…');
+   location.assign('package-controller.php?'+new URLSearchParams({session:out.id,viewer:out.viewer}));
+  }catch(e){dashboardNote('Could not start the game: '+e.message,true);}
+  finally{launchingGame=false;button.disabled=false;}
+ }
  async function status(){if(!state||busy||statusBusy)return;statusBusy=true;
-  try{const data=await request('status',pendingCommand?{commandId:pendingCommand.id}:{});if(data.status==='paired'){const wasActive=active,wasFailing=failures>=3;failures=0;active=true;show('phone-controls');updateGame(data.game);updateProof(data.proof);if((!wasActive||wasFailing)&&!data.game?.upgradeRequired)message(wasFailing?'Connected again.':'Phone connected.');if(pendingCommand){
+  try{const data=await request('status',pendingCommand?{commandId:pendingCommand.id}:{});if(data.status==='paired'){const wasActive=active,wasFailing=failures>=3;failures=0;active=true;
+    const needsDashboard=dashboardRequested||(!data.proof?.active&&['ready','saved','ended'].includes(data.game?.status));
+    if(needsDashboard){
+     show('phone-dashboard');game=data.game;clearPrizeVideo();updateProof(null);
+     if(!wasActive||!dashboardGames.length)void loadDashboard();
+    }else{show('phone-controls');updateGame(data.game);updateProof(data.proof);}
+    if((!wasActive||wasFailing)&&!data.game?.upgradeRequired)message(wasFailing?'Connected again.':'Phone connected.');if(pendingCommand){
     if(data.delivery==='executed'){feedback={text:`${pendingCommand.label} completed on game screen.`,until:Date.now()+6500};message(feedback.text);appendChat(feedback.text);pendingCommand=null;}
     else if(data.delivery==='failed'){const err=`${pendingCommand.label} failed: ${data.reason||'The screen could not perform this action.'}`;message(err,true);appendChat(err);pendingCommand=null;}
     else if(data.delivery==='expired'){const err=`${pendingCommand.label} was not executed. Open the game/TV screen and try again.`;message(err,true);appendChat(err);pendingCommand=null;}
