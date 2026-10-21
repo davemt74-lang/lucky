@@ -37,7 +37,7 @@ final class GameEngine {
                    !is_int($amount)||$amount<0||$amount>1000000000) throw new DomainException('Invalid or duplicate prize.');
                 $url=$p['url']??''; $image=$p['image']??''; $videoUrl=$p['videoUrl']??'';
                 $description=PrizeSmartText::validate($p['description']??'');
-                if(!is_string($url)||!self::validUrl($url)||!is_string($image)||!self::validUrl($image)||!is_string($videoUrl)||!self::validUrl($videoUrl))
+                if(!is_string($url)||!self::validUrl($url)||!is_string($image)||!self::validUrl($image)||!is_string($videoUrl)||!self::validPrizeVideo($videoUrl))
                    throw new DomainException('Prize links must be blank or valid HTTP(S) URLs.');
                 $angles=$p['proofAngles']??[];
                 if(!is_array($angles)||count($angles)>4)throw new DomainException('Proof angles must have 0–4 camera views.',422);
@@ -72,6 +72,10 @@ final class GameEngine {
         $parts=parse_url($url);
         return is_array($parts)&&in_array(strtolower($parts['scheme']??''),['https','http'],true)&&
           !empty($parts['host'])&&!isset($parts['user'])&&!isset($parts['pass']);
+    }
+    /** Uploaded prize videos use the same-origin protected media route; legacy URLs may be stored but are never playable. */
+    public static function validPrizeVideo(string $url):bool {
+        return self::validUrl($url) || preg_match('~^api/index\\.php\\?action=prize_video&id=[a-f0-9]{32}$~D',$url)===1;
     }
     public static function newSession(array $config, string $id): array {
         $cfg=self::validateConfig($config);
