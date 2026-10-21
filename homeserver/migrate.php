@@ -12,4 +12,6 @@ require_once __DIR__.'/../lib/PrizePackages.php';
 PrizePackages::ensureBudgetColumn($db);
 require_once __DIR__.'/../lib/GamePluginCapabilities.php';
 GamePluginCapabilities::ensureSchema($db);
-echo "HomeServer schema current.\n";
+require_once __DIR__.'/../lib/PhoneGameDashboard.php';
+PhoneGameDashboard::ensureSchema($db);
+echo "HomeServer schema current.\\n";
