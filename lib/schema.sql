@@ -71,3 +71,16 @@ CREATE TABLE IF NOT EXISTS montage_templates (id CHAR(32) NOT NULL PRIMARY KEY, 
 -- V5Q20 prize package layers (see idempotent migration).
 CREATE TABLE IF NOT EXISTS prize_packages (id CHAR(32) NOT NULL PRIMARY KEY,game_id VARCHAR(64) NOT NULL,name VARCHAR(100) NOT NULL,config_json LONGTEXT NOT NULL,enabled TINYINT(1) NOT NULL DEFAULT 1,publication_status VARCHAR(12) NOT NULL DEFAULT 'published',player_selectable TINYINT(1) NOT NULL DEFAULT 1,version INT UNSIGNED NOT NULL DEFAULT 1,sort_order INT UNSIGNED NOT NULL DEFAULT 0,created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,INDEX idx_packages_game(game_id,sort_order),UNIQUE KEY uq_package_name(game_id,name)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 CREATE TABLE IF NOT EXISTS prize_package_selection (game_id VARCHAR(64) NOT NULL PRIMARY KEY,package_id CHAR(32) NOT NULL,updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,FOREIGN KEY fk_selected_package(package_id) REFERENCES prize_packages(id) ON DELETE RESTRICT) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Universal Game/Plugin SDK v2: application-owned private KV namespace.
+-- Games never submit SQL or define their own database tables.
+CREATE TABLE IF NOT EXISTS game_plugin_storage (
+ game_id VARCHAR(64) NOT NULL,
+ scope_id CHAR(32) NOT NULL,
+ storage_key VARCHAR(64) NOT NULL,
+ value_json LONGTEXT NOT NULL,
+ revision INT UNSIGNED NOT NULL DEFAULT 1,
+ updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ PRIMARY KEY (game_id,scope_id,storage_key),
+ INDEX idx_plugin_storage_game (game_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
