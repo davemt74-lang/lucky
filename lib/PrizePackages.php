@@ -26,7 +26,8 @@ final class PrizePackages {
   $db->exec("ALTER TABLE prize_packages ADD COLUMN budget_cents INT UNSIGNED NULL DEFAULT NULL AFTER config_json");
   return true;
  }
- private static function budget(?int $budget,array $config):?int {
+ private static function budget(mixed $budget,array $config):?int {
+  if($budget!==null&&!is_int($budget))throw new DomainException('Package budget must be an integer amount in cents or blank.',422);
   if($budget===null)return null;
   if($budget<0||$budget>1000000000)throw new DomainException('Package budget must be between $0 and $10,000,000.',422);
   $total=array_sum(array_map(static fn($pool)=>(int)$pool['budgetCents'],$config['pools']));
@@ -103,7 +104,7 @@ final class PrizePackages {
    throw new DomainException('This prize package is not available for selection.',403);
   $q=$db->prepare('UPDATE prize_package_selection SET package_id=? WHERE game_id=?');$q->execute([$id,'spin-wheel']);
  }
- public static function create(PDO $db,string $name,?string $cloneFrom=null,?int $budgetCents=null,bool $overrideBudget=false):array {
+ public static function create(PDO $db,string $name,?string $cloneFrom=null,mixed $budgetCents=null,bool $overrideBudget=false):array {
   self::requireReady($db);self::lockGame($db);
   $name=self::label($name);
   $count=(int)$db->query("SELECT COUNT(*) FROM prize_packages WHERE game_id='spin-wheel'")->fetchColumn();
@@ -121,7 +122,7 @@ final class PrizePackages {
   $q->execute([$id,$name,json_encode($config,JSON_THROW_ON_ERROR),$budget,$count]);
   return ['id'=>$id,'name'=>$name,'enabled'=>true,'playerSelectable'=>true,'publicationStatus'=>'draft','version'=>1,'config'=>$config,'budgetCents'=>$budget];
  }
- public static function save(PDO $db,string $id,int $version,string $name,array $cfg,bool $enabled,bool $player,?int $budgetCents=null):array {
+ public static function save(PDO $db,string $id,int $version,string $name,array $cfg,bool $enabled,bool $player,mixed $budgetCents=null):array {
   self::requireReady($db);self::lockGame($db);self::id($id);$name=self::label($name);
   $cfg=GameEngine::validateConfig($cfg);
   $budgetCents=self::budget($budgetCents,$cfg);
