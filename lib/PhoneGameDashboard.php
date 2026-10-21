@@ -65,7 +65,7 @@ final class PhoneGameDashboard {
    $db->commit();return $out;
   }catch(Throwable $e){$db->rollBack();throw $e;}
  }
- public static function progress(PDO $db,int $pairIdDummy,string $id):?array {
+ public static function progress(PDO $db,string $id):?array {
   $q=$db->prepare("SELECT id,game_id,status,created_at FROM controller_game_launches WHERE pair_id=? ORDER BY id DESC LIMIT 1");
   $q->execute([$id]);$row=$q->fetch();
   if(!$row||strtotime($row['created_at'].' UTC')<time()-120)return null;
