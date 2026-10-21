@@ -1,48 +1,41 @@
-"""Per-prize proof-angle admin form browser contract, with simulated camera discovery and API."""
-import asyncio,sys
-from pathlib import Path
+"""Per-prize proof-angle camera configuration in the new admin modal."""
+import asyncio
 from playwright.async_api import async_playwright
-sys.path.insert(0,str(Path(__file__).parent))
-from v5p_pairing import make_html
-MOCK='''<script>
+from v5q25_admin_modals_browser import HTML
+CAMERAS = '''<script>
 Object.defineProperty(navigator,'mediaDevices',{configurable:true,value:{
  getUserMedia:async()=>new MediaStream(),
- enumerateDevices:async()=>[{kind:'videoinput',deviceId:'front',label:'USB Front Cam'},{kind:'videoinput',deviceId:'back',label:'USB Rear Cam'}]
+ enumerateDevices:async()=>[{kind:'videoinput',deviceId:'front',label:'USB Front Cam'},
+                             {kind:'videoinput',deviceId:'back',label:'USB Rear Cam'}]
 }});
-window.__saved=null;
-const sourceFetch=window.fetch;
-window.fetch=async(url,opts={})=>{
- const action=new URL(String(url),'https://example.test/').searchParams.get('action');
- if(action==='settings')return new Response(JSON.stringify({ok:true,settings:{config:{pools:{tier1:{budgetCents:1000,prizes:[{id:'demo',name:'Prize Test',cents:1000,url:'',image:'',proofAngles:[]}]},tier2:{budgetCents:0,prizes:[]},bonus:{budgetCents:0,prizes:[]}},odds:{tier1Weight:1,tier2Weight:1,bonusWeight:1,bonusChance:12}},intro:{title:'Spin',subtitle:'',trackId:'',volume:70},theme:{accent:'#f6cb74',background:'#0d1423'}}}));
- if(action==='settings_save'){__saved=JSON.parse(opts.body);return new Response(JSON.stringify({ok:true,settings:__saved}));}
- if(action==='sessions')return new Response(JSON.stringify({ok:true,sessions:[]}));
- return sourceFetch(url,opts);
-};
 </script>'''
 async def main():
- out=[];err=[]
- def ck(n,v):out.append((n,bool(v)))
+ out=[];errors=[]
+ def ck(name,value):out.append((name,bool(value)))
  async with async_playwright() as pw:
-  b=await pw.chromium.launch(headless=True,executable_path='/usr/bin/chromium',args=['--no-sandbox'])
-  page=await b.new_page(viewport={'width':1440,'height':900});page.on('pageerror',lambda e:err.append(str(e)))
-  await page.set_content(make_html('admin').replace('</head>',MOCK+'</head>',1),wait_until='domcontentloaded')
-  await page.wait_for_timeout(250)
-  ck('prize proof angles section shown',await page.locator('.proof-angle-settings').count()==1)
-  await page.locator('.proof-angle-settings summary').click()
-  await page.get_by_role('button',name='Match cameras on this device').click()
-  ck('camera count auto-populates 2 angles',await page.locator('.proof-angle-row').count()==2)
-  ck('detected USB names populate labels', 'USB Front Cam' in await page.locator('.proof-angle-row input').first.input_value())
-  await page.locator('.proof-angle-row input').first.fill('Prize Hero Closeup')
-  await page.locator('.proof-angle-row input[type=number]').first.fill('11')
-  await page.locator('.proof-angle-row input[type=number]').first.press('Tab')
-  await page.locator('#save-prizes').click();await page.wait_for_timeout(150)
-  ck('prize angle labels saved to settings',await page.evaluate("__saved?.config?.pools?.tier1?.prizes?.[0]?.proofAngles?.[0]?.label==='Prize Hero Closeup'"))
-  ck('prize per-angle timing saved',await page.evaluate("__saved?.config?.pools?.tier1?.prizes?.[0]?.proofAngles?.[0]?.seconds===11"))
-  ck('no JavaScript exceptions',not err)
-  await page.screenshot(path='/mnt/data/Lucky-Game-Hub-V5Q2-admin-proof.png',full_page=True)
-  await b.close()
- for n,ok in out:print(('PASS ' if ok else 'FAIL ')+n)
+  browser=await pw.chromium.launch(headless=True,executable_path='/usr/bin/chromium',args=['--no-sandbox'])
+  page=await browser.new_page(viewport={'width':1366,'height':900})
+  page.on('pageerror',lambda e:errors.append(str(e)))
+  await page.set_content(HTML.replace('</head>',CAMERAS+'</head>',1),wait_until='domcontentloaded')
+  await page.locator('.prize-catalog-card').first.wait_for(timeout=6000)
+  ck('Proof controls are not shown in the prize list',await page.locator('#prize-edit-angles').is_hidden())
+  await page.locator('.prize-catalog-edit').first.click()
+  ck('Proof camera configuration opens in prize edit modal',await page.locator('#prize-editor-modal').is_visible())
+  await page.locator('#prize-edit-detect-cameras').click()
+  await page.locator('.prize-edit-angle').nth(1).wait_for(timeout=4000)
+  ck('Detect cameras adds two proof angles',await page.locator('.prize-edit-angle').count()==2)
+  ck('Detected camera names populate labels','USB Front Cam' in await page.locator('.prize-edit-angle input').first.input_value())
+  await page.locator('.prize-edit-angle input').first.fill('Prize Hero Closeup')
+  await page.locator('.prize-edit-angle input[type=number]').first.fill('11')
+  await page.locator('.prize-edit-angle input[type=number]').first.press('Tab')
+  await page.locator('#prize-edit-save').click()
+  await page.wait_for_function("document.querySelector('#prize-editor-modal').open===false",timeout=4000)
+  ck('Prize angle names persisted through admin package save',await page.evaluate("__package.config.pools.tier1.prizes[0].proofAngles[0].label==='Prize Hero Closeup'"))
+  ck('Proof camera per-angle recording duration persists',await page.evaluate("__package.config.pools.tier1.prizes[0].proofAngles[0].seconds===11"))
+  ck('No JavaScript exceptions',not errors)
+  await browser.close()
+ for name,ok in out:print(('PASS ' if ok else 'FAIL ')+name,flush=True)
  print('Proof admin:',sum(ok for _,ok in out),'/',len(out))
- if err:print(err)
+ if errors:print('Errors:',errors)
  if not all(ok for _,ok in out):raise SystemExit(1)
 if __name__=='__main__':asyncio.run(main())
