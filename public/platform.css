@@ -814,3 +814,30 @@ body.admin-studio-page .prize-package-budget-label small{font-size:10px;color:#b
  body.admin-studio-page .prize-package-toolbar .btn{flex:1 1 auto;text-align:center;min-width:0;font-size:11px}
  .prize-package-modal{padding:18px}
 }
+
+
+/* Phone game selection after the previous session ends. */
+.phone-game-dashboard{width:100%;max-width:720px;margin:0 auto 15px;padding:20px;display:grid;gap:12px}
+.phone-game-dashboard[hidden]{display:none!important}
+.phone-game-dashboard h1{margin:0;font-size:clamp(23px,6vw,32px);line-height:1.15}
+.phone-game-dashboard .phone-game-dashboard-help{margin:0;color:#b9cce1;font-size:13px}
+.phone-dashboard-games{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(min(100%,235px),1fr))}
+.phone-dashboard-game{display:grid;gap:9px;padding:17px;background:#0d1b2f;border:1px solid #3c5471;border-radius:13px;text-align:left}
+.phone-dashboard-game>strong{font-size:16px;color:#f8fbff}
+.phone-dashboard-game>small{font-size:11px;line-height:1.45;color:#b4c7dd}
+.phone-dashboard-game button{min-height:41px;width:100%;justify-content:center}
+.phone-game-dashboard #phone-dashboard-status{margin:0;min-height:22px;color:#f1cb86;font-size:12px}
+.phone-game-dashboard #phone-dashboard-refresh{justify-self:start}
+@media(max-width:460px){.phone-game-dashboard{padding:15px}.phone-dashboard-games{grid-template-columns:1fr}}
+
+/* Only visible while a real camera or microphone MediaRecorder is active. */
+.proof-editor-page .proof-video-stage{position:relative}
+.proof-editor-page .capture-recording-indicator{
+ position:absolute;top:13px;right:13px;z-index:20;display:inline-flex;
+ align-items:center;gap:8px;padding:9px 13px;border-radius:9px;
+ border:1px solid #ff737c;background:rgba(137,12,29,.96);color:#fff;
+ font-size:12px;font-weight:800;letter-spacing:.08em;
+ box-shadow:0 4px 22px rgba(0,0,0,.48);pointer-events:none
+}
+.proof-editor-page .capture-recording-indicator[hidden]{display:none!important}
+.proof-editor-page .capture-recording-dot{width:9px;height:9px;background:#fff;border-radius:50%;box-shadow:0 0 0 3px rgba(255,255,255,.18)}
