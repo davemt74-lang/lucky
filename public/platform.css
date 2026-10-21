@@ -814,3 +814,29 @@ body.admin-studio-page .prize-package-budget-label small{font-size:10px;color:#b
  body.admin-studio-page .prize-package-toolbar .btn{flex:1 1 auto;text-align:center;min-width:0;font-size:11px}
  .prize-package-modal{padding:18px}
 }
+
+/* Phone dashboard: game selection stays within a paired, mobile-only controller. */
+.phone-game-dashboard{display:grid;gap:14px;padding:5px 0 25px}
+.phone-game-dashboard[hidden]{display:none!important}
+.phone-dashboard-heading{padding:18px}
+.phone-dashboard-heading h1{font-size:clamp(24px,6vw,32px);margin:5px 0 8px}
+.phone-dashboard-heading p{color:#bdcbe1;margin:8px 0;line-height:1.45}
+.phone-dashboard-games{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,245px),1fr));gap:12px}
+.phone-dashboard-tile{display:flex;flex-direction:column;gap:9px;padding:16px}
+.phone-dashboard-tile h2{font-size:18px;margin:0}
+.phone-dashboard-tile p{color:#b6c9e2;margin:0 0 8px;font-size:12px}
+.phone-dashboard-tile .btn{margin-top:auto;width:100%;min-height:44px}
+.phone-dashboard-icon{font-size:30px;color:#f6cb74}
+@media(max-width:620px){.phone-dashboard-games{grid-template-columns:1fr}}
+/* Recording is visible on the actual proof video, not elsewhere on the page. */
+.proof-editor-page .proof-video-stage{position:relative}
+.proof-editor-page .proof-rec-indicator{position:absolute;z-index:40;top:12px;right:12px;
+ display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:8px;
+ background:#bd1326;border:1px solid #f36c77;color:#fff;font-weight:850;
+ letter-spacing:.09em;font-size:12px;box-shadow:0 3px 14px #000a;cursor:pointer}
+.proof-editor-page .proof-rec-indicator[hidden]{display:none!important}
+.proof-editor-page .proof-rec-dot{display:inline-block;width:9px;height:9px;border-radius:50%;
+ background:#fff;box-shadow:0 0 0 2px #fffa;animation:lucky-proof-rec-pulse 1.25s ease-in-out infinite}
+.proof-editor-page .proof-rec-caption{font-size:10px;letter-spacing:0;font-weight:600}
+@keyframes lucky-proof-rec-pulse{50%{opacity:.4}}
+@media(prefers-reduced-motion:reduce){.proof-editor-page .proof-rec-dot{animation:none}}
