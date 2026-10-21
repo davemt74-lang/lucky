@@ -25,11 +25,13 @@ The SDK-generated `game.json` now includes:
   "capabilities": [
     "storage.read", "storage.write",
     "players.read", "players.write",
+    "teams.read", "teams.write",
     "scores.read", "scores.write",
     "rounds.read", "rounds.write",
     "turns.read", "turns.write",
     "timers.read", "timers.write",
-    "session.write"
+    "achievements.read", "achievements.write",
+    "events.read", "events.write", "session.write"
   ]
 }
 ```
@@ -56,7 +58,11 @@ const saved = await LuckyGameSDK.storage.set("level", 5, old.revision);
 
 // Registered players, server-authoritative scoring:
 await LuckyGameSDK.players.add("alice", "Alice");
+await LuckyGameSDK.teams.add("red", "Red Team");
+await LuckyGameSDK.teams.assign("red", "alice");
 await LuckyGameSDK.scores.add("alice", 100);
+await LuckyGameSDK.achievements.unlock("first_win");
+await LuckyGameSDK.events.emit("win", "alice");
 await LuckyGameSDK.rounds.next();
 await LuckyGameSDK.turns.set("alice");
 await LuckyGameSDK.timers.start("round", 60);
