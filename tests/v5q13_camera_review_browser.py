@@ -63,7 +63,7 @@ async def main():
   test('desktop REC indicator absent during live preview',await page.locator('#proof-recording-indicator').is_hidden())
   await page.evaluate("LuckyCapture.phoneAction('proof-consent-on')")
   await page.locator('#capture-video').click()
-  await page.wait_for_function('document.querySelector("#capture-stop").hidden===false')
+  await page.wait_for_function('document.querySelector("#proof-recording-indicator").hidden===false',timeout=10000)
   test('desktop video shows red REC control only during active MediaRecorder',
    await page.locator('#proof-recording-indicator').is_visible() and
    'REC' in await page.locator('#proof-recording-indicator').inner_text())
@@ -79,7 +79,9 @@ async def main():
   await page.evaluate("LuckyCapture.phoneAction('proof-delete')")
   test('Delete discards without upload',await page.evaluate('window.__uploads.length===0'))
   test('Delete restores capture buttons',await page.locator('#capture-recording-tools').is_visible())
-  await page.locator('#capture-video').click();await page.locator('#capture-stop').click()
+  await page.locator('#capture-video').click()
+  await page.wait_for_function('document.querySelector("#proof-recording-indicator").hidden===false',timeout=10000)
+  await page.locator('#capture-stop').click()
   await page.wait_for_function('LuckyCapture.reviewCount()===1')
   await page.evaluate("LuckyCapture.phoneAction('proof-save')")
   await page.wait_for_function('__uploads.length===1')

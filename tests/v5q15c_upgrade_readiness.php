@@ -4,11 +4,13 @@ require __DIR__.'/../lib/PrizeDecision.php';
 require __DIR__.'/../lib/ControllerGame.php';
 final class FakePrizeTableStatement extends PDOStatement {
  public function __construct(private bool $isPresent) {}
+ public function execute(?array $params=null):bool {return true;}
  public function fetchColumn(int $column=0):mixed {return $this->isPresent?1:false;}
  public function fetch(int $mode=PDO::FETCH_DEFAULT,int $cursorOrientation=PDO::FETCH_ORI_NEXT,int $cursorOffset=0):mixed {return false;}
 }
 final class FakePrizeTableDb extends PDO {
  public function __construct(private bool $isPresent) {}
+ public function prepare(string $query,array $options=[]):PDOStatement|false {return new FakePrizeTableStatement(false);}
  public function query(string $query, ?int $fetchMode=null,mixed ...$fetchModeArgs):PDOStatement|false {
   return new FakePrizeTableStatement($this->isPresent && str_contains($query,'information_schema.TABLES'));
  }

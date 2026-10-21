@@ -23,7 +23,8 @@ if(($_SERVER['REQUEST_METHOD']??'')==='POST'){
    'lib/migrations/v5q15b_prize_decisions.sql',
    'lib/migrations/v5q15m_layers.sql',
    'lib/migrations/v5q15n_templates.sql',
-   'lib/migrations/v5q20_prize_packages.sql'
+   'lib/migrations/v5q20_prize_packages.sql',
+   'lib/migrations/v5q26_movie_preview.sql'
   ];
   foreach($migrationFiles as $migrationFile){
    foreach(MigrationSql::statements(sql($migrationFile)) as $statement)$db->exec($statement);
@@ -31,6 +32,7 @@ if(($_SERVER['REQUEST_METHOD']??'')==='POST'){
   PrizePublicationMigration::ensure($db);
   require_once __DIR__.'/lib/PrizePackages.php';
   PrizePackages::ensureBudgetColumn($db);
+  PrizePackages::ensureImageColumn($db);
   require_once __DIR__.'/lib/GamePluginCapabilities.php';
   GamePluginCapabilities::ensureSchema($db);
   // Previous V5Q installs already have claim_media: add camera identity safely once.

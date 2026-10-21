@@ -17,7 +17,7 @@ window.__state='active';window.__version=1;
 window.LuckyWheel=class {setSlices(){} async spinTo(){}};
 window.Lucky={ $:id=>document.getElementById(id),money:n=>'$'+(n/100).toFixed(2),dollars:n=>(n/100).toFixed(2),
  note:(id,s)=>{const n=document.getElementById(id);if(n)n.textContent=s;},getMe:async()=>({csrf:'test'}),
- api:async(a)=>{if(a==='last')return {data:{view:{id:'SESSION_ID',status:__state,version:__version,claims:__claims,slots:[],spinCount:0},session:{id:'SESSION_ID',pools:{tier1:{prizes:[]},bonus:{prizes:[]}},claims:__claims}}};if(a==='session')return {session:{id:'SESSION_ID',claims:__claims,pools:{tier1:{prizes:[{id:'p1',proofAngles:[]}]}}},view:{id:'SESSION_ID',status:'active',version:1}};return {};},
+ api:async(a)=>{if(a==='current')return {data:{view:{id:'SESSION_ID',status:__state,version:__version,claims:__claims,slots:[],spinCount:0},session:{id:'SESSION_ID',pools:{tier1:{prizes:[]},bonus:{prizes:[]}},claims:__claims}}};if(a==='session')return {session:{id:'SESSION_ID',claims:__claims,pools:{tier1:{prizes:[{id:'p1',proofAngles:[]}]}}},view:{id:'SESSION_ID',status:'active',version:1}};return {};},
  loadTracks:async()=>[],bindMusic:()=>{},beep:()=>{},speak:()=>{},pref:{musicOn:false},idempotency:()=>'k'};
 window.LuckyCapture={show:(...a)=>window.__captureArgs=a,release:()=>{}};
 const nativeFetch=window.fetch.bind(window);

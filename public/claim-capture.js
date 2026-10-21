@@ -2,8 +2,8 @@
 (() => {
  'use strict';
  const $=id=>document.getElementById(id);
- let session='',claim='',prize='Prize',feeds=new Map(),recordings=new Map(),audioStream=null,audioRecorder=null,recordTimer=null;
- let uploading=0,approvedCount=0,closing=false,previewGeneration=0,proofProfile=[],proofPlan=[],sequenceAbort=null,sequencePromise=null,cameraAuthorized=false;
+ let session='',claim='',prize='Prize',feeds=new Map(),recordings=new Map(),audioStream=null,audioRecorder=null,recordTimer=null,precountAbort=null,precountPromise=null;
+ let captureGame='spin-wheel',uploading=0,approvedCount=0,closing=false,previewGeneration=0,proofProfile=[],proofPlan=[],sequenceAbort=null,sequencePromise=null,cameraAuthorized=false;
  const drafts=new Map();let draftSerial=0,recordAttempt=0,priming=null,capturePhase='live',replacementId=null,savedPreview=null,savedVideos=[],selectedPlayback=null;
  const setPhase=phase=>{capturePhase=phase;window.dispatchEvent(new CustomEvent('lucky:proof-phase',{detail:{session,claim,phase,consent:!!$('capture-consent')?.checked}}));};
  const consentChanged=()=>window.dispatchEvent(new CustomEvent('lucky:proof-phase',{detail:{session,claim,phase:capturePhase,consent:!!$('capture-consent')?.checked}}));
@@ -85,8 +85,8 @@
   switch(action){
    case 'proof-consent-on':$('capture-consent').checked=true;consentChanged();return true;
    case 'proof-consent-off':if(recordings.size||sequencePromise)return false;$('capture-consent').checked=false;consentChanged();return true;
-   case 'proof-record':if(drafts.size||savedPreview)return false;await record();return recordings.size>0||!!sequencePromise;
-   case 'proof-stop':{const wasVideo=recordings.size>0||!!sequencePromise;await stopRecording();if(wasVideo){for(let i=0;i<40&&drafts.size===0;i++)await new Promise(r=>setTimeout(r,50));}return true;}
+   case 'proof-record':if(drafts.size||savedPreview)return false;await record();return recordings.size>0||!!sequencePromise||!!precountPromise;
+   case 'proof-stop':{const wasVideo=recordings.size>0||!!sequencePromise||!!precountPromise;await stopRecording();if(wasVideo){for(let i=0;i<40&&drafts.size===0;i++)await new Promise(r=>setTimeout(r,50));}return true;}
    case 'proof-play':{const player=$('capture-review-list')?.querySelector('video');if(!player)return false;player.currentTime=0;await player.play();return true;}
    case 'proof-save':case 'proof-approve':{const id=drafts.keys().next().value;if(!id)return false;await approveDraft(id);return true;}
    case 'proof-rerecord':{const id=drafts.keys().next().value;if(id){await rerecordDraft(id);return true;}if(approvedCount>0){await rerecordSaved();return true;}return false;}
@@ -97,6 +97,8 @@
  const savedNames=()=>{try{return JSON.parse(localStorage.getItem('lucky-camera-aliases')||'{}')||{};}catch(_){return {};}};
  const MAX_CAMERAS=4;
  const status=(message,bad=false)=>{const p=$('capture-feedback');if(p){p.textContent=message;p.classList.toggle('is-error',bad);}};
+ const preCountSeconds=()=>{const seconds=Number($('capture-precount-seconds')?.value||3);return [3,5,10,30].includes(seconds)?seconds:3;};
+ const showPrecount=seconds=>{const timer=$('proof-stage-timer');if(!timer)return;timer.hidden=false;timer.dataset.phase='countdown';$('proof-stage-timer-label').textContent='Recording starts in';$('proof-stage-timer-seconds').textContent=String(seconds);};
  const badge=()=>{
   const recording=[...recordings.values()].some(rec=>rec?.state==='recording')||
     audioRecorder?.state==='recording';
@@ -118,6 +120,9 @@
   if($('proof-countdown')&&!sequencePromise)$('proof-countdown').textContent='—';
  }
  function proofAnnounce(state){const a=$('proof-active-angle'),n=$('proof-next-angle'),c=$('proof-countdown');
+  const timer=$('proof-stage-timer');if(timer){timer.hidden=state.phase==='saved';timer.dataset.phase=state.phase;
+   $('proof-stage-timer-label').textContent=state.phase==='countdown'?'Starting '+state.now.angleLabel:'Recording '+state.now.angleLabel;
+   $('proof-stage-timer-seconds').textContent=String(Math.max(0,Number(state.remaining)||0));}
   if(!a||!n||!c)return;
   a.textContent=state.phase==='countdown'?`Starting ${state.now.angleLabel}`:state.phase==='recording'?`● Recording ${state.now.angleLabel}`:`✓ Saved ${state.now.angleLabel}`;
   n.textContent=state.next?`Next camera: ${state.next.cameraName} · ${state.next.angleLabel}`:'Next camera: final view';
@@ -128,22 +133,23 @@
  const mimeFor=kind=>{if(typeof MediaRecorder==='undefined')return '';const formats=kind==='video'?['video/webm;codecs=vp8,opus','video/webm;codecs=vp9,opus','video/webm','video/mp4']:['audio/webm;codecs=opus','audio/webm','audio/mp4'];return formats.find(x=>MediaRecorder.isTypeSupported(x))||'';};
  const extension=type=>type.includes('mp4')?'.mp4':'.webm';
  function stopFeed(id){const f=feeds.get(id);if(!f)return;f.stream.getTracks().forEach(t=>t.stop());f.video.srcObject=null;feeds.delete(id);badge();}
- async function stopAll(){if(sequenceAbort){sequenceAbort.abort();try{await sequencePromise;}catch(_){}}if(recordings.size||audioRecorder)await stopRecording();for(const id of [...feeds.keys()])stopFeed(id);$('camera-grid')?.replaceChildren();clearDrafts();badge();}
+ async function stopAll(){$('proof-stage-timer').hidden=true;if(precountAbort){precountAbort.abort();try{await precountPromise;}catch(_){}}if(sequenceAbort){sequenceAbort.abort();try{await sequencePromise;}catch(_){}}if(recordings.size||audioRecorder)await stopRecording();for(const id of [...feeds.keys()])stopFeed(id);$('camera-grid')?.replaceChildren();clearDrafts();badge();}
  function checkLive(){if(closing)throw Error('Reopen the capture studio to continue.');}
  async function refresh(grant=false){
   checkLive();capabilities();contextReady();
   // Browsers often hide camera names until permission is granted through a user gesture.
   if(grant){const probe=await navigator.mediaDevices.getUserMedia({video:true,audio:false});probe.getTracks().forEach(t=>t.stop());}
   const items=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='videoinput');
-  const grid=$('camera-grid');const was=new Set(selected());const connectedIds=new Set(items.map((d,i)=>d.deviceId||`unlabeled-${i}`));for(const id of [...feeds.keys()])if(!connectedIds.has(id))stopFeed(id);grid.replaceChildren();
+  const grid=$('camera-grid');const was=new Set(selected());
+  if(!was.size){for(const id of (window.LuckyCameraProfiles?.selected(captureGame)||[]))was.add(id);}const connectedIds=new Set(items.map((d,i)=>d.deviceId||`unlabeled-${i}`));for(const id of [...feeds.keys()])if(!connectedIds.has(id))stopFeed(id);grid.replaceChildren();
   if(!items.length){status('No cameras detected. Plug in a USB camera, allow camera access, then Refresh.',true);return;}
   items.forEach((d,i)=>{
    const id=d.deviceId||`unlabeled-${i}`,label=clean(savedNames()[id]||d.label||`Camera ${i+1}`);
    const card=document.createElement('section');card.className='camera-source';card.dataset.cameraId=id;
    const top=document.createElement('label');top.className='camera-source-title';
-   const input=document.createElement('input');input.type='checkbox';input.dataset.cameraSelect=id;input.checked=was.has(id)||(!was.size&&i<MAX_CAMERAS);
+   const input=document.createElement('input');input.type='checkbox';input.dataset.cameraSelect=id;input.checked=was.has(id)||(!window.LuckyCameraProfiles&&!was.size&&i<MAX_CAMERAS);
    const name=document.createElement('strong');name.textContent=label;top.append(input,name);
-   input.onchange=drawProofPlan;
+   input.onchange=()=>{try{window.LuckyCameraProfiles?.setGameCamera(captureGame,id,input.checked);}catch(e){input.checked=!input.checked;status(e.message,true);}drawProofPlan();};
    const cameraName=document.createElement('input');cameraName.type='text';cameraName.maxLength=120;cameraName.value=label;cameraName.dataset.cameraName=id;cameraName.setAttribute('aria-label',`Name camera ${i+1}`);
    cameraName.onchange=()=>{const updated=clean(cameraName.value)||`Camera ${i+1}`;cameraName.value=updated;name.textContent=updated;
     const aliases=savedNames();aliases[id]=updated;try{localStorage.setItem('lucky-camera-aliases',JSON.stringify(aliases));}catch(_){/* Preferences optional */}
@@ -210,16 +216,16 @@
  async function captureRotation(){
   try{
    permitted();capabilities();if(typeof MediaRecorder==='undefined')throw Error('Video recording is not available in this browser.');
-   if(sequencePromise||recordings.size||audioRecorder)throw Error('Finish the current recording first.');
+   if(sequencePromise||precountAbort||recordings.size||audioRecorder)throw Error('Finish the current recording first.');
    const ids=selected();if(!ids.length||ids.length>MAX_CAMERAS)throw Error('Select 1–4 active cameras.');
    const cameras=ids.map(id=>({id,label:getCameraName(id)}));
    const plan=LuckyProofSequence.build(cameras,proofProfile);
    // One physical camera opened and recorded at a time. Avoid simultaneous USB bandwidth overload.
    sequenceAbort=new AbortController();const signal=sequenceAbort.signal;
    $('capture-stop').hidden=false;$('proof-rotate').disabled=true;$('capture-video').disabled=true;
-   $('capture-photo').disabled=true;status(`Starting ${plan.length} sequential proof views. Five-second countdown before each angle.`);
+   $('capture-photo').disabled=true;setPhase('countdown');status(`Starting ${plan.length} sequential proof views. ${preCountSeconds()}-second countdown before each angle.`);
    const runner=LuckyProofSequence.run(plan,{
-    signal,announce:proofAnnounce,
+    signal,countdown:preCountSeconds(),announce:proofAnnounce,
     record:async angle=>{
      const card=[...document.querySelectorAll('.camera-source')].find(c=>c.dataset.cameraId===angle.id);
      if(!card)throw Error(`Camera ${angle.cameraName} disconnected.`);
@@ -250,10 +256,17 @@
    const count=await runner;
    status(`${count} proof angle clips saved in the active-game timeline.`);
   }catch(e){status(e.message,e.message!=='Capture stopped.');}
-  finally{sequenceAbort=null;sequencePromise=null;$('capture-stop').hidden=true;$('proof-rotate').disabled=false;$('capture-video').disabled=false;$('capture-photo').disabled=false;drawProofPlan();}
+  finally{$('proof-stage-timer').hidden=true;sequenceAbort=null;sequencePromise=null;$('capture-stop').hidden=true;$('proof-rotate').disabled=false;$('capture-video').disabled=false;$('capture-photo').disabled=false;drawProofPlan();}
  }
- async function record(onlyIds=null){try{permitted();if(typeof MediaRecorder==='undefined')throw Error('Video recording unavailable; upload a clip instead.');if(recordings.size||audioRecorder)return;
-  const ids=onlyIds||await ensureSelected();if(onlyIds)await ensureSelected();const mime=mimeFor('video');let failures=[];
+ async function record(onlyIds=null){try{permitted();if(typeof MediaRecorder==='undefined')throw Error('Video recording unavailable; upload a clip instead.');if(recordings.size||audioRecorder||precountAbort||sequencePromise)return;
+  const ids=onlyIds||await ensureSelected();if(onlyIds)await ensureSelected();if(!ids.length)throw Error('Choose a camera first.');
+  // MediaRecorders must not be created or started before this cancellable countdown finishes.
+  precountAbort=new AbortController();const signal=precountAbort.signal;
+  $('capture-stop').hidden=false;$('capture-video').disabled=true;$('proof-rotate').disabled=true;setPhase('countdown');
+  precountPromise=(async()=>{for(let remaining=preCountSeconds();remaining>0;remaining--){showPrecount(remaining);await LuckyProofSequence.wait(1000,signal);}})();
+  try{await precountPromise;}finally{precountAbort=null;precountPromise=null;}
+  if(signal.aborted)throw Error('Capture stopped.');
+  const mime=mimeFor('video');let failures=[];
   for(const id of ids){const feed=feeds.get(id),chunks=[];try{
    // One video stream per camera. Audio can be added as a separate reaction clip, avoiding doubled microphones.
    const r=mime?new MediaRecorder(feed.stream,{mimeType:mime}):new MediaRecorder(feed.stream);
@@ -263,10 +276,19 @@
    };r.start(250);recordings.set(id,r);
   }catch(e){failures.push(`${feed.label}: ${e.message}`);}}
   if(!recordings.size)throw Error('Could not record any selected cameras. '+failures.join('; '));
+  const max=Number($('capture-record-seconds')?.value||30),started=Date.now();
+  clearInterval(recordTimer);$('proof-stage-timer').hidden=false;$('proof-stage-timer').dataset.phase='recording';$('proof-stage-timer-label').textContent='Recording';$('proof-stage-timer-seconds').textContent=String(max);
+  recordTimer=setInterval(()=>{
+   if(!recordings.size){clearInterval(recordTimer);recordTimer=null;$('proof-stage-timer').hidden=true;return;}
+   const seconds=Math.max(0,Math.ceil((max*1000-(Date.now()-started))/1000));
+   $('proof-stage-timer').hidden=false;$('proof-stage-timer').dataset.phase='recording';
+   $('proof-stage-timer-label').textContent='Recording';$('proof-stage-timer-seconds').textContent=String(seconds);
+   if(seconds===0)void stopRecording();
+  },200);
   $('capture-stop').hidden=false;badge();status(`Recording ${recordings.size} camera${recordings.size===1?'':'s'} simultaneously, with separate timeline clips.${failures.length?' Unavailable: '+failures.join('; '):''}`);
-  setPhase('recording');clearTimeout(recordTimer);recordTimer=setTimeout(()=>stopRecording(),30000);
- }catch(e){status(e.message,true);}}
- async function stopRecording(){if(sequenceAbort){sequenceAbort.abort();return;}if(recordings.size)setPhase('processing');clearTimeout(recordTimer);for(const recorder of recordings.values())if(recorder.state==='recording')recorder.stop();
+  setPhase('recording');
+ }catch(e){status(e.message,e.message!=='Capture stopped.');$('proof-stage-timer').hidden=true;$('capture-stop').hidden=true;setPhase('live');}finally{if(!recordings.size){$('capture-video').disabled=false;$('proof-rotate').disabled=false;}}}
+ async function stopRecording(){if(precountAbort){precountAbort.abort();$('capture-stop').hidden=true;$('proof-stage-timer').hidden=true;return;}if(sequenceAbort){sequenceAbort.abort();return;}if(recordings.size)setPhase('processing');clearInterval(recordTimer);recordTimer=null;$('capture-video').disabled=false;$('proof-rotate').disabled=false;$('proof-stage-timer').hidden=true;for(const recorder of recordings.values())if(recorder.state==='recording')recorder.stop();
   if(audioRecorder?.state==='recording')audioRecorder.stop();$('capture-stop').hidden=true;badge();}
  async function refreshClips(){if(!session||!claim)return;try{const r=await fetch('api/claim-media.php?action=list&session='+encodeURIComponent(session),{credentials:'same-origin'});const data=await r.json();if(!r.ok||!data.ok)throw Error(data.error||'Could not list media');
   const list=$('capture-clip-list');list.replaceChildren();const clips=(data.clips||[]).filter(c=>c.claimId===claim);
@@ -284,7 +306,7 @@
    button.append(thumb,info);button.onclick=()=>{try{previewSavedClip(clip);}catch(e){status(e.message,true);}};list.append(button);
   }
  }catch(e){status(e.message,true);}}
- function show(s,c,n,angles=[]){badge();clearDrafts();selectedPlayback=null;savedPreview=null;replacementId=null;savedVideos=[];capturePhase='live';approvedCount=0;closing=false;session=s||'';claim=c||'';prize=n||'Prize';proofProfile=Array.isArray(angles)?angles:[];drawProofPlan();$('capture-prize-label').textContent=prize;$('capture-open-editor').href='editor.php?session='+encodeURIComponent(session);
+ function show(s,c,n,angles=[],game='spin-wheel'){captureGame=window.LuckyCameraProfiles?.validGame(game)||'spin-wheel';badge();clearDrafts();selectedPlayback=null;savedPreview=null;replacementId=null;savedVideos=[];capturePhase='live';approvedCount=0;closing=false;session=s||'';claim=c||'';prize=n||'Prize';proofProfile=Array.isArray(angles)?angles:[];drawProofPlan();$('capture-prize-label').textContent=prize;$('capture-open-editor').href='editor.php?session='+encodeURIComponent(session);
   $('capture-consent').checked=false;consentChanged();status(session&&claim?'Live preview ready. Recording requires consent.':'Choose a prize first.');refreshClips();
   // The claim page is the one camera station. Start live previews immediately after the
   // verified claim loads, including games initiated on a paired phone (no browser-local
@@ -307,8 +329,8 @@
   }}catch(err){status(err.message,true);}finally{e.target.value='';}};
   if(dialog.tagName==='DIALOG')dialog.addEventListener('close',()=>{closing=true;stopAll().catch(()=>{});});
   window.addEventListener('pagehide',()=>{closing=true;stopAll().catch(()=>{});});
-  navigator.mediaDevices?.addEventListener?.('devicechange',()=>{if((dialog.open||dialog.dataset.inlineCapture==='true')&&!recordings.size&&!sequencePromise)refresh().catch(()=>{});});
+  navigator.mediaDevices?.addEventListener?.('devicechange',()=>{if((dialog.open||dialog.dataset.inlineCapture==='true')&&!recordings.size&&!sequencePromise&&!precountAbort)refresh().catch(()=>{});});
  }
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',setup);else setup();
- window.LuckyCapture={show,prime,phoneAction,previewSavedClip,reviewCount:()=>drafts.size,approvedCount:()=>approvedCount,phase:()=>capturePhase,consent:()=>!!$('capture-consent')?.checked,hasClaim:()=>!!claim&&!closing,release:stopAll,isBusy:()=>!!sequencePromise||recordings.size>0||!!audioRecorder||uploading>0};
+ window.LuckyCapture={show,prime,phoneAction,previewSavedClip,reviewCount:()=>drafts.size,approvedCount:()=>approvedCount,phase:()=>capturePhase,consent:()=>!!$('capture-consent')?.checked,hasClaim:()=>!!claim&&!closing,release:stopAll,isBusy:()=>!!sequencePromise||!!precountAbort||recordings.size>0||!!audioRecorder||uploading>0};
 })();

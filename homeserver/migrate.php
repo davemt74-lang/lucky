@@ -7,6 +7,8 @@ if(PHP_SAPI!=='cli'||getenv('LUCKY_BOOTSTRAP')!=='homeserver'){
 require_once __DIR__.'/../lib/Bootstrap.php';
 require_once __DIR__.'/../lib/PrizePublicationMigration.php';
 $db=db();
+require_once __DIR__.'/../lib/MigrationSql.php';
+foreach(MigrationSql::statements(sql('lib/migrations/v5q26_movie_preview.sql')) as $statement)$db->exec($statement);
 PrizePublicationMigration::ensure($db);
 require_once __DIR__.'/../lib/PrizePackages.php';
 PrizePackages::ensureBudgetColumn($db);

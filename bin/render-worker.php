@@ -24,6 +24,16 @@ try{
  $temp=$root.'/work-'.$id;
  $target=$root.'/'.$id.'.mp4';
  $renderer=new VideoRender();$result=$renderer->render($clips,$target,$temp,$job['profile'],$music,(int)$job['music_volume']/100);
+ // Store library metadata next to the final MP4, never under a web-accessible URL.
+ // Use an atomic sidecar so an interrupted write cannot advertise partial metadata.
+ $metadata=['durationMs'=>(int)$result['durationMs'],'segments'=>(int)$result['segments'],'createdAt'=>gmdate('c')];
+ $metaTmp=$root.'/'.$id.'.meta.tmp';
+ if(file_put_contents($metaTmp,json_encode($metadata,JSON_THROW_ON_ERROR),LOCK_EX)===false || !rename($metaTmp,$root.'/'.$id.'.meta.json'))throw new RuntimeException('Could not save permanent movie metadata.');
+ // A missing thumbnail never makes an otherwise valid completed movie unusable.
+ try {
+  $ffmpeg=getenv('LUCKY_FFMPEG_BIN')?:'ffmpeg';
+  $renderer->runProcess([$ffmpeg,'-hide_banner','-nostdin','-v','error','-y','-ss','00:00:00.500','-i',$target,'-frames:v','1','-vf','scale=480:-2',$root.'/'.$id.'.jpg'],$temp.'/thumbnail.log',30);
+ }catch(Throwable $thumbnailError){error_log('Lucky optional movie thumbnail: '.$thumbnailError->getMessage());}
  $db->prepare("UPDATE montage_renders SET status='ready',output_bytes=?,error_message='',finished_at=UTC_TIMESTAMP() WHERE id=? AND status='running'")->execute([$result['bytes'],$id]);
  echo "Ready: $id (".$result['bytes']." bytes)\n";
 }catch(Throwable $e){

@@ -26,7 +26,26 @@
   clearProofState().finally(()=>{if(fromPhone)setTimeout(()=>location.assign(url),380);else location.assign(url);});
  }
 
- let busy=false,proofBusy=false,leaving=false;
+ let busy=false,proofBusy=false,leaving=false,prizeVideoUrl='';
+ const closeVideo=()=>{$('proof-prize-video-player').replaceChildren();$('proof-prize-video').hidden=true;};
+ $('proof-prize-video-close').onclick=closeVideo;
+ window.addEventListener('lucky:proof-phase',event=>{if(['recording','countdown','processing'].includes(event.detail?.phase))closeVideo();});
+ function playPrizeVideo(){
+  if(window.LuckyCapture?.isBusy?.())throw Error('Finish recording before playing the prize video.');
+  let url;try{url=new URL(prizeVideoUrl,document.baseURI);}catch(_){throw Error('Upload a prize video first.');}
+  if(!url.pathname.endsWith('/api/index.php')||url.searchParams.get('action')!=='prize_video'||
+     !/^[a-f0-9]{32}$/.test(url.searchParams.get('id')||''))throw Error('Upload a prize video first.');
+  url=new URL('api/index.php?action=prize_video&id='+url.searchParams.get('id'),document.baseURI);
+  const base=new URL(document.baseURI);
+  if(url.origin!==base.origin||!url.pathname.endsWith('/api/index.php')||
+     url.searchParams.get('action')!=='prize_video'||!/^[a-f0-9]{32}$/.test(url.searchParams.get('id')||''))
+     throw Error('Upload a prize video first.');
+  closeVideo();const el=document.createElement('video');el.controls=true;el.autoplay=true;el.playsInline=true;el.src=url.href;
+  $('proof-prize-video-player').append(el);$('proof-prize-video-title').textContent=$('capture-prize-label').textContent||'Prize video';$('proof-prize-video').hidden=false;
+  el.play().catch(()=>feedback('Tap Play in the desktop video controls.'));
+  return true;
+ }
+
  async function publishProof(){if(leaving||proofBusy||!/^[a-f0-9]{32}$/.test(session)||!/^[a-f0-9]{32}$/.test(claim))return;
   proofBusy=true;try{const me=await L.getMe();const r=await fetch('api/controller.php?action=proof_state',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF-Token':me.csrf},body:JSON.stringify({session,claim,open:true,reviewCount:window.LuckyCapture?.reviewCount?.()||0,phase:window.LuckyCapture?.phase?.()||'live',consent:window.LuckyCapture?.consent?.()||false})});if(!r.ok){const data=await r.json().catch(()=>({}));throw Error(data.error||'The phone proof controls could not synchronize.');}}catch(e){feedback('Phone controller: '+e.message,true);}finally{proofBusy=false;}}
  window.addEventListener('lucky:proof-review',publishProof);
@@ -61,12 +80,13 @@
    if(!/^[a-f0-9]{32}$/.test(session)||!/^[a-f0-9]{32}$/.test(claim))throw Error('Open proof editing from a claimed-prize entry.');
    const r=await L.api('session',{query:{id:session}});
    const p=(r.session?.claims||[]).find(c=>c.id===claim);if(!p)throw Error('Claim not found in selected game.');
+   prizeVideoUrl=p.videoUrl||'';
    $('proof-prize-title').textContent=p.name;$('capture-prize-label').textContent=p.name;
    $('proof-prize-context').textContent=`${p.tier.toUpperCase()} · ${L.money(p.cents)} · ${p.at||'Claimed'}`;
    $('proof-return').href=returnUrl();
    const profile=r.session?.pools?.[p.tier]?.prizes?.find(x=>x.id===p.prizeId);
    // Initialize the verified claim first so camera discovery never loses its context.
-   window.LuckyCapture?.show(session,claim,p.name,profile?.proofAngles||[]);
+   window.LuckyCapture?.show(session,claim,p.name,profile?.proofAngles||[],r.session?.game||'spin-wheel');
    $('camera-enable').disabled=false;
    // Announce active proof NOW; a slow/failed revision-history request must not
    // leave the paired phone showing gameplay controls during camera capture.
@@ -80,6 +100,7 @@
   }catch(e){feedback(e.message,true);$('proof-revision-form').hidden=true;}
  }
  window.LuckyHostRemote=async command=>{
+  if(command==='prize-video-play')return playPrizeVideo();
   if(command.startsWith('proof-'))return await window.LuckyCapture?.phoneAction(command)??false;
   if(command==='back'||command==='done'||command==='menu'){
    leaveProof(returnUrl(),true);return true;

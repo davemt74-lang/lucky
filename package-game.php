@@ -36,6 +36,7 @@ shellStart($title.' — Game Console');
  <?php else:?><p class="mini-label">This game does not require a phone controller.</p><?php endif;?>
 </section>
 <script src="public/qr.js?v=5q11" defer></script>
+<script src="public/camera-profiles.js?v=5q25d" defer></script>
 <script src="public/package-game.js?v=5q22h" defer></script>
 <script>/* No inline state or secrets are required for host game startup. */</script>
 <?php shellEnd(); ?>

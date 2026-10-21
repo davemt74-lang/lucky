@@ -2,30 +2,31 @@
 declare(strict_types=1);
 /** Phone-only metadata for a pending prize, never attached to public wheel state. */
 final class PrizePresentation {
+ /** Only videos uploaded to the local private prize-video store are playable. */
  public static function videoUrl(array $claim):string {
-  foreach(['videoUrl','url'] as $field){
-   $candidate=(string)($claim[$field]??'');
-   if($candidate===''||strlen($candidate)>2048||preg_match('/[\\x00-\\x20\\x7f]/',$candidate))continue;
-   $parts=parse_url($candidate);
-   if(!is_array($parts)||strtolower($parts['scheme']??'')!=='https'||empty($parts['host'])||isset($parts['user'])||isset($parts['pass']))continue;
-   $host=strtolower((string)$parts['host']);
-   $path=(string)($parts['path']??'');
-   $direct=(bool)preg_match('/\\.(?:mp4|m4v|webm|ogv)$/i',$path);
-   $youtube=in_array($host,['youtube.com','www.youtube.com','m.youtube.com','youtu.be','www.youtu.be','youtube-nocookie.com','www.youtube-nocookie.com'],true);
-   $vimeo=in_array($host,['vimeo.com','www.vimeo.com','player.vimeo.com'],true);
-   if($direct||$youtube||$vimeo)return $candidate;
-  }
-  return '';
+  $raw=$claim['videoUrl']??'';
+  if(!is_string($raw)||$raw===''||strlen($raw)>2048||preg_match('/[\x00-\x20\x7f]/',$raw))return '';
+  $url=parse_url($raw);
+  if(!is_array($url)||!preg_match('~(?:^|/)api/index\.php$~',$url['path']??''))return '';
+  if(isset($url['user'])||isset($url['pass'])||isset($url['fragment']))return '';
+  parse_str($url['query']??'',$query);
+  if(($query['action']??'')!=='prize_video'||!is_string($query['id']??null)||
+     !preg_match('/^[a-f0-9]{32}$/D',$query['id'])||count($query)!==2)return '';
+  // Emit a relative route, so both desktop and phone access the current HomeServer.
+  return 'api/index.php?action=prize_video&id='.$query['id'];
  }
  public static function decorate(?array $offer,array $state):?array {
-  if(!$offer||($offer['status']??'')!=='pending')return $offer;
+  require_once __DIR__.'/PrizeSmartText.php';
+  if(!$offer||!in_array(($offer['status']??''),['pending','accepted'],true))return $offer;
   $claimId=(string)($offer['claimId']??'');
   foreach($state['claims']??[] as $claim){
    if(($claim['id']??'')!==$claimId)continue;
    $offer['videoUrl']=self::videoUrl($claim);
+   $offer['image']=(string)($claim['image']??'');
+   $offer['description']=PrizeSmartText::render((string)($claim['description']??''),$claim);
    return $offer;
   }
-  $offer['videoUrl']='';
+  $offer['videoUrl']='';$offer['image']='';$offer['description']='';
   return $offer;
  }
 }

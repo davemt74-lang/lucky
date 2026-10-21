@@ -3,13 +3,11 @@ declare(strict_types=1);
 /** Phone actions are applied to the same persisted game session as the host/TV.
  * No phone can select a prize, set odds, or bypass the game engine. */
 require_once __DIR__.'/ProofHandoff.php';
-require_once __DIR__.'/PrizePresentation.php';require_once __DIR__.'/PrizePackages.php';
+require_once __DIR__.'/PrizePresentation.php';require_once __DIR__.'/PrizePackages.php';require_once __DIR__.'/CurrentGame.php';
 final class ControllerGame {
  public const DIRECT=['start','spin','pause','resume','end','prize-accept','prize-decline'];
  public static function current(PDO $db,bool $locked=false):?array {
-  $suffix=$locked?' FOR UPDATE':'';
-  $q=$db->query("SELECT * FROM game_sessions WHERE game_id='spin-wheel' AND status IN ('active','paused') ORDER BY created_at DESC,id DESC LIMIT 1".$suffix);
-  return $q->fetch()?:null;
+  return CurrentGame::row($db,'spin-wheel',$locked);
  }
  public static function latest(PDO $db):?array {
   return self::current($db)?:($db->query("SELECT * FROM game_sessions WHERE game_id='spin-wheel' ORDER BY created_at DESC,id DESC LIMIT 1")->fetch()?:null);
@@ -18,7 +16,7 @@ final class ControllerGame {
   // Existing installations may not yet have run the V5Q.15B migration.
   // Keep the paired controller alive while disabling unsafe prize actions.
   $prizeReady=PrizeDecision::available($db);
-  $row=self::latest($db);
+  $row=self::current($db);
   $choice=['selected'=>null,'packages'=>[]];
   try{$choice=PrizePackages::read($db,false);}catch(DomainException $e){/* Older hosts need upgrade.php. */}
   if(!$row)return ['packages'=>$choice['packages'],'selectedPackage'=>$choice['selected'],'offer'=>null,'upgradeRequired'=>!$prizeReady,'id'=>null,'game'=>'spin-wheel','status'=>'ready','version'=>0,'spinCount'=>0,'claimedCount'=>0,'claimedCents'=>0,'remaining'=>0,'pendingBonus'=>false,'lastPrize'=>null,'spinning'=>false,'canStart'=>$prizeReady,'canSpin'=>false];
@@ -57,6 +55,7 @@ final class ControllerGame {
   $row=self::current($db,true);
   if($command==='start'||(($command==='spin'||$command==='select')&&!$row)){
    if($row)throw new DomainException('A game is already running. Use Spin or Resume.',409);
+   GameSessionLifecycle::assertConsoleVacant($db);
    $pkg=PrizePackages::currentConfig($db);
    $state=GameRegistry::module('spin-wheel')->createSession($pkg['config'],bin2hex(random_bytes(16)));
    $state['prizePackage']=['id'=>$pkg['id'],'name'=>$pkg['name']];

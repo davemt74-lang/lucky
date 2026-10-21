@@ -69,7 +69,7 @@ CREATE TABLE IF NOT EXISTS montage_timeline_layers (session_id CHAR(32) NOT NULL
 CREATE TABLE IF NOT EXISTS montage_templates (id CHAR(32) NOT NULL PRIMARY KEY, admin_id INT UNSIGNED NOT NULL, name VARCHAR(100) NOT NULL, template_json LONGTEXT NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, INDEX idx_montage_template_owner(admin_id,created_at), FOREIGN KEY fk_montage_template_owner(admin_id) REFERENCES admins(id) ON DELETE CASCADE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- V5Q20 prize package layers (see idempotent migration).
-CREATE TABLE IF NOT EXISTS prize_packages (id CHAR(32) NOT NULL PRIMARY KEY,game_id VARCHAR(64) NOT NULL,name VARCHAR(100) NOT NULL,config_json LONGTEXT NOT NULL,budget_cents INT UNSIGNED NULL DEFAULT NULL,enabled TINYINT(1) NOT NULL DEFAULT 1,publication_status VARCHAR(12) NOT NULL DEFAULT 'published',player_selectable TINYINT(1) NOT NULL DEFAULT 1,version INT UNSIGNED NOT NULL DEFAULT 1,sort_order INT UNSIGNED NOT NULL DEFAULT 0,created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,INDEX idx_packages_game(game_id,sort_order),UNIQUE KEY uq_package_name(game_id,name)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS prize_packages (id CHAR(32) NOT NULL PRIMARY KEY,game_id VARCHAR(64) NOT NULL,name VARCHAR(100) NOT NULL,config_json LONGTEXT NOT NULL,budget_cents INT UNSIGNED NULL DEFAULT NULL,image_url VARCHAR(2048) NOT NULL DEFAULT '',enabled TINYINT(1) NOT NULL DEFAULT 1,publication_status VARCHAR(12) NOT NULL DEFAULT 'published',player_selectable TINYINT(1) NOT NULL DEFAULT 1,version INT UNSIGNED NOT NULL DEFAULT 1,sort_order INT UNSIGNED NOT NULL DEFAULT 0,created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,INDEX idx_packages_game(game_id,sort_order),UNIQUE KEY uq_package_name(game_id,name)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 CREATE TABLE IF NOT EXISTS prize_package_selection (game_id VARCHAR(64) NOT NULL PRIMARY KEY,package_id CHAR(32) NOT NULL,updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,FOREIGN KEY fk_selected_package(package_id) REFERENCES prize_packages(id) ON DELETE RESTRICT) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Universal Game/Plugin SDK v2: application-owned private KV namespace.
@@ -83,4 +83,15 @@ CREATE TABLE IF NOT EXISTS game_plugin_storage (
  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
  PRIMARY KEY (game_id,scope_id,storage_key),
  INDEX idx_plugin_storage_game (game_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS movie_preview_state (
+ admin_id INT UNSIGNED NOT NULL PRIMARY KEY,
+ session_id CHAR(32) NOT NULL,
+ state ENUM('playing','paused','stopped') NOT NULL DEFAULT 'stopped',
+ revision BIGINT UNSIGNED NOT NULL DEFAULT 1,
+ updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ FOREIGN KEY fk_movie_preview_owner(admin_id) REFERENCES admins(id) ON DELETE CASCADE,
+ FOREIGN KEY fk_movie_preview_session(session_id) REFERENCES game_sessions(id) ON DELETE CASCADE,
+ INDEX idx_movie_preview_session(session_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

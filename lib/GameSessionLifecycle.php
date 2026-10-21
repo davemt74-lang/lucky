@@ -13,6 +13,20 @@ final class GameSessionLifecycle {
  public const SAVED='saved';
  public const FINISHED='ended';
 
+ /**
+  * Serialize console start/resume across different game modules. Per-game locks
+  * alone cannot stop two different games starting at the same time.
+  * Call FIRST in a transaction, before lockGame/assertConsoleVacant.
+  */
+ public static function lockConsole(PDO $db):void {
+  GameFoundation::settings($db,'spin-wheel'); // Stable, existing HomeServer lock row.
+ }
+ public static function assertConsoleVacant(PDO $db,?string $except=null):void {
+  $q=$db->query("SELECT id FROM game_sessions WHERE status IN ('active','paused') ORDER BY created_at DESC,id DESC LIMIT 1 FOR UPDATE");
+  $id=$q->fetchColumn();
+  if($id!==false && $id!==$except)
+   throw new DomainException('Another game is running on this HomeServer. Save or finish it first.',409);
+ }
  public static function lockGame(PDO $db,string $game):array {
   return GameFoundation::settings($db,$game);
  }

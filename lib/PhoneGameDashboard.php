@@ -36,9 +36,10 @@ final class PhoneGameDashboard {
   $q->execute([$pairId]);ControllerRate::check($second,(int)$q->fetchColumn(),'start');
   $modules=GameRegistry::modules();
   if(!isset($modules[$game]))throw new DomainException('This game is not installed and activated.',404);
-  // A private living-room console should never open two games at once.
-  $q=$db->query("SELECT id FROM game_sessions WHERE status IN ('active','paused') ORDER BY created_at DESC,id DESC LIMIT 1");
-  if($q->fetchColumn()!==false)throw new DomainException('Finish or save the current game before selecting another.',409);
+  // Serialize cross-game starts with the same HomeServer lock used by host,
+  // phone, and saved-session resume; an unlocked read could race another game.
+  GameSessionLifecycle::lockConsole($db);
+  GameSessionLifecycle::assertConsoleVacant($db);
   if($game==='spin-wheel'){
    PrizeDecision::requireReady($db);
    GameSessionLifecycle::lockGame($db,'spin-wheel');

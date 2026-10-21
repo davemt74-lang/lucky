@@ -6,6 +6,7 @@ sys.path.insert(0,str(Path(__file__).parent))
 from v5p_pairing import make_html,ID
 MOCK = '''<script>
 window.__uploads=[];window.__stops=0;window.__countdowns=[];
+const __store={};Object.defineProperty(window,'localStorage',{configurable:true,value:{getItem:k=>Object.prototype.hasOwnProperty.call(__store,k)?__store[k]:null,setItem:(k,v)=>{__store[k]=String(v);},removeItem:k=>{delete __store[k];}}});
 Object.defineProperty(navigator,'mediaDevices',{configurable:true,value:{
  getUserMedia:async()=>new MediaStream(),
  enumerateDevices:async()=>[{kind:'videoinput',deviceId:'camera-A',label:'USB Front Cam'},{kind:'videoinput',deviceId:'camera-B',label:'USB Side Cam'}],
@@ -48,12 +49,32 @@ async def main():
   }''')
   await pg.locator('#proof-camera-settings summary').click()
   await pg.locator('#camera-enable').click();await pg.wait_for_timeout(300)
+  # Camera discovery no longer implicitly selects unconfigured cameras:
+  # Admin defaults apply first; the game/proof UI can add cameras explicitly.
+  await pg.evaluate("""() => {
+    document.querySelectorAll('.camera-source [data-camera-select]').forEach(input => {
+      if (!input.checked) { input.checked=true; input.dispatchEvent(new Event('change',{bubbles:true})); }
+    });
+  }""")
   ck(out,'two USB inputs detected',await pg.locator('.camera-source').count()==2)
   ck(out,'proof angles equal checked active cameras',await pg.locator('.proof-angle-chip').count()==2)
   ck(out,'per-prize proof names displayed', 'Hero front' in await pg.locator('#proof-angle-plan').inner_text())
   await pg.locator('.camera-source [data-camera-name]').first.fill('Living room front');await pg.locator('.camera-source [data-camera-name]').first.press('Tab')
   ck(out,'user labels physical USB source', 'Living room front' in await pg.locator('#proof-angle-plan').inner_text())
-  await pg.locator('#proof-rotate').click();await pg.wait_for_function('document.querySelectorAll("#capture-review-list .review-tile").length === 2',timeout=5000)
+  await pg.locator('#proof-rotate').click()
+  try:
+   await pg.wait_for_function('document.querySelectorAll("#capture-review-list .review-tile").length === 2',timeout=5000)
+  except Exception:
+   print('PROOF_DEBUG',await pg.evaluate("""() => ({
+    cameras:document.querySelectorAll('.camera-source').length,
+    chosen:document.querySelectorAll('[data-camera-select]:checked').length,
+    anglePlan:document.querySelectorAll('.proof-angle-chip').length,
+    reviewTiles:document.querySelectorAll('#capture-review-list .review-tile').length,
+    captureStatus:document.getElementById('capture-feedback')?.textContent,
+    sequencePhase:window.LuckyCapture?.phase?.(),
+    recentCountdowns:window.__countdowns?.slice(-12)
+   })"""),'JS_ERRORS',errs,flush=True)
+   raise
   ck(out,'recorded angles await review without upload',await pg.evaluate('__uploads.length===0'))
   ck(out,'capture controls replaced by recording review',await pg.locator('#capture-recording-tools').is_hidden())
   await pg.locator('#capture-review-list button').filter(has_text='Save').first.click()
@@ -63,7 +84,7 @@ async def main():
   ck(out,'separate approved clip uploaded for each angle',await pg.evaluate('__uploads.length===2'))
   ck(out,'proof clips ordered 1 then 2',await pg.evaluate('__uploads.map(x=>x.angleIndex).join(",")==="1,2"'))
   ck(out,'angle label and camera name saved',await pg.evaluate('__uploads[0].angleLabel==="Hero front" && __uploads[0].sourceLabel==="Living room front" && __uploads[1].angleLabel==="Audience reaction"'))
-  ck(out,'five-second countdown displayed',await pg.evaluate('__countdowns.includes("5")&&__countdowns.includes("1")'))
+  ck(out,'three-second pre-recording countdown displayed',await pg.evaluate('__countdowns.includes("3")&&__countdowns.includes("1")'))
   ck(out,'camera previews/recordings stopped after each take',await pg.evaluate('__stops===2'))
   await pg.wait_for_function("document.querySelector('#capture-clip-list')?.textContent?.includes('2 captured clips')",timeout=5000)
   ck(out,'editor includes captured clips', '2 captured clips' in await pg.locator('#capture-clip-list').inner_text())

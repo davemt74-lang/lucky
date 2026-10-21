@@ -1,11 +1,11 @@
-/* Testable 5-second countdown + timed, sequential multi-camera proof plan. */
+/* Testable configurable countdown + timed, sequential multi-camera proof plan. */
 (function(root,factory){
  const api=factory();
  if(typeof module==='object'&&module.exports)module.exports=api;
  if(root)root.LuckyProofSequence=api;
 })(typeof window==='undefined'?null:window,function(){
  'use strict';
- const MAX_CAMERAS=4,COUNTDOWN=5;
+ const MAX_CAMERAS=4,COUNTDOWN=3;
  function build(cameras,configured=[]){
   if(!Array.isArray(cameras)||!cameras.length||cameras.length>MAX_CAMERAS)throw Error('Choose 1–4 active cameras.');
   return cameras.map((camera,i)=>{
@@ -24,6 +24,7 @@
  });}
  async function run(plan,{announce,record,signal,sleep=wait,countdown=COUNTDOWN}={}){
   if(!Array.isArray(plan)||!plan.length||!record||!announce)throw Error('No proof capture plan available.');
+  if(![3,5,10,30].includes(Number(countdown)))throw Error('Invalid pre-recording countdown.');
   let completed=0;
   for(let i=0;i<plan.length;i++){
    const now=plan[i],next=plan[i+1]||null;
