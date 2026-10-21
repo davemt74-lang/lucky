@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__.'/GameModule.php';
 require_once __DIR__.'/PhoneControllerProvider.php';
+require_once __DIR__.'/GamePluginCapabilities.php';
 
 /**
  * Data-only module for versioned game packages. No uploaded PHP is executed.
@@ -62,6 +63,7 @@ final class PackageGameModule implements GameModule, PhoneControllerProvider {
  public function publicView(array $s):array {
   return ['id'=>$s['id'],'game'=>$this->id(),'status'=>$s['status'],
     'version'=>$s['version'],'packageVersion'=>$s['packageVersion'],
-    'lastInput'=>$s['lastInput']??null,'events'=>$s['events']??[]];
+    'lastInput'=>$s['lastInput']??null,'events'=>$s['events']??[],
+    'plugin'=>GamePluginCapabilities::publicView($s)];
  }
 }
