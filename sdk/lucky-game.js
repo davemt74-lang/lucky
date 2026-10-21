@@ -44,7 +44,9 @@
   const storage=Object.freeze({
     get:(key,scopeName='game')=>request('storage.get',{key,scope:scopeName}),
     set:(key,value,expectedRevision=0,scopeName='game')=>
-      request('storage.set',{key,value,expectedRevision,scope:scopeName})
+      request('storage.set',{key,value,expectedRevision,scope:scopeName}),
+    delete:(key,expectedRevision,scopeName='game')=>
+      request('storage.delete',{key,expectedRevision,scope:scopeName})
   });
   const players=Object.freeze({
     list:()=>request('players.list'),
@@ -67,6 +69,19 @@
     start:(name,seconds)=>request('timers.start',{name,seconds}),
     stop:(name)=>request('timers.stop',{name})
   });
+  const teams=Object.freeze({
+    list:()=>request('teams.list'),
+    add:(id,name)=>request('teams.add',{id,name}),
+    assign:(teamId,playerId)=>request('teams.assign',{teamId,playerId})
+  });
+  const achievements=Object.freeze({
+    list:()=>request('achievements.list'),
+    unlock:(id)=>request('achievements.unlock',{id})
+  });
+  const events=Object.freeze({
+    list:()=>request('events.list'),
+    emit:(name,value=null)=>request('events.emit',{name,value})
+  });
   const session=Object.freeze({save:()=>request('session.save')});
   scope.addEventListener('message',event=>{
     if(event.source!==scope.parent||!event.data)return;
@@ -88,7 +103,8 @@
   });
   scope.LuckyGameSDK=Object.freeze({
     version:'2.0.0',
-    onState,sendInput,request,storage,players,scores,rounds,turns,timers,session,
+    onState,sendInput,request,storage,players,teams,scores,rounds,turns,timers,
+    achievements,events,session,
     getState:()=>current
   });
 })(window);
