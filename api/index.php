@@ -312,12 +312,14 @@ try {
   $db->beginTransaction();
   try{
    if($action==='package_create'){
-    $out=PrizePackages::create($db,$in['name']??'',isset($in['cloneFrom'])?(string)$in['cloneFrom']:null);
+    $out=PrizePackages::create($db,$in['name']??'',isset($in['cloneFrom'])?(string)$in['cloneFrom']:null,
+     array_key_exists('budgetCents',$in)?$in['budgetCents']:null,array_key_exists('budgetCents',$in));
     audit($db,'package.created',null,['packageId'=>$out['id']]);
    }elseif($action==='package_save'){
     $out=PrizePackages::save($db,(string)($in['id']??''),(int)($in['version']??0),
      $in['name']??'',is_array($in['config']??null)?$in['config']:[],
-     ($in['enabled']??false)===true,($in['playerSelectable']??false)===true);
+     ($in['enabled']??false)===true,($in['playerSelectable']??false)===true,
+     array_key_exists('budgetCents',$in)?$in['budgetCents']:null);
     audit($db,'package.saved',null,['packageId'=>$out['id'],'version'=>$out['version']]);
    }elseif($action==='package_publish'){
     if(!array_key_exists('published',$in)||!is_bool($in['published']))throw new DomainException('Publication status must be Draft or Published.',400);

@@ -15,6 +15,7 @@ foreach(MigrationSql::statements((string)file_get_contents(__DIR__.'/../lib/sche
 foreach(MigrationSql::statements((string)file_get_contents(__DIR__.'/../lib/migrations/v5q20_prize_packages.sql')) as $sql)$db->exec($sql);
 $original=GameEngine::defaults();
 check20(PrizePublicationMigration::ensure($db)===false,'fresh schema already contains publication status');
+check20(PrizePackages::ensureBudgetColumn($db)===false,'fresh schema has optional package budget and migration is idempotent');
 
 $q=$db->prepare('INSERT INTO game_settings(game_id,config_json,intro_json,theme_json) VALUES (?,?,?,?)');
 $q->execute(['spin-wheel',json_encode($original,JSON_THROW_ON_ERROR),'{}','{}']);
@@ -24,14 +25,21 @@ try{
  check20(GameEngine::validateConfig($first['packages'][0]['config'])==GameEngine::validateConfig($original),'original tiers, odds and budgets preserved');
  $id1=$first['selected'];
  $db->beginTransaction();
- $new=PrizePackages::create($db,'Holiday Prizes');
+ $new=PrizePackages::create($db,'Holiday Prizes',null,30000,true);
  $db->commit();
  check20($new['publicationStatus']==='draft','new plus-tab package starts as Draft');
+ check20($new['budgetCents']===30000,'new Draft can set optional package-wide budget');
  check20(count(PrizePackages::read($db,false)['packages'])===1,'drafts hidden from player-visible package list');
  check20(GameEngine::validateConfig($new['config'])==GameEngine::validateConfig($first['packages'][0]['config']),'plus tab clones all existing tier and award settings');
  $config=$new['config'];$config['pools']['tier1']['prizes'][0]['name']='Holiday Winner';
  $config['odds']['bonusChance']=22;
- $db->beginTransaction();$updated=PrizePackages::save($db,$new['id'],1,'Holiday Prizes',$config,true,true);$db->commit();
+ $db->beginTransaction();
+ try{PrizePackages::save($db,$new['id'],1,'Holiday Prizes',$config,true,true,100);
+    throw new RuntimeException('Accepted package budget lower than combined tier budgets');}
+ catch(DomainException $e){check20($e->getCode()===422,'package-wide cap must cover combined Tier 1, Tier 2 and Bonus budgets');}
+ finally{$db->rollBack();}
+ $db->beginTransaction();$updated=PrizePackages::save($db,$new['id'],1,'Holiday Prizes',$config,true,true,40000);$db->commit();
+ check20($updated['budgetCents']===40000,'overall budget saved with package version');
  check20($updated['version']===2,'package edits versioned for concurrent administrator safety');
  $db->beginTransaction();
  try{PrizePackages::save($db,$new['id'],1,'Holiday Prizes',$config,true,true);throw new RuntimeException('Allowed outdated package update');}
@@ -39,6 +47,7 @@ try{
  finally{$db->rollBack();}
  $again=PrizePackages::read($db,true);
  check20(count($again['packages'])===2,'multiple package layers persisted');
+ check20((array_values(array_filter($again['packages'],fn($p)=>$p['id']===$new['id']))[0]['budgetCents']??null)===40000,'package cap survives database reload');
  check20($again['packages'][0]['id']===$id1 && $again['packages'][1]['id']===$new['id'],'new prize tab stays to the right of original');
  check20((array_values(array_filter($again['packages'],fn($p)=>$p['id']===$id1))[0]['config']['pools']['tier1']['prizes'][0]['name']??null)!=='Holiday Winner','editing one tab does not modify original package');
  $db->beginTransaction();

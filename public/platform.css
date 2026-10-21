@@ -781,3 +781,36 @@ body.game-fullwidth .game-claims-side .claim-proof-row>.btn{
  body.game-fullwidth .game-claims-side .claim-proof-row{grid-template-columns:54px minmax(0,1fr);column-gap:10px}
  body.game-fullwidth .game-claims-side .claim-proof-media{width:54px;height:60px}
 }
+
+/* V5Q.24 Prize Package editor: tabs and Save share one compact toolbar. */
+body.admin-studio-page #tab-prizes>.prize-package-header{margin-top:0;align-items:center;padding:0 0 9px;gap:12px}
+body.admin-studio-page #tab-prizes>.prize-package-header .prize-package-tabs{padding-bottom:0}
+body.admin-studio-page .prize-package-toolbar{display:flex;gap:8px;align-items:center;flex:0 0 auto;flex-wrap:wrap}
+body.admin-studio-page .prize-package-toolbar .btn{min-height:40px;white-space:nowrap;font-size:12px}
+body.admin-studio-page .prize-package-toolbar .prize-package-add{height:auto;min-width:0;flex:0 0 auto;padding:9px 13px;margin:0;font-size:12px;line-height:1.25}
+body.admin-studio-page .prize-package-budget-label{min-width:205px;flex:0 1 210px;display:grid;gap:4px}
+body.admin-studio-page .prize-package-budget-label small{font-size:10px;color:#b1c5dc;line-height:1.3;font-weight:400}
+.prize-package-modal{width:min(92vw,460px);max-width:calc(100vw - 24px);max-height:min(90vh,720px);overflow:auto;padding:24px;border:1px solid #526987;border-radius:18px;background:#15233a;color:#f5f7ff;box-shadow:0 24px 85px #0009}
+.prize-package-modal::backdrop{background:rgba(2,7,18,.77);backdrop-filter:blur(5px)}
+.prize-package-modal h3{margin:0 0 10px;font-size:19px}
+.prize-package-modal p{margin:0 0 19px;color:#bacde6;line-height:1.5;font-size:13px}
+.prize-package-modal-fields{display:grid;gap:14px;margin:0 0 22px}
+.prize-package-modal-fields[hidden]{display:none!important}
+.prize-package-modal-fields label{display:grid;gap:6px;color:#dbe9fb;font-size:12px}
+.prize-package-modal-fields label small{color:#aebed6;font-size:11px}
+.prize-package-modal-fields input{width:100%;min-height:42px;background:#0c172a;color:#f5f7ff;border:1px solid #4a6382;border-radius:9px;padding:10px 12px}
+.prize-package-modal-fields input:focus-visible{outline:2px solid #f2c778;outline-offset:2px}
+.prize-package-modal #prize-package-modal-error{color:#ffb8ba;margin:-7px 0 15px}
+.prize-package-modal #prize-package-modal-error[hidden]{display:none}
+.prize-package-modal-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap}
+.prize-package-modal-actions .btn{min-height:41px}
+@media(max-width:860px){
+ body.admin-studio-page .prize-package-header{flex-wrap:wrap}
+ body.admin-studio-page .prize-package-header .prize-package-tabs{flex:1 1 100%;min-width:0}
+ body.admin-studio-page .prize-package-toolbar{width:100%;justify-content:flex-end}
+ body.admin-studio-page .prize-package-budget-label{flex:1 1 100%}
+}
+@media(max-width:460px){
+ body.admin-studio-page .prize-package-toolbar .btn{flex:1 1 auto;text-align:center;min-width:0;font-size:11px}
+ .prize-package-modal{padding:18px}
+}

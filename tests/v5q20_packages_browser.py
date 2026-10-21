@@ -23,14 +23,14 @@ window.fetch=async(url,opts={})=>{
   const data=JSON.parse(opts.body||'{}');packageCalls.push({action,data});
   if(action==='package_create'){
    const next='c'.repeat(32);
-   const selected=packageItems.find(p=>p.id===packageSelected);
-   packageItems.push({id:next,name:data.name,enabled:true,playerSelectable:true,publicationStatus:'draft',version:1,config:structuredClone(selected.config)});
+   const selected=packageItems.find(p=>p.id===(data.cloneFrom||packageSelected));
+   packageItems.push({id:next,name:data.name,enabled:true,playerSelectable:true,publicationStatus:'draft',version:1,budgetCents:data.budgetCents??null,config:structuredClone(selected.config)});
    return new Response(JSON.stringify({ok:true,package:packageItems.at(-1)}));
   }
   if(action==='package_save'){
    const p=packageItems.find(p=>p.id===data.id);
    if(!p||p.version!==data.version)return new Response(JSON.stringify({ok:false,error:'Conflict'}),{status:409});
-   Object.assign(p,{name:data.name,config:data.config,enabled:data.enabled,playerSelectable:data.playerSelectable,version:p.version+1});
+   Object.assign(p,{name:data.name,config:data.config,budgetCents:data.budgetCents,enabled:data.enabled,playerSelectable:data.playerSelectable,version:p.version+1});
    return new Response(JSON.stringify({ok:true,package:p}));
   }
   if(action==='package_publish'){
@@ -61,6 +61,10 @@ async def main():
    await page.wait_for_function("document.querySelectorAll('#prize-package-tabs button').length===2")
    check(f'{width}: packages visible as tabs',await page.locator('#prize-package-tabs button').count()==2)
    check(f'{width}: plus next to package tabs',await page.locator('#add-package').is_visible())
+   check(f'{width}: Save is inside tab toolbar',await page.locator('.prize-package-header #save-prizes').is_visible())
+   check(f'{width}: no redundant heading above package tabs',
+         await page.locator('#tab-prizes>.card-title-row').count()==0 and
+         not any('Use + to add a Draft package' in t for t in await page.locator('#tab-prizes>p').all_inner_texts()))
    await page.locator('[data-package-id="'+NEW+'"]').click()
    check(f'{width}: each tab loads own prizes',await page.locator('#prize-items input[aria-label="Prize name"]').first.input_value()=='Family Prize')
    await page.locator('#tier-budget').fill('60')
@@ -70,19 +74,28 @@ async def main():
    check(f'{width}: budget saved only to selected package',await page.evaluate("packageItems.find(p=>p.id===NEW).config.pools.tier1.budgetCents===6000 && packageItems.find(p=>p.id===ORIGINAL).config.pools.tier1.budgetCents===1500"))
    await page.locator('[data-package-id="'+ORIGINAL+'"]').click()
    check(f'{width}: switching back preserves original',await page.locator('#tier-budget').input_value()=='15.00')
-   page.once('dialog',lambda d:asyncio.create_task(d.accept('Game Night Special')))
    await page.locator('#add-package').click()
+   check(f'{width}: custom package modal opens',await page.locator('#prize-package-modal').is_visible())
+   await page.locator('#prize-package-modal-name').fill('Game Night Special')
+   await page.locator('#prize-package-modal-budget').fill('1.00')
+   await page.locator('#prize-package-modal-submit').click()
+   check(f'{width}: invalid cap stays in custom modal',await page.locator('#prize-package-modal').is_visible() and await page.locator('#prize-package-modal-error').is_visible())
+   await page.locator('#prize-package-modal-budget').fill('1000.00')
+   await page.locator('#prize-package-modal-submit').click()
    await page.wait_for_function("document.querySelectorAll('#prize-package-tabs button').length===3")
    check(f'{width}: plus creates new complete tier layer',await page.locator('#package-name').input_value()=='Game Night Special' and await page.locator('#prize-items input[aria-label="Prize name"]').count()==1)
+   check(f'{width}: optional package cap initialized',await page.locator('#package-budget').input_value()=='1000.00')
    check(f'{width}: new package starts Draft',await page.locator('#package-publication-status').inner_text()=='Draft — not available to players')
    check(f'{width}: cannot select Draft for game',await page.locator('#package-activate').is_disabled())
    await page.locator('#package-player-choice').uncheck()
+   await page.locator('#package-budget').fill('1250.00')
    await page.locator('#save-prizes').click()
    await page.wait_for_function("packageItems.find(p=>p.id==='c'.repeat(32)).playerSelectable===false")
    await page.locator('#package-publish').click()
    await page.wait_for_function("packageItems.find(p=>p.id==='c'.repeat(32)).publicationStatus==='published'")
    await page.wait_for_function("document.querySelector('#package-publication-status')?.dataset.status==='published'")
    check(f'{width}: Publish changes the package status',await page.locator('#package-publication-status').inner_text()=='Published — available if enabled')
+   check(f'{width}: overall package budget saved with tab',await page.evaluate("packageItems.find(p=>p.id==='c'.repeat(32)).budgetCents===125000"))
    check(f'{width}: player permissions saved with package',await page.evaluate("packageItems.find(p=>p.id==='c'.repeat(32)).playerSelectable===false"))
    await page.locator('#package-activate').click()
    await page.wait_for_function("packageSelected==='c'.repeat(32)")

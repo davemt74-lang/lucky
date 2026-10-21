@@ -18,8 +18,8 @@
    upload.onchange=async()=>{if(!upload.files?.[0])return;try{const form=new FormData();form.append('image',upload.files[0]);
      const r=await L.api('image_upload',{body:form});p.image=new URL(r.path,document.baseURI).href;image.value=p.image;status('Image uploaded. Save all prize settings to attach it to the prize.');
     }catch(e){status(e.message,true);}};
-   remove.type='button';remove.setAttribute('aria-label','Remove '+p.name);remove.onclick=()=>{if(!confirm('Remove '+p.name+' from the game?'))return;
-    pool.prizes=pool.prizes.filter(item=>item.id!==p.id);renderTier();};
+   remove.type='button';remove.setAttribute('aria-label','Remove '+p.name);remove.onclick=async()=>{if(!(await packageDialog({title:'Remove prize?',message:'Remove “'+p.name+'” from this tier? You can still cancel by not saving the package.',action:'Remove prize'})))return;
+    pool.prizes=pool.prizes.filter(item=>item.id!==p.id);markPackageDirty();renderTier();};
    const proof=document.createElement('details');proof.className='proof-angle-settings';
    const summary=document.createElement('summary');summary.textContent=`📷 Proof angles for ${p.name} (${(p.proofAngles||[]).length} configured)`;
    const explanatory=elem('p','The selected active camera count controls the recording sequence. Set the preferred angle name and recording seconds for each view (3–30s).','mini-label');
@@ -43,6 +43,43 @@
    proof.append(summary,explanatory,sync,angleList);paintAngles();
    row.append(name,value,url,videoUrl,image,upload,remove,proof);list.append(row);
   }
+ }
+ // A single themed, accessible dialog for package creation and confirmations.
+ function packageDialog(options){
+  const dialog=$('prize-package-modal'),form=$('prize-package-modal-form');
+  const creating=options.type==='create';
+  $('prize-package-modal-title').textContent=options.title||'Confirm package change';
+  $('prize-package-modal-description').textContent=options.message||'';
+  $('prize-package-modal-fields').hidden=!creating;
+  $('prize-package-modal-submit').textContent=options.action||(creating?'Create package':'Confirm');
+  $('prize-package-modal-name').value=options.name||'';
+  $('prize-package-modal-budget').value='';
+  const error=$('prize-package-modal-error');error.hidden=true;error.textContent='';
+  return new Promise(resolve=>{
+   let settled=false;
+   const done=value=>{if(settled)return;settled=true;dialog.close();resolve(value);};
+   form.onsubmit=e=>{
+    e.preventDefault();
+    if(!creating){done(true);return;}
+    try{
+     const name=$('prize-package-modal-name').value.trim();
+     if(!name||name.length>100)throw Error('Enter a package name of 1–100 characters.');
+     const raw=$('prize-package-modal-budget').value.trim();
+     const budgetCents=raw===''?null:amount(raw);
+     const source=packageFor(packageId);
+     if(budgetCents!==null&&source?.config){
+      const total=Object.values(source.config.pools).reduce((n,t)=>n+(t.budgetCents||0),0);
+      if(total>budgetCents)throw Error('The package budget must cover the combined budget of all cloned tiers.');
+     }
+     done({name,budgetCents});
+    }catch(err){error.hidden=false;error.textContent=err.message;}
+   };
+   $('prize-package-modal-cancel').onclick=()=>done(null);
+   dialog.oncancel=e=>{e.preventDefault();done(null);};
+   dialog.onclose=()=>{if(!settled){settled=true;resolve(null);}};
+   dialog.showModal();
+   (creating?$('prize-package-modal-name'):$('prize-package-modal-submit')).focus();
+  });
  }
  function packageFor(id){return packages.find(p=>p.id===id);}
  function markPackageDirty(){if(packagesAvailable)packageDirty=true;}
@@ -69,11 +106,14 @@
   $('package-remove').disabled=!packagesAvailable||packageId===selectedPackage;
  }
  function switchPackage(id,force=false){
-  if(!force&&packageDirty&&!confirm('Discard unsaved changes to this prize package?'))return;
+  if(!force&&packageDirty){
+   void packageDialog({title:'Discard unsaved changes?',message:'Switching tabs will discard edits you have not saved.',action:'Discard changes'}).then(ok=>{if(ok)switchPackage(id,true);});return;
+  }
   const p=packageFor(id);if(!p)return;
   packageId=id;packageDirty=false;activeTier='tier1';settings.config=structuredClone(p.config);
   $('package-name').value=p.name;$('package-enabled').checked=!!p.enabled;
   $('package-player-choice').checked=!!p.playerSelectable;
+  $('package-budget').value=p.budgetCents==null?'':cents(p.budgetCents);
   for(const [k,v] of Object.entries(settings.config.odds))if($('odds-'+k))$('odds-'+k).value=v;
   selectTier('tier1');drawPackageTabs();
  }
@@ -89,7 +129,7 @@
    packagesAvailable=false;
    packages=[{id:'legacy',name:'Original Prizes',config:structuredClone(settings.config),enabled:true,playerSelectable:true,publicationStatus:'published',version:1}];
    selectedPackage='legacy';switchPackage('legacy',true);
-   status('Run upgrade.php to enable multiple prize packages.',true);
+   status('Prize packages need setup. Click + New package to initialize them automatically, or run upgrade.php.',true);
   }
  }
  async function save(){try{
@@ -98,24 +138,41 @@
    const r=await L.api('settings_save',{body:{game:'spin-wheel',...settings}});settings=r.settings;renderTier();
    status('Legacy prize settings saved. Run upgrade.php for packages.');return true;
   }
+  const budgetRaw=$('package-budget').value.trim();
+  const packageBudget=budgetRaw===''?null:amount(budgetRaw);
+  if(packageBudget!==null){
+   const combined=Object.values(settings.config.pools).reduce((sum,pool)=>sum+pool.budgetCents,0);
+   if(combined>packageBudget)throw Error('Combined tier budgets exceed the package budget. Increase the limit or reduce the tier budgets.');
+  }
   const p=packageFor(packageId);if(!p)throw Error('Select a prize package.');
   const response=await L.api('package_save',{body:{id:p.id,version:p.version,name:$('package-name').value.trim(),
-   config:settings.config,enabled:$('package-enabled').checked,playerSelectable:$('package-player-choice').checked}});
+   config:settings.config,enabled:$('package-enabled').checked,playerSelectable:$('package-player-choice').checked,
+   budgetCents:packageBudget}});
   Object.assign(p,response.package);settings.config=structuredClone(p.config);packageDirty=false;
   drawPackageTabs();renderTier();status('Prize package saved locally. Current sessions remain unchanged.');return true;
  }catch(e){status(e.message,true);return false;}}
+ let creatingPackage=false;
  $('add-package').onclick=async()=>{
-  if(packageDirty&&!confirm('Create from the last saved version? Unsaved changes will be discarded.'))return;
-  const name=prompt('Name your new prize package:', 'Prize Package '+(packages.length+1));if(name===null)return;
-  try{const out=await L.api('package_create',{body:{name:name.trim(),cloneFrom:packageId}});await reloadPackages(out.package.id);
-   status('Draft package created. Configure its tiers, Save, then Publish when ready.');}catch(e){status(e.message,true);}
+  if(creatingPackage)return;
+  if(packageDirty&&!(await packageDialog({title:'Discard unsaved changes?',message:'The new package clones the last saved version. Unsaved edits will not carry over.',action:'Continue'})))return;
+  const draft=await packageDialog({type:'create',title:'Create prize package',message:'Create a separate Draft package with the selected package’s saved tiers and prizes. Overall budget is optional.',name:'Prize Package '+(packages.length+1)});
+  if(!draft)return;
+  creatingPackage=true;$('add-package').disabled=true;
+  try{
+   const body={name:draft.name,budgetCents:draft.budgetCents};
+   if(packageId!=='legacy')body.cloneFrom=packageId;
+   const output=await L.api('package_create',{body});
+   await reloadPackages(output.package.id);
+   status('Draft package created. Edit its tiers and Save, then Publish.');
+  }catch(e){status('Could not create prize package: '+e.message,true);}
+  finally{creatingPackage=false;$('add-package').disabled=false;}
  };
  $('package-publish').onclick=async()=>{
   const p=packageFor(packageId);if(!p||!packagesAvailable)return;
   if(packageDirty&&!(await save()))return;
   const publish=(p.publicationStatus==='draft');
   if(!publish&&p.id===selectedPackage)return status('Select a different published package before moving this one to Draft.',true);
-  if(!publish&&!confirm('Move this published prize package to Draft? It will disappear from available game choices.'))return;
+  if(!publish&&!(await packageDialog({title:'Move to Draft?',message:'This package will no longer be available to players. Existing sessions are unaffected.',action:'Move to Draft'})))return;
   try{
    const response=await L.api('package_publish',{body:{id:p.id,version:p.version,published:publish}});
    Object.assign(p,response.package);drawPackageTabs();
@@ -129,15 +186,15 @@
  };
  $('package-remove').onclick=async()=>{
   const p=packageFor(packageId);if(!p||packageId===selectedPackage)return;
-  if(!confirm('Delete prize package '+p.name+'? Existing game history will remain unchanged.'))return;
+  if(!(await packageDialog({title:'Delete prize package?',message:'Delete “'+p.name+'”? This cannot be undone. Game history remains unchanged.',action:'Delete package'})))return;
   try{await L.api('package_delete',{body:{id:packageId}});await reloadPackages(selectedPackage);status('Package deleted.');}
   catch(e){status(e.message,true);}
  };
- for(const id of ['package-name','package-enabled','package-player-choice'])$(id).addEventListener('change',markPackageDirty);
+ for(const id of ['package-name','package-budget','package-enabled','package-player-choice'])$(id).addEventListener('change',markPackageDirty);
  $('tab-prizes').addEventListener('change',e=>{
   if(!e.target.closest('.prize-package-config')&&!e.target.closest('.prize-package-tabs'))markPackageDirty();
  });
- $('tier-budget').onchange=()=>{try{setBudget();}catch(e){status(e.message,true);}};
+ $('tier-budget').onchange=()=>{try{setBudget();markPackageDirty();}catch(e){status(e.message,true);}};
  document.querySelectorAll('[data-tier]').forEach(b=>b.onclick=()=>{try{setBudget();selectTier(b.dataset.tier);}catch(e){status(e.message,true);}});
  $('add-prize').onsubmit=async e=>{e.preventDefault();try{setBudget();const f=e.currentTarget,pool=settings.config.pools[activeTier];
    if(pool.prizes.length>=24)throw Error('Limit: 24 prizes per tier.');
