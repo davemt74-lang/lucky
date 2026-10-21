@@ -8,7 +8,7 @@ function refuse24(callable $operation,string $label,int $code=422):void {
  throw new RuntimeException('Expected rejection: '.$label);
 }
 $all=GamePluginCapabilities::SUPPORTED;
-check24(count($all)===19&&count(array_unique($all))===13,'Explicit finite SDK permissions');
+check24(count($all)===19&&count(array_unique($all))===19,'Explicit finite SDK permissions');
 check24(GamePluginCapabilities::validateDeclarations([])===[],'Legacy game permissions default denied');
 check24(GamePluginCapabilities::validateDeclarations(['storage.read','scores.write'])===['storage.read','scores.write'],'Valid capability set');
 refuse24(fn()=>GamePluginCapabilities::validateDeclarations(['database.query']),'SQL never a granted capability');
