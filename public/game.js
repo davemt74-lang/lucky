@@ -202,6 +202,15 @@
    }else{syncedSpin=spin?.spinCount||0;render();}
   }catch(e){msg('Game sync retrying: '+e.message,true);}finally{syncPending=false;}
  }
+ async function phoneAutostart(){
+  try{
+   const req=JSON.parse(sessionStorage.getItem('lucky-phone-dashboard-autostart')||'null');
+   sessionStorage.removeItem('lucky-phone-dashboard-autostart');
+   if(req?.game==='spin-wheel'&&Date.now()-req.created<30000){
+    if(!data?.view||!['active','paused'].includes(data.view.status))await start();
+   }
+  }catch(_){}
+ }
  async function start(){if(busy||data?.view?.status==='active')return;
   // Request browser camera permission while Start Game has a real desktop click gesture.
   // Actual capture and history live exclusively on proof.php.
@@ -439,6 +448,7 @@
    stopVoice=L.listen(text=>voiceInput(text).catch(e=>L.note('voice-status',e.message,true)),m=>L.note('voice-status',m));$('voice-toggle').textContent='⏹ Stop listening';};
  Promise.all([refresh(),L.loadTracks(),refreshGamePackages()]).then(()=>{
   L.bindMusic();
+  void phoneAutostart();
   const params=new URLSearchParams(location.search);
   if(params.get('spin')==='1'){
    params.delete('spin');history.replaceState(null,'',location.pathname+(params.size?'?'+params.toString():''));
