@@ -8,7 +8,10 @@ headerSecurity();header('Referrer-Policy: no-referrer');header('X-Robots-Tag: no
 <section id="phone-dashboard" class="phone-game-dashboard" hidden aria-labelledby="phone-dashboard-title">
  <div class="surface phone-dashboard-heading"><p class="mini-label">YOUR HOME ARCADE</p><h1 id="phone-dashboard-title">Choose a game</h1>
  <p>Choose a game to start it on the computer or TV. Your approved phone stays connected.</p>
- <p id="phone-dashboard-status" role="status" aria-live="polite">Loading installed games…</p></div>
+ <p id="phone-dashboard-status" role="status" aria-live="polite">Loading installed games…</p>
+ <label id="phone-dashboard-package-picker" class="phone-package-picker" hidden>Prize package for the next Spin the Wheel game
+  <select id="phone-dashboard-package-select" aria-label="Choose prize package for next Spin the Wheel game"></select>
+ </label></div>
  <div id="phone-dashboard-games" class="phone-dashboard-games" aria-label="Installed games"></div>
 </section>
 <section id="phone-join" class="surface phone-join" hidden><h2>Join the game</h2><form id="phone-join-form"><label>Phone name <input id="phone-name" maxlength="48" required autocomplete="nickname" placeholder="Living room phone"></label><button class="btn btn-primary" type="submit">Request connection</button></form></section>
