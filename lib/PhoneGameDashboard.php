@@ -21,6 +21,10 @@ final class PhoneGameDashboard {
    INDEX idx_host_dashboard_launch(host_admin_id,status,created_at)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
  }
+ public static function ready(PDO $db):bool {
+  $q=$db->query("SHOW TABLES LIKE 'controller_game_launches'");
+  return (bool)$q->fetchColumn();
+ }
  public static function catalog():array {
   $list=[];
   foreach(GameRegistry::modules() as $id=>$module){
@@ -41,7 +45,7 @@ final class PhoneGameDashboard {
   $list=self::catalog();
   if(!in_array($game,array_column($list,'id'),true))
    throw new DomainException('Game is not installed, enabled, and ready.',404);
-  self::ensureSchema($db);
+  if(!self::ready($db))throw new DomainException('Run upgrade.php to enable phone game selection.',409);
   $db->beginTransaction();
   try {
    $q=$db->prepare('SELECT * FROM controller_pairs WHERE id=? FOR UPDATE');
@@ -66,13 +70,14 @@ final class PhoneGameDashboard {
   }catch(Throwable $e){$db->rollBack();throw $e;}
  }
  public static function progress(PDO $db,string $id):?array {
+  if(!self::ready($db))return null;
   $q=$db->prepare("SELECT id,game_id,status,created_at FROM controller_game_launches WHERE pair_id=? ORDER BY id DESC LIMIT 1");
   $q->execute([$id]);$row=$q->fetch();
   if(!$row||strtotime($row['created_at'].' UTC')<time()-120)return null;
   return ['id'=>(int)$row['id'],'game'=>$row['game_id'],'status'=>$row['status']];
  }
  public static function next(PDO $db,int $adminId):?array {
-  self::ensureSchema($db);
+  if(!self::ready($db))return null;
   $q=$db->prepare("SELECT l.id,l.game_id,l.created_at FROM controller_game_launches l
    JOIN controller_pairs p ON p.id=l.pair_id
    WHERE l.host_admin_id=? AND p.host_admin_id=?
@@ -86,6 +91,7 @@ final class PhoneGameDashboard {
  public static function accept(PDO $db,int $adminId,int $id,string $game):array {
   if($id<1||$id>PHP_INT_MAX-1)throw new DomainException('Invalid game launch request.',400);
   GameCatalog::slug($game);
+  if(!self::ready($db))throw new DomainException('Run upgrade.php to enable phone game selection.',409);
   $db->beginTransaction();
   try{
    $q=$db->prepare("SELECT l.*,p.status AS pair_status,p.paired_expires_at,p.host_admin_id AS pair_admin
