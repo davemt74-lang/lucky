@@ -141,6 +141,7 @@ jobs:
           python tests/v5q22h_phone_browser.py
           python tests/v5q23a_phone_fault_browser.py
           python tests/v5q23b_media_browser.py
+          python tests/v5q23c_publisher_browser.py
       - name: Phone controller regressions
         run: |
           python tests/v5p2_navigation_voice.py
