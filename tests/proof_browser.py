@@ -48,6 +48,13 @@ async def main():
   }''')
   await pg.locator('#proof-camera-settings summary').click()
   await pg.locator('#camera-enable').click();await pg.wait_for_timeout(300)
+  # Camera discovery no longer implicitly selects unconfigured cameras:
+  # Admin defaults apply first; the game/proof UI can add cameras explicitly.
+  await pg.evaluate("""() => {
+    document.querySelectorAll('.camera-source [data-camera-select]').forEach(input => {
+      if (!input.checked) { input.checked=true; input.dispatchEvent(new Event('change',{bubbles:true})); }
+    });
+  }""")
   ck(out,'two USB inputs detected',await pg.locator('.camera-source').count()==2)
   ck(out,'proof angles equal checked active cameras',await pg.locator('.proof-angle-chip').count()==2)
   ck(out,'per-prize proof names displayed', 'Hero front' in await pg.locator('#proof-angle-plan').inner_text())
@@ -63,7 +70,7 @@ async def main():
   ck(out,'separate approved clip uploaded for each angle',await pg.evaluate('__uploads.length===2'))
   ck(out,'proof clips ordered 1 then 2',await pg.evaluate('__uploads.map(x=>x.angleIndex).join(",")==="1,2"'))
   ck(out,'angle label and camera name saved',await pg.evaluate('__uploads[0].angleLabel==="Hero front" && __uploads[0].sourceLabel==="Living room front" && __uploads[1].angleLabel==="Audience reaction"'))
-  ck(out,'five-second countdown displayed',await pg.evaluate('__countdowns.includes("5")&&__countdowns.includes("1")'))
+  ck(out,'three-second pre-recording countdown displayed',await pg.evaluate('__countdowns.includes("3")&&__countdowns.includes("1")'))
   ck(out,'camera previews/recordings stopped after each take',await pg.evaluate('__stops===2'))
   await pg.wait_for_function("document.querySelector('#capture-clip-list')?.textContent?.includes('2 captured clips')",timeout=5000)
   ck(out,'editor includes captured clips', '2 captured clips' in await pg.locator('#capture-clip-list').inner_text())
