@@ -11,7 +11,7 @@ final class GamePluginCapabilities {
  public const SUPPORTED=[
   'storage.read','storage.write','players.read','players.write',
   'scores.read','scores.write','rounds.read','rounds.write',
-  'turns.read','turns.write','timers.read','timers.write'
+  'turns.read','turns.write','timers.read','timers.write','session.write'
  ];
  private const OPERATIONS=[
   'storage.get'=>'storage.read','storage.set'=>'storage.write',
@@ -19,7 +19,8 @@ final class GamePluginCapabilities {
   'scores.list'=>'scores.read','scores.add'=>'scores.write',
   'rounds.get'=>'rounds.read','rounds.next'=>'rounds.write',
   'turns.get'=>'turns.read','turns.set'=>'turns.write',
-  'timers.get'=>'timers.read','timers.start'=>'timers.write','timers.stop'=>'timers.write'
+  'timers.get'=>'timers.read','timers.start'=>'timers.write','timers.stop'=>'timers.write',
+  'session.save'=>'session.write'
  ];
  public static function validateDeclarations(mixed $value):array {
   if(!is_array($value)||!array_is_list($value)||count($value)>count(self::SUPPORTED))
