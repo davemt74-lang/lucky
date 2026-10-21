@@ -9,7 +9,7 @@ HOST = '''<script>
 window.events=[];window.acks=[];window.ackOutcomes=[];window.sessionView={id:'a'.repeat(32),status:'active',game:'spin-wheel',version:1,spinCount:1,slots:[{tier:'tier1',name:'Prize',value:1250}],claims:[],pendingBonus:false,lastSpin:null};
 const oldfetch=window.fetch;
 window.fetch=async(url,opts={})=>{const action=new URL(String(url),'https://example.test/').searchParams.get('action');
-if(action==='last')return new Response(JSON.stringify({ok:true,data:{session:{pools:{bonus:{prizes:[]}},odds:{bonusChance:0},claims:[]},view:window.sessionView,viewerToken:'c'.repeat(48)}}));
+if(action==='current')return new Response(JSON.stringify({ok:true,data:{session:{pools:{bonus:{prizes:[]}},odds:{bonusChance:0},claims:[]},view:window.sessionView,viewerToken:'c'.repeat(48)}}));
 if(action==='ui_events'){const after=JSON.parse(opts.body).after;return new Response(JSON.stringify({ok:true,events:window.events.filter(x=>x.id>after)}));}
 if(action==='ui_ack'){window.acks.push(JSON.parse(opts.body).commandId);window.ackOutcomes.push(JSON.parse(opts.body));return new Response(JSON.stringify({ok:true,acknowledged:true}));}
 if(action==='tracks')return new Response(JSON.stringify({ok:true,tracks:[]}));

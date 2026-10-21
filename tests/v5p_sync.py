@@ -13,9 +13,9 @@ window.mockView={id:'a'.repeat(32),game:'spin-wheel',status:'active',version:1,s
 const priorFetch=window.fetch;
 window.fetch=async (url,opts={})=>{
  let action=new URL(String(url),'https://example.test/').searchParams.get('action');
- if(action==='last'||action==='session'){
+ if(action==='current'||action==='session'){
   let response={ok:true,view:window.mockView,session:{game:'spin-wheel',claims:window.mockView.claims.map(c=>({...c,url:'',image:''})),pools:{bonus:{prizes:[]}},odds:{bonusChance:0}},viewerToken:'c'.repeat(48)};
-  return new Response(JSON.stringify(action==='last'?{ok:true,data:response}:response),{status:200});
+  return new Response(JSON.stringify(action==='current'?{ok:true,data:response}:response),{status:200});
  }
  return priorFetch(url,opts);
 };
