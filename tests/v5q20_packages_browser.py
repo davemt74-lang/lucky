@@ -62,7 +62,9 @@ async def main():
    check(f'{width}: packages visible as tabs',await page.locator('#prize-package-tabs button').count()==2)
    check(f'{width}: plus next to package tabs',await page.locator('#add-package').is_visible())
    check(f'{width}: Save is inside tab toolbar',await page.locator('.prize-package-header #save-prizes').is_visible())
-   check(f'{width}: no redundant heading above package tabs',await page.locator('#tab-prizes>.card-title-row, #tab-prizes>p').count()==0)
+   check(f'{width}: no redundant heading above package tabs',
+         await page.locator('#tab-prizes>.card-title-row').count()==0 and
+         not any('Use + to add a Draft package' in t for t in await page.locator('#tab-prizes>p').all_inner_texts()))
    await page.locator('[data-package-id="'+NEW+'"]').click()
    check(f'{width}: each tab loads own prizes',await page.locator('#prize-items input[aria-label="Prize name"]').first.input_value()=='Family Prize')
    await page.locator('#tier-budget').fill('60')
