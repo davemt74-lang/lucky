@@ -37,6 +37,7 @@ jobs:
           php tests/v5q23a_activation_recovery.php
           php tests/v5q23a_phone_version.php
           php tests/v5q23b_offline_media.php
+          php tests/v5q23c_publisher_channels.php
           node tests/v5q23b_sdk.js
           python3 tests/v5q23b_game_sdk.py
           php tests/v5q16_session_lifecycle.php
