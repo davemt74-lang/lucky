@@ -127,8 +127,12 @@ final class CloudGameUpdates {
    $keyPair=$r['game'].':'.$r['version'];
    if(isset($seen[$keyPair]))throw new DomainException('Duplicate game update release.',422);
    $seen[$keyPair]=true;
+   $sdkMin=$r['sdkMin']??'0.0.0';
+   if(!is_string($sdkMin)||!preg_match('/^(0|[1-9][0-9]{0,4})\\.(0|[1-9][0-9]{0,4})\\.(0|[1-9][0-9]{0,4})$/D',$sdkMin))
+    throw new DomainException('Invalid signed SDK compatibility requirement.',422);
    $releases[]=['game'=>$r['game'],'version'=>$r['version'],'sha256'=>$r['sha256'],
-    'bytes'=>$r['bytes'],'url'=>$r['url'],'notes'=>self::releaseNotes($r['notes']??'')];
+    'bytes'=>$r['bytes'],'url'=>$r['url'],'notes'=>self::releaseNotes($r['notes']??''),
+    'sdkMin'=>$sdkMin];
   }
   return ['issuedAt'=>$data['issuedAt'],'expiresAt'=>$data['expiresAt'],'releases'=>$releases,
    'verified'=>true,'installSupported'=>false];

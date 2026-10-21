@@ -50,6 +50,18 @@
  }
  async function reload(preferred){
   const result=await api('game_catalog');games=result.games||[];
+  const publisherSelect=$('game-publisher-game');
+  if(publisherSelect){
+   const current=publisherSelect.value;
+   publisherSelect.replaceChildren();
+   for(const g of games){
+    const option=document.createElement('option');
+    option.value=g.id;option.textContent=g.title+' · '+g.id;
+    publisherSelect.append(option);
+   }
+   if(games.some(g=>g.id===current))publisherSelect.value=current;
+   else if(games.some(g=>g.id===selected))publisherSelect.value=selected;
+  }
   const id=games.find(g=>g.id===preferred)?.id||games.find(g=>g.id===selected)?.id||games[0]?.id;
   paintList();if(id)edit(id);else $('catalog-editor').hidden=true;
  }
@@ -162,6 +174,100 @@
   finally{packagePending=false;button.disabled=false;}
  };
  loadPackages().catch(e=>packageNote('Unable to load packages: '+e.message,true));
+
+
+ let publisherChannels=[];
+ const publisherStatus=(message,bad=false)=>{
+  const e=$('game-publisher-status');e.textContent=message;
+  e.classList.toggle('platform-error',bad);
+ };
+ async function loadPublisherChannels(){
+  const result=await api('game_publisher_channels');
+  publisherChannels=result.channels||[];
+  const area=$('game-publisher-list');area.replaceChildren();
+  if(!publisherChannels.length){
+   area.append(text('p','No game-specific publishers connected. Every game stays offline unless you explicitly check a configured channel.'));
+   return;
+  }
+  for(const config of publisherChannels){
+   const card=text('article','','game-update-release');
+   card.append(text('strong',config.game+' · '+(config.publisher||'Invalid publisher configuration')));
+   if(!config.connected){
+    card.append(text('small','Trust configuration needs repair; game updates are disabled.'));
+    area.append(card);continue;
+   }
+   card.append(text('small','HTTPS: '+config.url));
+   card.append(text('small','Pinned key: '+config.keyFingerprint.slice(0,24)+'… · No automatic checks/install'));
+   const controls=text('div','','platform-control-row');
+   const check=text('button','Check game updates','btn btn-outline');check.type='button';
+   check.onclick=async()=>{
+    check.disabled=true;
+    try{
+     publisherStatus('Verifying signed releases for '+config.game+'…');
+     const result=await api('game_publisher_check',{body:{game:config.game}});
+     const releases=$('game-publisher-releases');releases.replaceChildren();
+     releases.append(text('p',result.updates.releases.length+' compatible signed release(s) for '+config.game+'. No download performed.'));
+     for(const release of result.updates.releases){
+      const row=text('article','','game-update-release');
+      row.append(text('strong',release.game+' · v'+release.version));
+      row.append(text('small','Requires game SDK ≥ '+release.sdkMin+' · SHA-256: '+release.sha256));
+      if(release.notes)row.append(text('p',release.notes));
+      const stage=text('button','Download & stage verified ZIP','btn btn-outline');
+      stage.type='button';stage.disabled=release.bytes>40*1024*1024||release.compatible===false;
+      if(release.compatible===false)stage.textContent='Requires newer game SDK ('+release.sdkMin+')';
+      else if(release.bytes>40*1024*1024)stage.textContent='Exceeds 40 MB package limit';
+      stage.onclick=async()=>{
+       if(!confirm('Download and stage '+release.game+' v'+release.version+' from '+config.publisher+'? No game is activated.'))return;
+       stage.disabled=true;
+       try{
+        publisherStatus('Rechecking signature and downloading '+release.game+' v'+release.version+'…');
+        const output=await api('game_update_stage',{body:{game:config.game,version:release.version}});
+        publisherStatus(output.package.title+' v'+output.package.version+' staged and verified; activation is separate.');
+        await loadPackages();
+       }catch(e){publisherStatus(e.message,true);}finally{stage.disabled=false;}
+      };
+      row.append(stage);releases.append(row);
+     }
+     publisherStatus('Signature and SDK requirements verified for '+config.game+'.');
+    }catch(e){publisherStatus(e.message,true);}
+    finally{check.disabled=false;}
+   };
+   const revoke=text('button','Disconnect this publisher','btn btn-outline');revoke.type='button';
+   revoke.onclick=async()=>{
+    if(!confirm('Disconnect '+config.publisher+' from '+config.game+'? Local games and saved sessions will remain.'))return;
+    revoke.disabled=true;
+    try{
+     await api('game_publisher_disconnect',{body:{game:config.game,confirm:true}});
+     $('game-publisher-releases').replaceChildren();
+     publisherStatus(config.game+' update trust disconnected. Installed games remain local.');
+     await loadPublisherChannels();
+    }catch(e){publisherStatus(e.message,true);revoke.disabled=false;}
+   };
+   controls.append(check,revoke);card.append(controls);area.append(card);
+  }
+ }
+ $('game-publisher-form').onsubmit=async event=>{
+  event.preventDefault();
+  const game=$('game-publisher-game').value;
+  const body={game,publisher:$('game-publisher-name').value.trim(),
+   url:$('game-publisher-url').value.trim(),
+   publicKey:$('game-publisher-key').value.trim(),
+   token:$('game-publisher-token').value};
+  if(!game){publisherStatus('Select a game from the catalog.',true);return;}
+  try{
+   publisherStatus('Saving game-specific publisher trust…');
+   try{await api('game_publisher_connect',{body});}
+   catch(e){
+    if(!e.message.includes('Explicitly confirm')||
+       !confirm('This will replace the previously trusted publisher identity, feed or signing key for '+game+'. Continue?'))throw e;
+    await api('game_publisher_connect',{body:{...body,confirmReplace:true}});
+   }
+   $('game-publisher-key').value='';$('game-publisher-token').value='';
+   await loadPublisherChannels();
+   publisherStatus('Publisher connected to '+game+'. No updates were downloaded or activated.');
+  }catch(e){publisherStatus(e.message,true);}
+ };
+ loadPublisherChannels().catch(e=>publisherStatus('Unable to read publisher trust: '+e.message,true));
 
  let connected=false;
  const updateMessage=(message,bad=false)=>{

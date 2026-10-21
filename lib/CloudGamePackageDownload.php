@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__.'/CloudGameUpdates.php';
+require_once __DIR__.'/GamePublisherChannels.php';
 require_once __DIR__.'/GamePackageInstaller.php';
 require_once __DIR__.'/PublisherTransport.php';
 
@@ -25,10 +26,14 @@ final class CloudGamePackageDownload {
  }
  /** Called only from a CSRF-protected admin POST; never in server startup. */
  public static function stage(string $id,string $version):array {
-  $configuration=CloudGameUpdates::settings();
+  $gameChannel=GamePublisherChannels::config($id);
+  // A pinned per-game channel always takes precedence; never silently
+  // fall back to the global feed if its key or requirements reject a release.
+  $configuration=$gameChannel??CloudGameUpdates::settings();
   if(!$configuration)throw new DomainException('Connect a trusted publisher first.',409);
-  $feed=CloudGameUpdates::check();
+  $feed=$gameChannel?GamePublisherChannels::check($id):CloudGameUpdates::check();
   $release=self::release($feed,$id,$version);
+  GamePublisherChannels::assertCompatible($release);
   $host=strtolower((string)parse_url($configuration['url'],PHP_URL_HOST));
   if(strtolower((string)parse_url($release['url'],PHP_URL_HOST))!==$host)
    throw new DomainException('Package download host differs from trusted publisher.',403);
