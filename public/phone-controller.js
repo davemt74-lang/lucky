@@ -52,7 +52,7 @@
  let dashboardLoaded=0,dashboardBusy=false,dashboardItems=[],dashboardLaunch=null;
  const dashboardPanel=()=>$('phone-game-dashboard');
  function dashboardVisible(){
-  return !!active&&!!game&&['ready','saved','ended'].includes(game.status)&&
+  return !!active&&!!game&&!game.upgradeRequired&&['ready','saved','ended'].includes(game.status)&&
     !proofState?.active;
  }
  async function loadDashboard(force=false){
