@@ -57,6 +57,13 @@ final class GamePackageInstaller {
   if(!str_ends_with($host,'.html'))throw new DomainException('Host entry must be HTML.',422);
   $phone=$data['phone']??null;
   if($phone!==null){$phone=self::safeFile($phone);if(!str_ends_with($phone,'.html'))throw new DomainException('Phone entry must be HTML.',422);}
+  // Declared capabilities are immutable for an installed package version.
+  // No declarations means no privileged SDK capabilities (legacy-safe).
+  require_once __DIR__.'/GamePluginCapabilities.php';
+  $capabilities=GamePluginCapabilities::validateDeclarations($data['capabilities']??[]);
+  $dataVersion=$data['dataVersion']??1;
+  if(!is_int($dataVersion)||$dataVersion<1||$dataVersion>65535)
+   throw new DomainException('Invalid game data schema version.',422);
   $files=$data['files']??null;
   if(!is_array($files)||count($files)<1||count($files)>self::MAX_ENTRIES-2||array_is_list($files))
    throw new DomainException('Package must specify its asset hashes.',422);
@@ -73,7 +80,8 @@ final class GamePackageInstaller {
    throw new DomainException('Game entry points are missing from asset manifest.',422);
   return ['schema'=>'lucky.game-package.v1','id'=>$id,'version'=>$version,
    'title'=>trim($title),'publisher'=>trim($publisher),
-   'host'=>$host,'phone'=>$phone,'files'=>$normalized];
+   'host'=>$host,'phone'=>$phone,'files'=>$normalized,
+   'capabilities'=>$capabilities,'dataVersion'=>$dataVersion];
  }
  /** Inspect ZIP identity before selecting the owner's pinned signing key. */
  public static function inspectIdentity(string $upload):string {
@@ -217,6 +225,7 @@ final class GamePackageInstaller {
       // Keep the verified per-file hash list for runtime integrity checks,
       // including media, script and font assets after an update/restart.
       'fileHashes'=>$manifest['files'],
+      'capabilities'=>$manifest['capabilities'],'dataVersion'=>$manifest['dataVersion'],
       'status'=>'staged','fileCount'=>count($manifest['files']),
       'installedAt'=>gmdate('Y-m-d\TH:i:s\Z')];
      $json=json_encode($receipt,JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);

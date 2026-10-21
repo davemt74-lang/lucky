@@ -155,6 +155,15 @@
   const iframe=$('package-phone-frame');
   if(event.source!==iframe.contentWindow||event.origin!=='null')return;
   const input=event.data;
+  if(input?.type==='lucky:capability'){
+   // Phone packages cannot invoke owner-authorized mutations, read private
+   // per-game storage or claim administrative rights. They receive public
+   // scoreboard/round/timer state through lucky:state and send safe inputs.
+   if(typeof input.requestId==='string'&&/^sdk-[a-zA-Z0-9-]{3,64}$/.test(input.requestId))
+    iframe.contentWindow?.postMessage({type:'lucky:capability-result',
+     requestId:input.requestId,ok:false,error:'Privileged SDK capabilities are available on the desktop host only.'},'*');
+   return;
+  }
   if(!input||input.type!=='lucky:input')return;
   if(!valid(input.name,/^[a-z][a-z0-9_-]{0,39}$/))return;
   if(!(input.value===null||['string','number','boolean'].includes(typeof input.value)))return;

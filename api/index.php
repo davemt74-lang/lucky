@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-require __DIR__.'/../lib/Bootstrap.php';require_once __DIR__.'/../lib/CloudGameUpdates.php';require_once __DIR__.'/../lib/GamePackageInstaller.php';require_once __DIR__.'/../lib/GamePackageActivation.php';require_once __DIR__.'/../lib/CloudGamePackageDownload.php';require_once __DIR__.'/../lib/GamePublisherChannels.php';require_once __DIR__.'/../lib/GameCatalog.php';require_once __DIR__.'/../lib/ProductCatalog.php';require_once __DIR__.'/../lib/ControllerGame.php';require_once __DIR__.'/../lib/PrizeDecision.php';require_once __DIR__.'/../lib/GameSessionLifecycle.php';headerSecurity();
+require __DIR__.'/../lib/Bootstrap.php';require_once __DIR__.'/../lib/CloudGameUpdates.php';require_once __DIR__.'/../lib/GamePackageInstaller.php';require_once __DIR__.'/../lib/GamePackageActivation.php';require_once __DIR__.'/../lib/CloudGamePackageDownload.php';require_once __DIR__.'/../lib/GamePublisherChannels.php';require_once __DIR__.'/../lib/GameCatalog.php';require_once __DIR__.'/../lib/ProductCatalog.php';require_once __DIR__.'/../lib/ControllerGame.php';require_once __DIR__.'/../lib/PrizeDecision.php';require_once __DIR__.'/../lib/GameSessionLifecycle.php';require_once __DIR__.'/../lib/GamePluginCapabilities.php';headerSecurity();
 $action=strval($_GET['action']??'');$method=$_SERVER['REQUEST_METHOD']??'GET';
 function setting(PDO $db,string $game='spin-wheel'):array {
  $q=$db->prepare('SELECT * FROM game_settings WHERE game_id=?');$q->execute([$game]);$r=$q->fetch();
@@ -469,6 +469,52 @@ try {
   }
   if($warnings)error_log('Session cleanup: '.$warnings.' private media files could not be removed.');
   success(['deleted'=>true,'removedFiles'=>$removed,'cleanupWarnings'=>$warnings]);
+ }
+ if($action==='plugin_capability'){
+  $id=(string)($in['id']??'');$operation=$in['operation']??null;
+  if(!is_string($operation)||strlen($operation)>40)
+   throw new DomainException('Invalid SDK operation.',400);
+  $args=GamePluginCapabilities::validateArgs($operation,$in['args']??[]);
+  $isWrite=GamePluginCapabilities::changesState($operation)||$operation==='session.save';
+  $key=$in['idempotencyKey']??null;
+  if($isWrite&&(!is_string($key)||!preg_match('/^[A-Za-z0-9_-]{12,80}$/D',$key)))
+   throw new DomainException('SDK writes require a unique request ID.',400);
+  // Create the private namespace table before beginning the transaction.
+  // This is deliberately separate from any game-controlled schema or SQL.
+  if(str_starts_with($operation,'storage.'))GamePluginCapabilities::ensureSchema($db);
+  $db->beginTransaction();
+  try{
+   $lookup=sessionRow($db,$id);
+   $game=(string)$lookup['game_id'];
+   if(!GameRegistry::module($game) instanceof PackageGameModule)
+    throw new DomainException('SDK capabilities are only available to installed game packages.',403);
+   GameSessionLifecycle::lockGame($db,$game);
+   $row=sessionRow($db,$id,true);
+   $state=stateFromRow($row);
+   if($isWrite){
+    $q=$db->prepare('SELECT payload_json FROM game_events WHERE session_id=? AND idempotency_key=?');
+    $q->execute([$id,$key]);
+    if($old=$q->fetch()){$out=json_decode($old['payload_json'],true,128,JSON_THROW_ON_ERROR);
+      $db->commit();success(['result'=>$out,'repeat'=>true]);}
+    if(!isset($in['expectedVersion'])||!is_int($in['expectedVersion'])||
+       $in['expectedVersion']!==(int)$row['version'])
+     throw new DomainException('Game state changed. Refresh before trying again.',409);
+   }
+   if($operation==='session.save'){
+    GamePluginCapabilities::authorize($game,(string)($state['packageVersion']??''),$operation);
+    $event=GameSessionLifecycle::transition($state,'save');
+    $result=['operation'=>$operation,'value'=>['status'=>'saved'],'version'=>$state['version']];
+   }else $result=GamePluginCapabilities::execute($db,$state,$operation,$args);
+   if($isWrite){
+    saveState($db,$state);
+    $out=['capability'=>$result,'view'=>GameRegistry::module($game)->publicView($state)];
+    $q=$db->prepare('INSERT INTO game_events(session_id,idempotency_key,event_type,payload_json) VALUES (?,?,?,?)');
+    $q->execute([$id,$key,'sdk',json_encode($out,JSON_THROW_ON_ERROR)]);
+    audit($db,'game.sdk_action',$id,['game'=>$game,'operation'=>$operation]);
+   }else $out=['capability'=>$result,'view'=>GameRegistry::module($game)->publicView($state)];
+   $db->commit();
+  }catch(Throwable $e){$db->rollBack();throw $e;}
+  success(['result'=>$out,'repeat'=>false]);
  }
  if(in_array($action,['save_session','resume_saved','finish_saved'],true)){
   $id=strval($in['id']??'');$key=strval($in['idempotencyKey']??'');

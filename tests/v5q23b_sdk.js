@@ -9,7 +9,7 @@ const parent={postMessage(...args){sent.push(args)}};
 const window={parent,addEventListener(name,callback){if(name==='message')listener=callback}};
 vm.runInNewContext(code,{window});
 const sdk=window.LuckyGameSDK;
-assert.equal(sdk.version,'1.0.0');
+assert.equal(sdk.version,'2.0.0');
 assert.equal(Object.isFrozen(sdk),true);
 assert.equal(sdk.sendInput('buzz','one'),false);
 let states=[];const unsub=sdk.onState(s=>states.push(s.status));

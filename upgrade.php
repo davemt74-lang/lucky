@@ -29,6 +29,8 @@ if(($_SERVER['REQUEST_METHOD']??'')==='POST'){
    foreach(MigrationSql::statements(sql($migrationFile)) as $statement)$db->exec($statement);
   }
   PrizePublicationMigration::ensure($db);
+  require_once __DIR__.'/lib/GamePluginCapabilities.php';
+  GamePluginCapabilities::ensureSchema($db);
   // Previous V5Q installs already have claim_media: add camera identity safely once.
   $cameraColumn=$db->query("SHOW COLUMNS FROM claim_media LIKE 'source_label'")->fetch();
   if(!$cameraColumn)$db->exec("ALTER TABLE claim_media ADD COLUMN source_label VARCHAR(120) NOT NULL DEFAULT '' AFTER title");

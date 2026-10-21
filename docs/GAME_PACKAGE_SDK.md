@@ -1,3 +1,7 @@
+> **SDK v2:** Games and plugins share the same package format. For persistent
+> game data, players, scoring, rounds, turns and timers, see
+> [V5Q.24 Universal Game/Plugin SDK](V5Q24_UNIVERSAL_PLUGIN_SDK.md).
+
 # V5Q.23B — Game Package SDK and Offline Media
 
 Build new games for Lucky Game Hub without rebuilding the Windows HomeServer.

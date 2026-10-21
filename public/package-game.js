@@ -128,9 +128,47 @@
    ending=true;location.assign('index.php');
   }catch(e){say(e.message,true);}finally{loading=false;}
  };
+ let capabilitiesBusy=false;
+ async function handleCapability(request){
+  const reply=(ok,value,error)=>{
+   if(frame.contentWindow)frame.contentWindow.postMessage({
+    type:'lucky:capability-result',requestId:request.requestId,ok,
+    ...(ok?{value}:{error:String(error||'SDK operation unavailable')})
+   },'*');
+  };
+  if(capabilitiesBusy||loading||!session||session.view.status!=='active'){
+   reply(false,null,'Game is busy or paused');return;
+  }
+  if(typeof request.operation!=='string'||!/^[a-z]+\.[a-z]+$/.test(request.operation)||
+     !request.args||typeof request.args!=='object'||Array.isArray(request.args)||
+     JSON.stringify(request.args).length>8192){
+   reply(false,null,'Invalid game capability request');return;
+  }
+  capabilitiesBusy=true;
+  try{
+   const result=await L.api('plugin_capability',{body:{
+    id:session.view.id,operation:request.operation,args:request.args,
+    expectedVersion:session.view.version,idempotencyKey:L.idempotency()
+   }});
+   // Resolve a request before possibly closing its origin sandbox.
+   reply(true,result.result.capability.value);
+   session={...session,view:result.result.view};
+   sendState(session.view);
+   if(session.view.status==='saved'){
+    ending=true;location.assign('index.php');return;
+   }
+   configure(session);
+  }catch(e){reply(false,null,e.message);}
+  finally{capabilitiesBusy=false;}
+ }
  window.addEventListener('message',event=>{
-  if(!session||session.view.status!=='active'||event.source!==frame.contentWindow||event.origin!=='null')return;
+  if(!session||event.source!==frame.contentWindow||event.origin!=='null')return;
   const input=event.data;
+  if(input?.type==='lucky:capability'){
+   if(typeof input.requestId!=='string'||!/^sdk-[a-zA-Z0-9-]{3,64}$/.test(input.requestId))return;
+   void handleCapability(input);return;
+  }
+  if(session.view.status!=='active')return;
   if(!input||input.type!=='lucky:input'||typeof input.name!=='string'||!(/^[a-z][a-z0-9_-]{0,39}$/).test(input.name))return;
   if(!['string','number','boolean'].includes(typeof input.value)&&input.value!==null)return;
   if(typeof input.value==='string'&&input.value.length>240)return;
