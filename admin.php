@@ -65,8 +65,25 @@ shellStart('Admin Studio','admin','admin-studio-page');
   <div id="game-package-list" class="game-update-releases" aria-live="polite"></div>
   <p class="mini-label">Built-in Spin the Wheel is permanent. Only verified publisher-signed updates can be staged for built-in games; no upload can delete or overwrite its installed engine.</p>
  </section>
- <section class="game-update-connection" aria-label="Cloud game updates">
-  <div class="card-title-row"><div><p class="mini-label">OPTIONAL · OFFLINE BY DEFAULT</p><h3>Cloud game updates</h3></div><span id="game-update-connection-status" class="mini-label">Not connected</span></div>
+ <section class="game-update-connection" aria-label="Per-game publisher update channels">
+  <div class="card-title-row"><div><p class="mini-label">GAME CATALOG · VERIFIED PUBLISHERS</p><h3>Publisher updates by game</h3></div><span class="mini-label">Manual · Offline by default</span></div>
+  <p>Each game can trust its own HTTPS publisher feed and signing key. Signed updates are checked only when you request them; downloads are staged, never activated automatically. Changing a trusted key or feed requires separate confirmation.</p>
+  <form id="game-publisher-form" class="platform-form">
+   <label>Game identifier
+    <select id="game-publisher-game" required></select>
+   </label>
+   <label>Publisher name<input id="game-publisher-name" maxlength="160" required placeholder="Game studio or publisher"></label>
+   <label>Publisher feed URL (HTTPS)<input id="game-publisher-url" type="url" maxlength="2048" required placeholder="https://publisher.example/updates.json"></label>
+   <label>Trusted publisher public key (PEM)<textarea id="game-publisher-key" rows="4" required placeholder="-----BEGIN PUBLIC KEY-----"></textarea></label>
+   <label>Optional private feed access token<input id="game-publisher-token" type="password" maxlength="1024" autocomplete="new-password" placeholder="Leave blank for a public feed"></label>
+   <button class="btn btn-primary" type="submit">Save game publisher trust</button>
+  </form>
+  <p id="game-publisher-status" class="voice-status" role="status" aria-live="polite"></p>
+  <div id="game-publisher-list" class="game-update-releases" aria-live="polite"></div>
+  <div id="game-publisher-releases" class="game-update-releases" aria-live="polite"></div>
+ </section>
+<section class="game-update-connection" aria-label="Cloud game updates">
+  <div class="card-title-row"><div><p class="mini-label">OPTIONAL · OFFLINE BY DEFAULT</p><h3>Legacy shared publisher channel</h3></div><span id="game-update-connection-status" class="mini-label">Not connected</span></div>
   <p>Connect to a publisher's signed HTTPS update feed to check for new game releases. HomeServer gameplay, player data, recordings and database stay local. The connection never runs during startup or gameplay.</p>
   <form id="game-update-connect-form" class="platform-form">
    <label>Publisher update feed (HTTPS)<input id="game-update-url" type="url" maxlength="2048" placeholder="https://publisher.example/game-updates.json" required></label>
@@ -100,4 +117,4 @@ shellStart('Admin Studio','admin','admin-studio-page');
 <section id="tab-history" class="surface platform-admin-panel" hidden><h2>Finished-game archive</h2><p>Completed games are preserved with their audit records, prizes, and session timestamps.</p><button class="btn btn-outline" id="refresh-history">↻ Refresh</button><div id="history-items" class="platform-claim-list"></div><button class="btn btn-outline" id="export-history">Export history CSV</button></section>
 <section id="tab-migration" class="surface platform-admin-panel" hidden><h2>Import a V5 browser configuration</h2><p>The older game stored prizes and music in one browser. You can import its Tier 1, Tier 2, and Bonus prize definitions here. This does not erase the old browser copy. Existing claimed prizes are imported into a separate completed historical session, never into an active game. Duplicate imports of the same game are blocked.</p><p id="legacy-status" class="voice-status">Checking this browser…</p><button id="import-legacy" class="btn btn-outline">Import prizes and archived claims</button></section>
 </div><p id="admin-status" class="voice-status" role="status" aria-live="polite"></p></div></div>
-<script src="public/client.js" defer></script><script src="public/admin.js?v=5q22" defer></script><script src="public/game-catalog.js?v=5q23a" defer></script><?php shellEnd(); ?>
+<script src="public/client.js" defer></script><script src="public/admin.js?v=5q22" defer></script><script src="public/game-catalog.js?v=5q23c" defer></script><?php shellEnd(); ?>
