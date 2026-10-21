@@ -126,17 +126,20 @@ final class GamePublisherChannels {
   $releases=[];
   foreach(($feed['releases']??[]) as $release){
    if(($release['game']??null)!==$game)continue;
-   self::assertCompatible($release);
+   $release['compatible']=self::compatible($release);
    $releases[]=$release;
   }
   return ['game'=>$game,'verified'=>true,'sdkVersion'=>self::SDK_VERSION,
    'releases'=>$releases,'automaticInstall'=>false];
  }
- public static function assertCompatible(array $release):void {
+ public static function compatible(array $release):bool {
   $min=$release['sdkMin']??'0.0.0';
-  if(!is_string($min)||!preg_match('/^(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})$/D',$min))
+  if(!is_string($min)||!preg_match('/^(0|[1-9][0-9]{0,4})\\.(0|[1-9][0-9]{0,4})\\.(0|[1-9][0-9]{0,4})$/D',$min))
    throw new DomainException('Invalid publisher SDK compatibility declaration.',422);
-  if(version_compare($min,self::SDK_VERSION,'>'))
+  return version_compare($min,self::SDK_VERSION,'<=');
+ }
+ public static function assertCompatible(array $release):void {
+  if(!self::compatible($release))
    throw new DomainException('This game requires a newer HomeServer game SDK.',409);
  }
  public static function check(string $game,?string $root=null):array {
