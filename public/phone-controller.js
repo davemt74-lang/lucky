@@ -51,6 +51,12 @@
     dashboardNote('Spin the Wheel started. Opening phone controls…');
     show('phone-controls');await status();return;
    }
+   const selected=dashboardGames.find(row=>row.id===out.game);
+   if(selected?.hasPhone===false){
+    dashboardRequested=true;
+    dashboardNote(out.game+' started on your TV. This game uses desktop controls; finish it on the computer before choosing another.');
+    return;
+   }
    if(!/^[a-f0-9]{48}$/.test(out.viewer))throw Error('The custom game controller link is unavailable.');
    sessionStorage.setItem('lucky-package-controller-v1',JSON.stringify({
     id:state.id,token:state.token,session:out.id,viewer:out.viewer
