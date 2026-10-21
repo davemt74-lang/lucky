@@ -77,6 +77,7 @@ try{
  channelPass(count($onlyWheel['releases'])===2,'Publisher cannot advertise another game through this game channel');
  channelPass($onlyWheel['releases'][0]['compatible']===true,'Compatible update displayed');
  channelPass($onlyWheel['releases'][1]['compatible']===false,'Newer SDK update visible but disabled');
+ channelPass(GamePublisherChannels::SDK_VERSION==='2.0.0','V5Q.24 publisher feeds advertise SDK v2.0.0');
  channelReject(fn()=>GamePublisherChannels::assertCompatible($onlyWheel['releases'][1]),'Newer SDK must not stage',409);
  channelPass(CloudGamePackageDownload::release($onlyWheel,'spin-wheel','2.0.0')['version']==='2.0.0','Matching signed release selectable');
  channelReject(fn()=>CloudGamePackageDownload::release($onlyWheel,'table-trivia','3.0.0'),'Cannot request cross-title release',404);
