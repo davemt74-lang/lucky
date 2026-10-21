@@ -97,7 +97,14 @@
  const savedNames=()=>{try{return JSON.parse(localStorage.getItem('lucky-camera-aliases')||'{}')||{};}catch(_){return {};}};
  const MAX_CAMERAS=4;
  const status=(message,bad=false)=>{const p=$('capture-feedback');if(p){p.textContent=message;p.classList.toggle('is-error',bad);}};
- const badge=()=>{const n=$('capture-live-status');if(n)n.textContent=`${feeds.size} camera${feeds.size===1?'':'s'} connected${recordings.size||audioRecorder?' · recording':''}`;};
+ const badge=()=>{
+  const recording=[...recordings.values()].some(recorder=>recorder.state==='recording')||
+    audioRecorder?.state==='recording';
+  const n=$('capture-live-status');
+  if(n)n.textContent=`${feeds.size} camera${feeds.size===1?'':'s'} connected${recording?' · recording':''}`;
+  const indicator=$('capture-recording-indicator');
+  if(indicator)indicator.hidden=!recording;
+ };
  const contextReady=()=>{if(!/^[a-f0-9]{32}$/.test(session)||!/^[a-f0-9]{32}$/.test(claim))throw Error('Select a claimed prize before enabling its cameras.');};
  const permitted=()=>{contextReady();if(!$('capture-consent')?.checked)throw Error('Check recording consent first.');};
  const capabilities=()=>{if(!navigator.mediaDevices?.getUserMedia)throw Error('Camera requires a supported browser and HTTPS. You can still upload files.');};
@@ -277,7 +284,7 @@
    button.append(thumb,info);button.onclick=()=>{try{previewSavedClip(clip);}catch(e){status(e.message,true);}};list.append(button);
   }
  }catch(e){status(e.message,true);}}
- function show(s,c,n,angles=[]){clearDrafts();selectedPlayback=null;savedPreview=null;replacementId=null;savedVideos=[];capturePhase='live';approvedCount=0;closing=false;session=s||'';claim=c||'';prize=n||'Prize';proofProfile=Array.isArray(angles)?angles:[];drawProofPlan();$('capture-prize-label').textContent=prize;$('capture-open-editor').href='editor.php?session='+encodeURIComponent(session);
+ function show(s,c,n,angles=[]){badge();clearDrafts();selectedPlayback=null;savedPreview=null;replacementId=null;savedVideos=[];capturePhase='live';approvedCount=0;closing=false;session=s||'';claim=c||'';prize=n||'Prize';proofProfile=Array.isArray(angles)?angles:[];drawProofPlan();$('capture-prize-label').textContent=prize;$('capture-open-editor').href='editor.php?session='+encodeURIComponent(session);
   $('capture-consent').checked=false;consentChanged();status(session&&claim?'Live preview ready. Recording requires consent.':'Choose a prize first.');refreshClips();
   // The claim page is the one camera station. Start live previews immediately after the
   // verified claim loads, including games initiated on a paired phone (no browser-local
