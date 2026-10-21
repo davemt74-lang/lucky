@@ -60,10 +60,16 @@ async def main():
   test('consent checkbox is not displayed on desktop',await page.locator('#capture-consent').is_hidden())
   test('one desktop claim station with history',await page.locator('.proof-history-panel').count()==1)
   test('live camera feed attached',await page.evaluate("document.querySelector('.camera-source video').srcObject instanceof MediaStream"))
+  test('desktop REC indicator absent during live preview',await page.locator('#proof-recording-indicator').is_hidden())
   await page.evaluate("LuckyCapture.phoneAction('proof-consent-on')")
   await page.locator('#capture-video').click()
   await page.wait_for_function('document.querySelector("#capture-stop").hidden===false')
+  test('desktop video shows red REC control only during active MediaRecorder',
+   await page.locator('#proof-recording-indicator').is_visible() and
+   'REC' in await page.locator('#proof-recording-indicator').inner_text())
   await page.locator('#capture-stop').click()
+  await page.wait_for_function('document.querySelector("#proof-recording-indicator").hidden===true')
+  test('desktop REC control disappears immediately after stopping',await page.locator('#proof-recording-indicator').is_hidden())
   await page.wait_for_function('document.querySelectorAll("#capture-review-list .review-tile").length===1')
   test('review replaces recording tools',await page.locator('#capture-recording-tools').is_hidden())
   test('Play / Save / Re-record / Delete shown',await page.locator('#capture-review-list button').count()==4)

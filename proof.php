@@ -7,7 +7,7 @@ shellStart('Edit Prize Proof','claims');
 <dialog id="win-dialog" class="claim-stage proof-editor-page" open aria-label="Edit prize proof and revision history"><div class="claim-stage-shell">
 <header class="claim-stage-head"><div><p class="eyebrow" id="proof-heading-context">PRIZE PROOF</p><h2><span id="capture-prize-label">Claimed prize</span></h2></div><div class="proof-header-actions"><a class="btn btn-outline" id="proof-return" href="game.php">✓ Done · Back to game</a></div></header>
 <div class="proof-editor-layout"><section class="claim-capture" aria-label="Capture prize reaction">
-  <div class="proof-video-stage"><div id="camera-grid" class="camera-grid" aria-label="Live camera feeds"><div class="camera-waiting">Live video appears here after camera permission is granted.</div></div><canvas id="capture-photo-canvas" hidden></canvas>
+  <div class="proof-video-stage"><button id="proof-recording-indicator" type="button" class="proof-rec-indicator" hidden aria-label="Recording in progress. Stop recording" title="Recording in progress · tap to stop"><span class="proof-rec-dot" aria-hidden="true"></span> REC <span class="proof-rec-caption">Recording</span></button><div id="camera-grid" class="camera-grid" aria-label="Live camera feeds"><div class="camera-waiting">Live video appears here after camera permission is granted.</div></div><canvas id="capture-photo-canvas" hidden></canvas>
    <section id="capture-review" class="capture-review" hidden aria-label="Review recorded video"><h3>Review recording</h3><div id="capture-review-list" class="capture-review-list"></div></section>
   <input type="checkbox" id="capture-consent" hidden aria-hidden="true" tabindex="-1">
   <details id="proof-camera-settings" class="proof-camera-settings"><summary>⚙ Camera settings</summary>
@@ -31,5 +31,5 @@ shellStart('Edit Prize Proof','claims');
 <p id="proof-errors" class="platform-error" role="alert" hidden></p>
 <h3 id="proof-prize-title" class="sr-only">Loading prize…</h3><p id="proof-prize-context" class="sr-only"></p>
 </aside></div></div></dialog>
-<script src="public/client.js" defer></script><script src="public/proof-sequence.js?v=5q2" defer></script><script src="public/claim-capture.js?v=5q15g" defer></script><script src="public/proof.js?v=5q15g" defer></script><script src="public/ui-receiver.js?v=5q8b" defer></script>
+<script src="public/client.js" defer></script><script src="public/proof-sequence.js?v=5q2" defer></script><script src="public/claim-capture.js?v=5q24-rec-indicator" defer></script><script src="public/proof.js?v=5q15g" defer></script><script src="public/ui-receiver.js?v=5q8b" defer></script>
 <?php shellEnd(); ?>

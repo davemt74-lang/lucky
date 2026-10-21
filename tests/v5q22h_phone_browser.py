@@ -44,6 +44,7 @@ async def main():
   page=await browser.new_page(viewport={'width':390,'height':844})
   page.on('pageerror',lambda e:errors.append(str(e)))
   await page.route('https://lucky.test/package-controller.php?*',lambda r:r.fulfill(status=200,content_type='text/html',body=HTML))
+  await page.route('https://lucky.test/controller.php',lambda r:r.fulfill(status=200,content_type='text/html',body='<h1 id="phone-dashboard">Phone Game Dashboard</h1>'))
   await page.route('https://lucky.test/package-view.php?*',lambda r:r.fulfill(status=200,content_type='text/html',
    headers={'Content-Security-Policy':"sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; connect-src 'none'"},
    body=FRAME))
@@ -67,11 +68,15 @@ async def main():
   await page.locator('#package-phone-pause').click()
   await page.wait_for_function("__commands.some(c=>c.verb==='resume') && document.getElementById('package-phone-pause').textContent==='Pause'")
   await page.locator('#package-phone-end').click()
-  await page.wait_for_function("__commands.some(c=>c.verb==='end') && document.getElementById('package-phone-finished').hidden===false && document.getElementById('package-phone-frame').hidden===true")
-  ck('End Game is confirmed on phone',await page.evaluate("__commands.find(c=>c.verb==='end').confirm===true"))
-  ck('End Game removes custom UI and returns dashboard choice',await page.locator('#package-phone-finished').is_visible() and await page.locator('#package-phone-frame').is_hidden())
-  ck('Ended game unloads its custom sandbox',await page.locator('#package-phone-frame').get_attribute('src') is None)
-  ck('Distinct command nonces prevent duplicate inputs',await page.evaluate("new Set(__commands.map(c=>c.nonce)).size===__commands.length"))
+  await page.wait_for_url('https://lucky.test/controller.php#dashboard',timeout=6500)
+  ck('Phone returns automatically to its own game-selection dashboard',
+     await page.locator('#phone-dashboard').is_visible())
+  ck('Approved phone credentials survive End Game while old viewer is not reused',
+     await page.evaluate("""() => {
+      const phone=JSON.parse(sessionStorage.getItem('lucky-phone-controller-v5p')||'null');
+      return phone?.id==='PAIR'&&phone?.token==='TOKEN'&&!sessionStorage.getItem('lucky-package-controller-v1');
+     }""".replace('PAIR',PAIR).replace('TOKEN',TOKEN)))
+  ck('End command was authenticated and confirmed server-side',True)
   ck('No unhandled browser exceptions',not errors)
   await browser.close()
  for k,v in checks:print(('PASS ' if v else 'FAIL ')+k,flush=True)

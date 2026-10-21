@@ -88,6 +88,7 @@ jobs:
           php tests/v5q21_migration_db.php
           php tests/v5q23a_real_mariadb.php
           php tests/v5q24_plugin_mariadb.php
+          php tests/v5q24_phone_dashboard_db.php
   browsers:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -146,6 +147,7 @@ jobs:
           python tests/v5q23b_media_browser.py
           python tests/v5q23c_publisher_browser.py
           python tests/v5q24_sdk_browser.py
+          python tests/v5q24_phone_dashboard_browser.py
       - name: Phone controller regressions
         run: |
           python tests/v5p2_navigation_voice.py

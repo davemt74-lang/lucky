@@ -16,6 +16,7 @@
  }
  const session=query.get('session')||pair?.session;
  const viewer=query.get('viewer')||pair?.viewer;
+ if(pair&&location.protocol!=='about:'&&query.has('viewer'))history.replaceState(null,'','package-controller.php');
  if(!valid(session,hex32)||!valid(viewer,hex48)){status('Scan the current game QR code to connect.');$('package-phone-join-form').querySelector('button').disabled=true;return;}
  try{
   const saved=JSON.parse(sessionStorage.getItem(pendingKey)||'null');
@@ -62,12 +63,23 @@
   // the owner's approval is revoked. A hidden frame alone keeps running.
   try{iframe.contentWindow?.location.replace('about:blank');}catch(_){}
  }
+ function returnToPhoneDashboard(){
+  if(ended)return;
+  ended=true;clearPending();closeGame();
+  if(pair&&pair.id&&pair.token){
+   // Preserve only the already owner-approved controller credentials.
+   // The ended game's viewer token is never reused to control another game.
+   sessionStorage.setItem('lucky-phone-controller-v5p',JSON.stringify({id:pair.id,token:pair.token}));
+  }
+  sessionStorage.removeItem(key);
+  status('Game ended. Returning to your game library…');
+  location.assign('controller.php#dashboard');
+ }
  function refreshGame(view){
   if(ended||!view)return;
   game=view;
   if(view.status==='ended'||view.status==='saved'){
-   ended=true;clearPending();closeGame();show('finished');
-   status('Game ended · controller disconnected from gameplay.');return;
+   returnToPhoneDashboard();return;
   }
   const playing=view.status==='active';
   show('play');

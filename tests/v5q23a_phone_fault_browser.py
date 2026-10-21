@@ -2,7 +2,7 @@
 temporary offline status, refresh/reconnect, and End Game state convergence."""
 import asyncio
 from playwright.async_api import async_playwright
-from v5q22h_phone_browser import HTML as SOURCE, FRAME, SID, VIEWER
+from v5q22h_phone_browser import HTML as SOURCE, FRAME, SID, VIEWER, PAIR, TOKEN
 HTML=SOURCE.replace(
  "window.confirm=()=>true;window.__approved=false;window.__revoked=false;window.__commands=[];",
  "window.confirm=()=>true;window.__approved=false;window.__revoked=false;window.__commands=[];window.__dropOnce=true;window.__offline=false;window.__applied=new Set();"
@@ -56,6 +56,8 @@ async def main():
   page.on('pageerror',lambda e:errors.append(str(e)))
   await page.route('https://lucky.test/package-controller.php*',
    lambda route:route.fulfill(status=200,content_type='text/html',body=HTML))
+  await page.route('https://lucky.test/controller.php',
+   lambda route:route.fulfill(status=200,content_type='text/html',body='<h1 id="phone-game-dashboard">Choose a game</h1>'))
   await page.route('https://lucky.test/package-view.php?*',
    lambda route:route.fulfill(status=200,content_type='text/html',
      headers={'Content-Security-Policy':"sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; connect-src 'none'"},
@@ -89,8 +91,16 @@ async def main():
   await page.wait_for_function("document.getElementById('package-phone-play').hidden===false",timeout=5000)
   verify('Reconnected phone reopens its own game controller',await page.frame_locator('#package-phone-frame').locator('#buzz').count()==1)
   await page.locator('#package-phone-end').click()
-  await page.wait_for_function("document.getElementById('package-phone-finished').hidden===false")
-  verify('End Game closes controller after authoritative state',await page.locator('#package-phone-frame').is_hidden())
+  await page.wait_for_url('https://lucky.test/controller.php#dashboard',timeout=6500)
+  verify('End Game returns to phone game chooser even after Wi-Fi interruption',
+   await page.locator('#phone-game-dashboard').is_visible())
+  verify('Approved pairing survives the game, but ended viewer context is cleared',
+   await page.evaluate("""() => {
+    const phone=JSON.parse(sessionStorage.getItem('lucky-phone-controller-v5p')||'null');
+    return phone?.id==='PAIR'&&phone?.token==='TOKEN'&&
+      !sessionStorage.getItem('lucky-package-controller-v1-pending') &&
+      !sessionStorage.getItem('lucky-package-controller-v1');
+   }""".replace('PAIR',PAIR).replace('TOKEN',TOKEN)))
   verify('Network fault did not create unhandled browser exception',not errors)
   await browser.close()
  for label,result in checks:print(('PASS ' if result else 'FAIL ')+label,flush=True)
