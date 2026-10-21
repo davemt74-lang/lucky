@@ -22,4 +22,4 @@ headerSecurity();header('Referrer-Policy: no-referrer');header('X-Robots-Tag: no
 <button id="package-phone-disconnect" type="button" class="btn btn-outline">Disconnect phone</button></div></div>
 <iframe id="package-phone-frame" sandbox="allow-scripts" referrerpolicy="no-referrer" title="Game's custom phone buttons" style="width:100%;height:70dvh;border:0;border-radius:12px;background:#0b1422"></iframe></section>
 <section id="package-phone-finished" class="surface phone-join" hidden><h2>Game finished</h2><p>The desktop game has returned to the main dashboard.</p><a href="index.php" class="btn btn-primary">Game dashboard</a></section>
-</main><script src="public/package-controller.js?v=5q23a" defer></script></body></html>
+</main><script src="public/package-controller.js?v=5q24g" defer></script></body></html>
