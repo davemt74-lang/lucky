@@ -3,6 +3,7 @@ declare(strict_types=1);
 require_once __DIR__.'/GameSessionLifecycle.php';
 require_once __DIR__.'/ControllerGame.php';
 require_once __DIR__.'/GamePackageActivation.php';
+require_once __DIR__.'/ControllerRate.php';
 
 /** Approved-phone game picker. No admin credentials or private game data in replies. */
 final class PhoneGameDashboard {
