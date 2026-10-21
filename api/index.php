@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-require __DIR__.'/../lib/Bootstrap.php';require_once __DIR__.'/../lib/CloudGameUpdates.php';require_once __DIR__.'/../lib/GamePackageInstaller.php';require_once __DIR__.'/../lib/GamePackageActivation.php';require_once __DIR__.'/../lib/CloudGamePackageDownload.php';require_once __DIR__.'/../lib/GameCatalog.php';require_once __DIR__.'/../lib/ProductCatalog.php';require_once __DIR__.'/../lib/ControllerGame.php';require_once __DIR__.'/../lib/PrizeDecision.php';require_once __DIR__.'/../lib/GameSessionLifecycle.php';headerSecurity();
+require __DIR__.'/../lib/Bootstrap.php';require_once __DIR__.'/../lib/CloudGameUpdates.php';require_once __DIR__.'/../lib/GamePackageInstaller.php';require_once __DIR__.'/../lib/GamePackageActivation.php';require_once __DIR__.'/../lib/CloudGamePackageDownload.php';require_once __DIR__.'/../lib/GamePublisherChannels.php';require_once __DIR__.'/../lib/GameCatalog.php';require_once __DIR__.'/../lib/ProductCatalog.php';require_once __DIR__.'/../lib/ControllerGame.php';require_once __DIR__.'/../lib/PrizeDecision.php';require_once __DIR__.'/../lib/GameSessionLifecycle.php';headerSecurity();
 $action=strval($_GET['action']??'');$method=$_SERVER['REQUEST_METHOD']??'GET';
 function setting(PDO $db,string $game='spin-wheel'):array {
  $q=$db->prepare('SELECT * FROM game_settings WHERE game_id=?');$q->execute([$game]);$r=$q->fetch();
@@ -184,7 +184,10 @@ try {
   if(!is_array($package)||($package['error']??-1)!==UPLOAD_ERR_OK||
     !is_uploaded_file((string)($package['tmp_name']??'')))
    throw new DomainException('Choose a game package ZIP file.',422);
-  $settings=CloudGameUpdates::settings();
+  $game=GamePackageInstaller::inspectIdentity($package['tmp_name']);
+  $channel=GamePublisherChannels::config($game);
+  // Each game is verified with its own trust anchor, never another game key.
+  $settings=$channel??CloudGameUpdates::settings();
   $key=$settings['publicKey']??null;
   $entry=GamePackageInstaller::install($package['tmp_name'],null,$key);
   audit($db,'game.package_staged',null,['game'=>$entry['id'],'version'=>$entry['version'],
@@ -198,6 +201,28 @@ try {
    throw new DomainException('Select a JPG, PNG, or WebP game image.',422);
   $result=GameCatalog::saveImage($id,$slot,$file['tmp_name']);
   audit($db,'game.artwork',null,['game'=>$id,'slot'=>$slot]);success($result,201);
+ }
+ if($action==='game_publisher_channels'){
+  success(['channels'=>GamePublisherChannels::summary(),'sdkVersion'=>GamePublisherChannels::SDK_VERSION]);
+ }
+ if($action==='game_publisher_connect'){
+  $data=jsonInput();$status=GamePublisherChannels::connect($data);
+  audit($db,'game.publisher_connected',null,['game'=>$status['game'],'publisher'=>$status['publisher'],
+    'host'=>parse_url($status['url'],PHP_URL_HOST),'keyFingerprint'=>$status['keyFingerprint']]);
+  success(['channel'=>$status]);
+ }
+ if($action==='game_publisher_disconnect'){
+  $input=jsonInput();$game=GameCatalog::slug($input['game']??null);
+  if(($input['confirm']??null)!==true)throw new DomainException('Confirm disconnection of the selected publisher.',403);
+  $status=GamePublisherChannels::disconnect($game);
+  audit($db,'game.publisher_disconnected',null,['game'=>$game]);
+  success(['channel'=>$status]);
+ }
+ if($action==='game_publisher_check'){
+  $input=jsonInput();$game=GameCatalog::slug($input['game']??null);
+  $updates=GamePublisherChannels::check($game);
+  audit($db,'game.publisher_checked',null,['game'=>$game,'releases'=>count($updates['releases'])]);
+  success(['updates'=>$updates]);
  }
  if($action==='game_update_connect'){
   $data=jsonInput();$status=CloudGameUpdates::connect($data);
