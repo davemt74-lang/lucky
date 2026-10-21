@@ -46,7 +46,7 @@ try{
  GamePackageInstaller::install($zip);GamePackageActivation::activate($game,'1.0.0',null,true);
  zip24($zip,$other,'1.0.0',['storage.read','players.read']);
  GamePackageInstaller::install($zip);GamePackageActivation::activate($other,'1.0.0',null,true);
- ck24(count(GamePluginCapabilities::available($game,'1.0.0'))===13,'Installed package has explicit granted capabilities');
+ ck24(count(GamePluginCapabilities::available($game,'1.0.0'))===19,'Installed package has explicit granted capabilities');
  ck24(GamePluginCapabilities::available($other,'1.0.0')===['storage.read','players.read'],'Another package has restricted capabilities');
  foreach([[$game,$id],[$other,$otherId]] as [$g,$sid]){
   $db->beginTransaction();
@@ -92,6 +92,9 @@ try{
  ck24($run($id,'storage.set',['key'=>'level','value'=>20,'expectedRevision'=>0,'scope'=>'session'])['result']['value']['revision']===1,'Session-scoped storage is separate');
  ck24($run($id,'storage.get',['key'=>'level','scope'=>'session'])['result']['value']['value']===20,'Session scope read');
  ck24($run($id,'storage.get',['key'=>'level'])['result']['value']['value']===7,'Session write cannot alter global game scope');
+ $run($id,'storage.set',['key'=>'temp','value'=>'value','expectedRevision'=>0]);
+ ck24($run($id,'storage.delete',['key'=>'temp','expectedRevision'=>1])['result']['value']['deleted']===true,'Key deletion frees game storage');
+ ck24($run($id,'storage.get',['key'=>'temp'])['result']['value']['revision']===0,'Deleted storage key is absent');
  ck24($run($otherId,'storage.get',['key'=>'level'])['result']['value']['revision']===0,'Another game cannot read first game storage');
  err24(fn()=>$run($otherId,'storage.set',['key'=>'level','value'=>'stolen','expectedRevision'=>0]),'Other game denied storage.write',403);
  err24(fn()=>$run($otherId,'scores.add',['playerId'=>'one','delta'=>1]),'Other game denied score modifications',403);
@@ -99,6 +102,16 @@ try{
  $run($id,'players.add',['id'=>'two','name'=>'Player Two']);
  ck24(count($run($id,'players.list')['result']['value'])===2,'Players persist as structured server-owned data');
  err24(fn()=>$run($id,'players.add',['id'=>'one','name'=>'Duplicate']),'Duplicate player rejected',409);
+ $run($id,'teams.add',['id'=>'red','name'=>'Red Team']);
+ $run($id,'teams.assign',['teamId'=>'red','playerId'=>'one']);
+ ck24($run($id,'teams.list')['result']['value']['red']['name']==='Red Team','Teams are registered and persistent');
+ ck24($run($id,'players.list')['result']['value']['one']['teamId']==='red','Player team assignment persists');
+ err24(fn()=>$run($id,'teams.assign',['teamId'=>'missing','playerId'=>'one']),'Unknown team cannot be assigned',404);
+ $run($id,'achievements.unlock',['id'=>'first_win']);
+ ck24(isset($run($id,'achievements.list')['result']['value']['first_win']),'Achievement unlock persists');
+ err24(fn()=>$run($id,'achievements.unlock',['id'=>'first_win']),'Repeated achievement is idempotently rejected',409);
+ $run($id,'events.emit',['name'=>'round_started','value'=>'go']);
+ ck24(count($run($id,'events.list')['result']['value'])===1,'Game-specific bounded event persists');
  $run($id,'scores.add',['playerId'=>'one','delta'=>25]);
  ck24($run($id,'scores.list')['result']['value']['one']===25,'Score mutation is authoritative and persistent');
  err24(fn()=>$run($id,'scores.add',['playerId'=>'one','delta'=>10001]),'Unbounded scoring rejected',422);
