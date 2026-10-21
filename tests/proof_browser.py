@@ -60,7 +60,20 @@ async def main():
   ck(out,'per-prize proof names displayed', 'Hero front' in await pg.locator('#proof-angle-plan').inner_text())
   await pg.locator('.camera-source [data-camera-name]').first.fill('Living room front');await pg.locator('.camera-source [data-camera-name]').first.press('Tab')
   ck(out,'user labels physical USB source', 'Living room front' in await pg.locator('#proof-angle-plan').inner_text())
-  await pg.locator('#proof-rotate').click();await pg.wait_for_function('document.querySelectorAll("#capture-review-list .review-tile").length === 2',timeout=5000)
+  await pg.locator('#proof-rotate').click()
+  try:
+   await pg.wait_for_function('document.querySelectorAll("#capture-review-list .review-tile").length === 2',timeout=5000)
+  except Exception:
+   print('PROOF_DEBUG',await pg.evaluate("""() => ({
+    cameras:document.querySelectorAll('.camera-source').length,
+    chosen:document.querySelectorAll('[data-camera-select]:checked').length,
+    anglePlan:document.querySelectorAll('.proof-angle-chip').length,
+    reviewTiles:document.querySelectorAll('#capture-review-list .review-tile').length,
+    captureStatus:document.getElementById('capture-feedback')?.textContent,
+    sequencePhase:window.LuckyCapture?.phase?.(),
+    recentCountdowns:window.__countdowns?.slice(-12)
+   })"""),'JS_ERRORS',errs,flush=True)
+   raise
   ck(out,'recorded angles await review without upload',await pg.evaluate('__uploads.length===0'))
   ck(out,'capture controls replaced by recording review',await pg.locator('#capture-recording-tools').is_hidden())
   await pg.locator('#capture-review-list button').filter(has_text='Save').first.click()
