@@ -14,4 +14,4 @@ require_once __DIR__.'/../lib/GamePluginCapabilities.php';
 GamePluginCapabilities::ensureSchema($db);
 require_once __DIR__.'/../lib/PhoneGameDashboard.php';
 PhoneGameDashboard::ensureSchema($db);
-echo "HomeServer schema current.\\n";
+echo "HomeServer schema current.\n";
