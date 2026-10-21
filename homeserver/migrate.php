@@ -8,6 +8,8 @@ require_once __DIR__.'/../lib/Bootstrap.php';
 require_once __DIR__.'/../lib/PrizePublicationMigration.php';
 $db=db();
 PrizePublicationMigration::ensure($db);
+require_once __DIR__.'/../lib/PrizePackages.php';
+PrizePackages::ensureBudgetColumn($db);
 require_once __DIR__.'/../lib/GamePluginCapabilities.php';
 GamePluginCapabilities::ensureSchema($db);
 echo "HomeServer schema current.\n";
