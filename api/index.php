@@ -309,9 +309,6 @@ try {
  }
  $in=jsonInput();
  if(in_array($action,['package_create','package_save','package_select','package_delete','package_publish'],true)){
-  // An explicit owner Create action can initialize the bundled package
-  // schema on older installations before starting a write transaction.
-  if($action==='package_create')PrizePackages::prepareForCreate($db);
   $db->beginTransaction();
   try{
    if($action==='package_create'){
