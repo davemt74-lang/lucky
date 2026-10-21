@@ -69,6 +69,9 @@ try {
   if($action==='game_update_connection'){
    requireAdmin();success(['connection'=>CloudGameUpdates::summary()]);
   }
+  if($action==='game_publisher_channels'){
+   requireAdmin();success(['channels'=>GamePublisherChannels::summary(),'sdkVersion'=>GamePublisherChannels::SDK_VERSION]);
+  }
   if($action==='catalog'||$action==='catalog_admin'){
    if($action==='catalog_admin')requireAdmin();
    $query=$action==='catalog_admin'
@@ -201,9 +204,6 @@ try {
    throw new DomainException('Select a JPG, PNG, or WebP game image.',422);
   $result=GameCatalog::saveImage($id,$slot,$file['tmp_name']);
   audit($db,'game.artwork',null,['game'=>$id,'slot'=>$slot]);success($result,201);
- }
- if($action==='game_publisher_channels'){
-  success(['channels'=>GamePublisherChannels::summary(),'sdkVersion'=>GamePublisherChannels::SDK_VERSION]);
  }
  if($action==='game_publisher_connect'){
   $data=jsonInput();$status=GamePublisherChannels::connect($data);
