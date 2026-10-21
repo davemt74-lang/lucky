@@ -63,7 +63,7 @@ final class GamePluginCapabilities {
  }
  private static function label(mixed $value):string {
   if(!is_string($value)||trim($value)===''||strlen($value)>48||
-     preg_match('/[\\x00-\\x1f\\x7f]/',$value))
+     preg_match('/[\x00-\x1f\x7f]/',$value))
    throw new DomainException('Invalid player name.',422);
   return trim($value);
  }
