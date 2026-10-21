@@ -13,7 +13,7 @@ window.__gameStatus='ended';window.__version=1;
 window.LuckyWheel=class{constructor(){this.slices=[]}setSlices(x){this.slices=x}async spinTo(){}};
 window.Lucky={ $:id=>document.getElementById(id),money:n=>'$'+(n/100).toFixed(2),
 note:(id,text)=>{document.getElementById(id).textContent=text;},
-api:async(a)=>{if(a==='last')return{data:{view:{id:'SESSION_ID',status:__gameStatus,version:__version,claims:[],slots:[],spinCount:0,endedAt:'2026-10-19T00:00:00Z'},session:{pools:{bonus:{prizes:[]}},claims:[]}}};return {};},
+api:async(a)=>{if(a==='session')return{data:{view:{id:'SESSION_ID',status:__gameStatus,version:__version,claims:[],slots:[],spinCount:0,endedAt:'2026-10-19T00:00:00Z'},session:{pools:{bonus:{prizes:[]}},claims:[]}}};if(a==='current')return{data:null};return {};},
 loadTracks:async()=>[],bindMusic:()=>{}, beep:()=>{},speak:()=>{},pref:{musicOn:false},idempotency:()=> 't'};
 </script>'''.replace('SESSION_ID',SID)
 html='<html><head><base href="https://example.test/"><style>'+css+'</style>'+mock+'</head><body>'+markup+'<script>'+script+'</script></body></html>'
@@ -25,7 +25,9 @@ async def main():
   for width in [390,1280]:
    page=await browser.new_page(viewport={'width':width,'height':820},reduced_motion='reduce')
    page.on('pageerror',lambda err:errors.append(str(err)))
-   await page.set_content(html,wait_until='domcontentloaded')
+   await page.route('https://example.test/game.php*',lambda route:route.fulfill(status=200,content_type='text/html',body=html))
+   await page.route('https://example.test/index.php*',lambda route:route.fulfill(status=200,content_type='text/html',body='<html><body>Game dashboard</body></html>'))
+   await page.goto('https://example.test/game.php?session='+SID,wait_until='domcontentloaded')
    await page.wait_for_timeout(200)
    ok(f'{width}px completed game exposes Review highlights in Game menu',await page.locator('#postgame-review').evaluate('(e)=>!e.hidden'))
    ok(f'{width}px review is moved inside Game menu',await page.locator('#console-menu #postgame-review').count()==1)
@@ -34,8 +36,8 @@ async def main():
    await page.wait_for_timeout(1100)
    ok(f'{width}px paused game hides review',await page.locator('#postgame-review').evaluate('(e)=>e.hidden'))
    await page.evaluate("__gameStatus='ended';__version++")
-   await page.wait_for_timeout(1100)
-   ok(f'{width}px remote end does not reopen menu review while leaving host',await page.locator('#postgame-review').evaluate('(e)=>e.hidden'))
+   await page.wait_for_url('https://example.test/index.php',timeout=6000)
+   ok(f'{width}px remote end returns host to dashboard instead of showing historical claims',page.url.endswith('/index.php'))
    await page.close()
   await browser.close()
  ok('No script exceptions',not errors)
