@@ -23,7 +23,8 @@ if(($_SERVER['REQUEST_METHOD']??'')==='POST'){
    'lib/migrations/v5q15b_prize_decisions.sql',
    'lib/migrations/v5q15m_layers.sql',
    'lib/migrations/v5q15n_templates.sql',
-   'lib/migrations/v5q20_prize_packages.sql'
+   'lib/migrations/v5q20_prize_packages.sql',
+   'lib/migrations/v5q24_phone_dashboard.sql'
   ];
   foreach($migrationFiles as $migrationFile){
    foreach(MigrationSql::statements(sql($migrationFile)) as $statement)$db->exec($statement);
