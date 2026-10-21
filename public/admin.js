@@ -6,43 +6,101 @@
  const status=(message,bad=false)=>L.note('admin-status',message,bad);
  function selectTier(tier){activeTier=tier;document.querySelectorAll('[data-tier]').forEach(b=>b.classList.toggle('selected',b.dataset.tier===tier));renderTier();}
  function setBudget(){settings.config.pools[activeTier].budgetCents=amount($('tier-budget').value);}
- function renderTier(){const pool=settings.config.pools[activeTier],list=$('prize-items');list.replaceChildren();$('tier-budget').value=cents(pool.budgetCents);
-  for(const p of pool.prizes){const row=elem('div','','platform-prize-item');const name=elem('input'),value=elem('input'),url=elem('input'),videoUrl=elem('input'),image=elem('input'),upload=elem('input'),remove=elem('button','✕','btn btn-outline');
-   name.value=p.name;name.maxLength=80;name.setAttribute('aria-label','Prize name');name.onchange=()=>p.name=name.value.trim();
-   value.type='number';value.min=0;value.step='0.01';value.value=cents(p.cents);value.setAttribute('aria-label',p.name+' dollar amount');
-   value.onchange=()=>{try{p.cents=amount(value.value);}catch(e){status(e.message,true);}};
-   url.type='url';url.placeholder='Optional prize URL';url.value=p.url||'';url.onchange=()=>p.url=url.value.trim();
-   videoUrl.type='url';videoUrl.placeholder='Optional video URL (MP4/WebM/YouTube/Vimeo)';videoUrl.value=p.videoUrl||'';videoUrl.onchange=()=>p.videoUrl=videoUrl.value.trim();
-   image.type='url';image.placeholder='Optional image URL';image.value=p.image||'';image.onchange=()=>p.image=image.value.trim();
-   upload.type='file';upload.accept='image/png,image/jpeg,image/webp';upload.setAttribute('aria-label','Upload image for '+p.name);
-   upload.onchange=async()=>{if(!upload.files?.[0])return;try{const form=new FormData();form.append('image',upload.files[0]);
-     const r=await L.api('image_upload',{body:form});p.image=new URL(r.path,document.baseURI).href;image.value=p.image;status('Image uploaded. Save all prize settings to attach it to the prize.');
-    }catch(e){status(e.message,true);}};
-   remove.type='button';remove.setAttribute('aria-label','Remove '+p.name);remove.onclick=async()=>{if(!(await packageDialog({title:'Remove prize?',message:'Remove “'+p.name+'” from this tier? You can still cancel by not saving the package.',action:'Remove prize'})))return;
-    pool.prizes=pool.prizes.filter(item=>item.id!==p.id);markPackageDirty();renderTier();};
-   const proof=document.createElement('details');proof.className='proof-angle-settings';
-   const summary=document.createElement('summary');summary.textContent=`📷 Proof angles for ${p.name} (${(p.proofAngles||[]).length} configured)`;
-   const explanatory=elem('p','The selected active camera count controls the recording sequence. Set the preferred angle name and recording seconds for each view (3–30s).','mini-label');
-   const sync=elem('button','Match cameras on this device','btn btn-outline');sync.type='button';
-   const angleList=elem('div','','proof-angle-list');
-   function paintAngles(){angleList.replaceChildren();summary.textContent=`📷 Proof angles for ${p.name} (${(p.proofAngles||[]).length} configured)`;
-    (p.proofAngles||[]).forEach((a,i)=>{const item=elem('div','','proof-angle-row');const label=elem('input');label.value=a.label;label.maxLength=80;label.placeholder=`Angle ${i+1} — e.g. Front`;label.setAttribute('aria-label',`Prize ${p.name}, angle ${i+1} label`);
-     label.oninput=()=>a.label=label.value;
-     const duration=elem('input');duration.type='number';duration.min='3';duration.max='30';duration.step='1';duration.value=a.seconds;duration.setAttribute('aria-label',`Prize ${p.name}, angle ${i+1} seconds`);
-     duration.onchange=()=>a.seconds=Number(duration.value);
-     const count=elem('span',`View ${i+1}`,'mini-label');item.append(count,label,duration);angleList.append(item);
-    });
-   }
-   sync.onclick=async()=>{try{if(!navigator.mediaDevices?.enumerateDevices)throw Error('Camera detection requires HTTPS and a supported browser.');
-    // Only a user-initiated click requests camera permission; never start recording here.
-    if(navigator.mediaDevices.getUserMedia){const probe=await navigator.mediaDevices.getUserMedia({video:true,audio:false});probe.getTracks().forEach(t=>t.stop());}
-    const sources=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='videoinput').slice(0,4);
-    const before=p.proofAngles||[];p.proofAngles=sources.map((d,i)=>({label:before[i]?.label||d.label?.slice(0,80)||`View ${i+1}`,seconds:before[i]?.seconds||8}));
-    paintAngles();status(`${p.name}: matched ${sources.length} camera views. Save prize settings to publish.`);
-   }catch(e){status('Could not detect cameras: '+e.message,true);}};
-   proof.append(summary,explanatory,sync,angleList);paintAngles();
-   row.append(name,value,url,videoUrl,image,upload,remove,proof);list.append(row);
+ function imagePreview(rootId,url,kind){
+  const root=$(rootId);root.replaceChildren();
+  if(!url){root.append(elem('span',kind==='photo'?'No photo uploaded':'No video uploaded','prize-edit-media-empty'));return;}
+  if(kind==='photo'){
+   const img=elem('img');img.alt='Uploaded prize photo';img.src=url;img.loading='lazy';img.onerror=()=>{root.replaceChildren(elem('span','Photo could not load','prize-edit-media-empty'));};root.append(img);
+  }else{
+   // No video URL text field: only clips uploaded and attached to this prize are editable.
+   const video=elem('video');video.src=url;video.controls=true;video.preload='metadata';video.playsInline=true;root.append(video);
   }
+ }
+ function isUploadedVideo(raw){
+  try{const url=new URL(raw,document.baseURI);return url.pathname.endsWith('/api/index.php')&&
+    url.searchParams.get('action')==='prize_video'&&/^[a-f0-9]{32}$/.test(url.searchParams.get('id')||'');
+  }catch(_){return false;}
+ }
+ function renderTier(){
+  const pool=settings.config.pools[activeTier],list=$('prize-items');list.replaceChildren();$('tier-budget').value=cents(pool.budgetCents);
+  for(const p of pool.prizes){
+   const card=elem('article','','prize-catalog-card');card.dataset.prizeId=p.id;
+   const photo=elem('div','','prize-catalog-art');if(p.image){const img=elem('img');img.src=p.image;img.alt='';img.loading='lazy';photo.append(img);}else photo.append(elem('span','✦','prize-catalog-placeholder'));
+   const info=elem('div','','prize-catalog-content');
+   const heading=elem('div','','prize-catalog-heading');heading.append(elem('h3',p.name),elem('strong','$'+cents(p.cents),'prize-catalog-value'));
+   const description=elem('p',String(p.description||'No description yet. Add a custom announcement for this prize.').replace(/\s+/g,' ').slice(0,170),'prize-catalog-excerpt');
+   const badges=elem('div','','prize-catalog-metadata');
+   badges.append(elem('span',p.image?'📷 Photo attached':'📷 No photo','prize-catalog-chip'));
+   badges.append(elem('span',isUploadedVideo(p.videoUrl)?'🎞 Video attached':'🎞 No video','prize-catalog-chip'));
+   badges.append(elem('span',`${(p.proofAngles||[]).length} proof angles`,'prize-catalog-chip'));
+   const edit=elem('button','Edit prize →','btn btn-outline prize-catalog-edit');edit.type='button';edit.setAttribute('aria-label','Edit prize '+p.name);edit.onclick=()=>openPrizeEditor(p);
+   info.append(heading,description,badges);card.append(photo,info,edit);list.append(card);
+  }
+  if(!pool.prizes.length)list.append(elem('p','No prizes in this tier. Add one to get started.','prize-gallery-empty'));
+ }
+ function openPrizeEditor(prize=null){
+  const dialog=$('prize-editor-modal'),pool=settings.config.pools[activeTier];
+  const creating=!prize;
+  const draft=prize?structuredClone(prize):{id:'p'+(crypto.randomUUID?.().replace(/-/g,'')||Math.random().toString(36).slice(2)+Date.now()),name:'',cents:0,url:'',videoUrl:'',image:'',description:'',proofAngles:[]};
+  if(!isUploadedVideo(draft.videoUrl))draft.videoUrl='';
+  $('prize-editor-heading').textContent=creating?'Create prize':'Edit prize';
+  $('prize-edit-name').value=draft.name;$('prize-edit-value').value=cents(draft.cents);
+  $('prize-edit-link').value=draft.url||'';$('prize-edit-description').value=draft.description||'';
+  $('prize-edit-delete').hidden=creating;$('prize-edit-status').textContent='';
+  const paintMedia=()=>{imagePreview('prize-edit-photo-preview',draft.image,'photo');imagePreview('prize-edit-video-preview',draft.videoUrl,'video');};paintMedia();
+  let working=false;
+  const uploadFile=async(kind,file)=>{if(!file||working)return;working=true;$('prize-edit-save').disabled=true;
+   try{const data=new FormData();data.append(kind==='photo'?'image':'video',file);
+    const response=await L.api(kind==='photo'?'image_upload':'prize_video_upload',{body:data});
+    draft[kind==='photo'?'image':'videoUrl']=new URL(response.path,document.baseURI).href;paintMedia();
+    $('prize-edit-status').textContent=(kind==='photo'?'Photo':'Video')+' uploaded. Save the prize to attach it.';
+   }catch(e){$('prize-edit-status').textContent=e.message;}finally{working=false;$('prize-edit-save').disabled=false;$(kind==='photo'?'prize-edit-photo-upload':'prize-edit-video-upload').value='';}
+  };
+  $('prize-edit-photo-upload').onchange=e=>void uploadFile('photo',e.target.files?.[0]);
+  $('prize-edit-video-upload').onchange=e=>void uploadFile('video',e.target.files?.[0]);
+  $('prize-edit-photo-remove').onclick=()=>{draft.image='';paintMedia();};
+  $('prize-edit-video-remove').onclick=()=>{draft.videoUrl='';paintMedia();};
+  const tags=$('prize-edit-tags');tags.replaceChildren(elem('span','INSERT SMART TAG','mini-label'));
+  for(const name of ['prize_name','prize_value','prize_tier']){
+   const tag=elem('button','{'+name+'}','btn btn-outline');tag.type='button';tag.onclick=()=>{
+    const field=$('prize-edit-description'),token='{'+name+'}',pos=field.selectionStart;
+    field.setRangeText(token,pos,field.selectionEnd,'end');field.focus();
+   };tags.append(tag);
+  }
+  const paintAngles=()=>{const root=$('prize-edit-angles');root.replaceChildren();
+   (draft.proofAngles||[]).forEach((angle,i)=>{const row=elem('div','','prize-edit-angle');row.append(elem('span',`View ${i+1}`,'mini-label'));
+    const label=elem('input');label.value=angle.label||'';label.maxLength=80;label.setAttribute('aria-label',`Camera ${i+1} angle label`);label.oninput=()=>angle.label=label.value;
+    const duration=elem('input');duration.type='number';duration.min='3';duration.max='30';duration.value=angle.seconds||8;duration.setAttribute('aria-label',`Camera ${i+1} recording seconds`);duration.onchange=()=>angle.seconds=Number(duration.value);
+    const remove=elem('button','✕','btn btn-outline');remove.type='button';remove.setAttribute('aria-label',`Remove angle ${i+1}`);remove.onclick=()=>{draft.proofAngles.splice(i,1);paintAngles();};
+    row.append(label,duration,remove);root.append(row);
+   });
+   if(!draft.proofAngles?.length)root.append(elem('p','No proof angles configured. You can match cameras when they are connected.','prize-edit-hint'));
+  };paintAngles();
+  $('prize-edit-detect-cameras').onclick=async()=>{try{
+   if(!navigator.mediaDevices?.enumerateDevices)throw Error('Camera detection requires HTTPS and a supported browser.');
+   if(navigator.mediaDevices.getUserMedia){const stream=await navigator.mediaDevices.getUserMedia({video:true,audio:false});stream.getTracks().forEach(t=>t.stop());}
+   const devices=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='videoinput').slice(0,4);
+   const previous=draft.proofAngles||[];draft.proofAngles=devices.map((d,i)=>({label:previous[i]?.label||d.label?.slice(0,80)||`View ${i+1}`,seconds:previous[i]?.seconds||8}));paintAngles();
+  }catch(e){$('prize-edit-status').textContent=e.message;}};
+  const close=()=>{if(!working)dialog.close();};$('prize-editor-close').onclick=close;$('prize-edit-cancel').onclick=close;
+  $('prize-edit-delete').onclick=async()=>{if(working||creating)return;
+   if(!(await packageDialog({title:'Delete prize?',message:'Delete “'+draft.name+'” from this tier? Save package changes to finalize.',action:'Delete prize'})))return;
+   pool.prizes=pool.prizes.filter(x=>x.id!==prize.id);markPackageDirty();renderTier();dialog.close();
+  };
+  $('prize-editor-form').onsubmit=async e=>{e.preventDefault();if(working)return;
+   try{
+    draft.name=$('prize-edit-name').value.trim();if(!draft.name||draft.name.length>80)throw Error('Enter a prize name (1–80 characters).');
+    draft.cents=amount($('prize-edit-value').value);draft.url=$('prize-edit-link').value.trim();draft.description=$('prize-edit-description').value.trim();
+    if(draft.url&&!/^https?:\/\//i.test(draft.url))throw Error('Prize URL must start with https:// or http://.');
+    for(const angle of draft.proofAngles||[]){if(!Number.isInteger(Number(angle.seconds))||angle.seconds<3||angle.seconds>30)throw Error('Proof angles must record between 3 and 30 seconds.');}
+    if(creating){if(pool.prizes.length>=24)throw Error('Limit: 24 prizes per tier.');pool.prizes.push(draft);prize=draft;}
+    else Object.assign(prize,draft);
+    markPackageDirty();renderTier();
+    $('prize-edit-status').textContent='Saving prize in the selected package…';
+    const saved=await save();if(saved)dialog.close();else $('prize-edit-status').textContent='Could not save. Review the status beneath the package editor.';
+   }catch(err){$('prize-edit-status').textContent=err.message;}
+  };
+  dialog.showModal();$('prize-edit-name').focus();
  }
  // A single themed, accessible dialog for package creation and confirmations.
  function packageDialog(options){
@@ -104,6 +162,9 @@
    packageId===selectedPackage?'✓ Selected for the next game':publication==='draft'?'Draft · publish to make selectable':'Editing package · not selected for the next game';
   $('package-activate').disabled=!packagesAvailable||packageId===selectedPackage||!item?.enabled||publication!=='published';
   $('package-remove').disabled=!packagesAvailable||packageId===selectedPackage;
+  if($('prize-package-summary-name'))$('prize-package-summary-name').textContent=item?.name||'Prize package';
+  if($('prize-package-summary-state'))$('prize-package-summary-state').textContent=publication==='draft'?'Draft':item?.enabled?'Published & enabled':'Disabled';
+  if($('prize-package-summary-description'))$('prize-package-summary-description').textContent=packageId===selectedPackage?'Default for the next game · Edit tier prizes below':'Available for player selection when published and enabled';
  }
  function switchPackage(id,force=false){
   if(!force&&packageDirty){
@@ -111,7 +172,7 @@
   }
   const p=packageFor(id);if(!p)return;
   packageId=id;packageDirty=false;activeTier='tier1';settings.config=structuredClone(p.config);
-  $('package-name').value=p.name;$('package-enabled').checked=!!p.enabled;
+  $('package-name').value=p.name;$('package-image').value=p.image||'';$('package-enabled').checked=!!p.enabled;
   $('package-player-choice').checked=!!p.playerSelectable;
   $('package-budget').value=p.budgetCents==null?'':cents(p.budgetCents);
   for(const [k,v] of Object.entries(settings.config.odds))if($('odds-'+k))$('odds-'+k).value=v;
@@ -147,7 +208,7 @@
   const p=packageFor(packageId);if(!p)throw Error('Select a prize package.');
   const response=await L.api('package_save',{body:{id:p.id,version:p.version,name:$('package-name').value.trim(),
    config:settings.config,enabled:$('package-enabled').checked,playerSelectable:$('package-player-choice').checked,
-   budgetCents:packageBudget}});
+   budgetCents:packageBudget,image:$('package-image').value.trim()}});
   Object.assign(p,response.package);settings.config=structuredClone(p.config);packageDirty=false;
   drawPackageTabs();renderTier();status('Prize package saved locally. Current sessions remain unchanged.');return true;
  }catch(e){status(e.message,true);return false;}}
@@ -179,6 +240,12 @@
    status(publish?'Package Published. Enable and select it to use for the next game.':'Package moved to Draft. Existing game sessions are unchanged.');
   }catch(e){status(e.message,true);}
  };
+ const packageUpload=$('package-image-upload');
+ if(packageUpload)packageUpload.onchange=async()=>{if(!packageUpload.files?.[0])return;
+  try{const form=new FormData();form.append('image',packageUpload.files[0]);const r=await L.api('image_upload',{body:form});
+   $('package-image').value=new URL(r.path,document.baseURI).href;markPackageDirty();status('Package cover uploaded. Save package changes to attach it.');
+  }catch(e){status(e.message,true);}finally{packageUpload.value='';}
+ };
  $('package-activate').onclick=async()=>{
   if(packageDirty&&!(await save()))return;
   try{await L.api('package_select',{body:{id:packageId}});selectedPackage=packageId;drawPackageTabs();
@@ -190,21 +257,13 @@
   try{await L.api('package_delete',{body:{id:packageId}});await reloadPackages(selectedPackage);status('Package deleted.');}
   catch(e){status(e.message,true);}
  };
- for(const id of ['package-name','package-budget','package-enabled','package-player-choice'])$(id).addEventListener('change',markPackageDirty);
+ for(const id of ['package-name','package-image','package-budget','package-enabled','package-player-choice'])$(id).addEventListener('change',markPackageDirty);
  $('tab-prizes').addEventListener('change',e=>{
   if(!e.target.closest('.prize-package-config')&&!e.target.closest('.prize-package-tabs'))markPackageDirty();
  });
  $('tier-budget').onchange=()=>{try{setBudget();markPackageDirty();}catch(e){status(e.message,true);}};
  document.querySelectorAll('[data-tier]').forEach(b=>b.onclick=()=>{try{setBudget();selectTier(b.dataset.tier);}catch(e){status(e.message,true);}});
- $('add-prize').onsubmit=async e=>{e.preventDefault();try{setBudget();const f=e.currentTarget,pool=settings.config.pools[activeTier];
-   if(pool.prizes.length>=24)throw Error('Limit: 24 prizes per tier.');
-   const name=f.elements.name.value.trim();if(!name)throw Error('Enter a prize name.');
-   const id='p'+(crypto.randomUUID?.().replace(/-/g,'')||Math.random().toString(36).slice(2)+Date.now());
-   let imageUrl=f.elements.image.value.trim();
-   if(f.elements.imagefile.files?.[0]){const form=new FormData();form.append('image',f.elements.imagefile.files[0]);const uploaded=await L.api('image_upload',{body:form});imageUrl=new URL(uploaded.path,document.baseURI).href;}
-   pool.prizes.push({id,name,cents:amount(f.elements.value.value),url:f.elements.url.value.trim(),videoUrl:f.elements.videoUrl.value.trim(),image:imageUrl,proofAngles:[]});
-   f.reset();renderTier();status('Prize added. Select Save all prize settings to publish.');
- }catch(err){status(err.message,true);}};
+ $('add-prize-button').onclick=()=>openPrizeEditor();
  $('auto-split').onclick=()=>{try{setBudget();const pool=settings.config.pools[activeTier],claimed=new Set((window.__lastSession?.session?.claims||[]).map(c=>c.prizeId));
   const fixed=pool.prizes.filter(p=>claimed.has(p.id)).reduce((n,p)=>n+p.cents,0),available=pool.prizes.filter(p=>!claimed.has(p.id));
   if(!available.length)throw Error('There are no unclaimed prizes to split.');const remaining=pool.budgetCents-fixed;
@@ -212,6 +271,10 @@
   for(const p of available)p.cents=each+(extra-->0?1:0);
   renderTier();status('Unclaimed prizes auto-split. Save to publish.');
  }catch(e){status(e.message,true);}};
+ $('open-package-settings').onclick=()=>$('package-settings-modal').showModal();
+ $('package-settings-close').onclick=()=>$('package-settings-modal').close();
+ $('package-settings-cancel').onclick=()=>$('package-settings-modal').close();
+ $('package-settings-save').onclick=async()=>{if(await save())$('package-settings-modal').close();};
  $('save-prizes').onclick=save;
  async function loadIntro(){const r=await L.api('settings',{query:{game:editIntroGame}});introConfig=r.settings;
    $('intro-title').value=introConfig.intro.title;$('intro-subtitle').value=introConfig.intro.subtitle;
@@ -271,7 +334,21 @@
    const meta=elem('div',session.spins+' spins · '+session.claims+' claims · '+L.money(session.awardedCents)+' awarded · '+session.createdAt,'admin-session-metadata');
    const actions=elem('div','','admin-session-actions');
    if(['active','paused'].includes(session.status)){
-    actions.append(makeSessionButton('Save session','save_session',session),makeSessionButton('Finish game','end',session));
+    const movie=elem('button','▸ Export current clips','btn btn-primary admin-session-export');
+    movie.type='button';movie.dataset.sessionId=session.id;
+    movie.setAttribute('aria-label','Export current clips into movie for session '+session.id);
+    movie.onclick=async()=>{
+     if(!confirm('Queue an MP4 movie from the current saved timeline (or automatically select captured clips if no edit exists)? Only Admin can export.'))return;
+     movie.disabled=true;
+     try{
+      const result=await window.LuckyVideoGallery.queueCurrent(session.id);
+      status('Movie queued: '+result.metrics.clipCount+' clips. View progress under Video gallery.');
+      document.querySelector('[data-tab="videos"]')?.click();
+      await window.LuckyVideoGallery.refresh();
+     }catch(e){status(e.message,true);}finally{movie.disabled=false;}
+    };
+    actions.append(movie);
+    actions.append(makeSessionButton('Save session' ,'save_session',session),makeSessionButton('Finish game','end',session));
    }
    if(session.status==='saved'){
     actions.append(makeSessionButton('Resume saved','resume_saved',session),makeSessionButton('Finish game','finish_saved',session));
@@ -344,12 +421,13 @@
    document.querySelectorAll('.platform-admin-panel').forEach(el=>el.hidden=el.id!=='tab-'+tab);
    document.querySelector('.admin-console')?.classList.remove('nav-open');
    $('admin-nav-toggle')?.setAttribute('aria-expanded','false');
+   if(tab==='videos')window.LuckyVideoGallery?.refresh().catch(e=>status(e.message,true));
  });
  $('admin-nav-toggle').onclick=()=>{
   const open=document.querySelector('.admin-console').classList.toggle('nav-open');
   $('admin-nav-toggle').setAttribute('aria-expanded',String(open));
  };
- const initialTab=new URLSearchParams(location.search).get('tab');if(['games','prizes','intro','music','sessions','history','migration'].includes(initialTab))document.querySelector(`[data-tab="${initialTab}"]`)?.click();
+ const initialTab=new URLSearchParams(location.search).get('tab');if(['games','cameras','prizes','intro','music','sessions','history','videos','migration'].includes(initialTab))document.querySelector(`[data-tab="${initialTab}"]`)?.click();
  try{const legacy=JSON.parse(localStorage.getItem('lucky-spin-v3')||'null');$('legacy-status').textContent=legacy?.pools?'Legacy prize pools found. You can import their definitions.':'No V5 game configuration found in this browser.';}catch(_){$('legacy-status').textContent='No readable V5 game data found.';}
  Promise.all([loadSettings(),refreshMusic(),refreshHistory(),refreshSessions(),L.api('last')]).then(async ([_,__,___,____,last])=>{window.__lastSession=last.data;await loadIntro();status('Admin settings loaded.');}).catch(e=>status(e.message,true));
 })();

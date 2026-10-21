@@ -38,11 +38,39 @@
   returningToDashboard=true;
   location.assign('index.php');
  }
- let prizePackageOptions=[],chosenPackage='';
+ let prizePackageOptions=[],chosenPackage='',choiceIndex=0,choiceSignature='';
+ const eligiblePackages=()=>prizePackageOptions.filter(p=>p.enabled&&p.playerSelectable&&(p.publicationStatus||'published')==='published');
+ function paintPackageChooser(){
+  const root=$('host-package-choice-cards'),stage=$('host-prize-package-chooser');if(!root||!stage)return;
+  const options=eligiblePackages(),playing=['active','paused'].includes(data?.view?.status);
+  stage.hidden=playing||options.length<2;const wheelCard=stage.nextElementSibling;if(wheelCard)wheelCard.hidden=!stage.hidden;if(stage.hidden)return;
+  const signature=JSON.stringify(options.map(p=>[p.id,p.name,p.image]));
+  if(signature!==choiceSignature){choiceSignature=signature;choiceIndex=Math.max(0,options.findIndex(p=>p.id===chosenPackage));
+   root.replaceChildren();for(const [i,p] of options.entries()){
+    const label=document.createElement('button');label.type='button';label.className='host-package-choice';label.dataset.packageId=p.id;label.setAttribute('role','radio');
+    label.onclick=()=>{choiceIndex=i;paintPackageChooser();};
+    if(p.image){const img=document.createElement('img');img.src=p.image;img.alt='';img.referrerPolicy='no-referrer';label.append(img);}
+    else{const icon=document.createElement('span');icon.className='host-package-cover-fallback';icon.textContent='✦';label.append(icon);}
+    const name=document.createElement('strong');name.textContent=p.name;label.append(name);root.append(label);
+   }
+  }
+  const cards=[...root.querySelectorAll('button')];cards.forEach((btn,i)=>{
+   btn.classList.toggle('selected',i===choiceIndex);btn.setAttribute('aria-checked',String(i===choiceIndex));btn.tabIndex=i===choiceIndex?0:-1;
+  });
+  $('host-package-choice-help').textContent='Selected: '+options[choiceIndex]?.name+' · use phone arrows, then Select to start';
+ }
+ async function beginChosenPackage(){
+  const options=eligiblePackages(),item=options[choiceIndex];if(!item||busy)throw Error('Select an enabled published prize package.');
+  if(chosenPackage!==item.id){const r=await L.api('package_select',{body:{id:item.id}});chosenPackage=item.id;paintGamePackages();}
+  await start();return true;
+ }
+ $('host-package-choice-start').onclick=()=>beginChosenPackage().catch(e=>msg(e.message,true));
+
  function paintGamePackages(){
   const input=$('host-package-select');if(!input)return;
   const live=['active','paused'].includes(data?.view?.status);
   $('host-package-picker').hidden=live;
+  paintPackageChooser();
   const sig=JSON.stringify(prizePackageOptions.map(p=>[p.id,p.name,p.enabled]));
   if(input.dataset.signature!==sig){
    input.dataset.signature=sig;input.replaceChildren();
@@ -78,7 +106,9 @@
    return slices;
  }
  function render(){
-  const view=data?.view;const active=view?.status==='active';
+  const view=data?.view;const live=['active','paused'].includes(view?.status);const active=view?.status==='active';
+  const claimsPanel=document.querySelector('.host-claims-column');if(claimsPanel)claimsPanel.hidden=!live;
+  document.body.classList.toggle('game-no-live-session',!live);paintPackageChooser();
   $('start-game').disabled=busy||active||view?.status==='paused';
   $('start-game').textContent=view?'▶ New game':'▶ Start Game';
   $('spin-game').disabled=busy||!active||view?.spinPending||currentOffer?.status==='pending';
@@ -89,14 +119,14 @@
   $('game-state').textContent=!view?'READY FOR NEW GAME':active?`ACTIVE GAME · ${view.spinCount} SPINS`:view.status==='paused'?'GAME PAUSED':view.status==='saved'?'GAME SAVED':'GAME ENDED';
   // The public TV view intentionally omits claim IDs. The signed-in session owns
   // the authoritative claim IDs required for proof capture and revision history.
-  const actualClaims=data?.session?.claims||[];
+  const actualClaims=live?(data?.session?.claims||[]):[];
    const visibleClaims=(view?.spinPending&&view.lastSpin?.type==='award')?actualClaims.slice(0,-1):actualClaims;
    const items=visibleClaims.slice().reverse();
   // Count the actual unclaimed prize values across all three configured tiers.
   // Pool budgets can include unused money and must not be treated as winnable prizes.
   const claimed=visibleClaims;
   const claimedKeys=new Set(claimed.map(c=>`${c.tier}:${c.prizeId}`));
-  const pools=data?.session?.pools||{};
+  const pools=live?(data?.session?.pools||{}):{};
   const available=['tier1','tier2','bonus'].reduce((total,tier)=>total+(pools[tier]?.prizes||[])
     .reduce((sum,p)=>sum+(p.cents>0&&!claimedKeys.has(`${tier}:${p.id}`)?p.cents:0),0),0);
   const awarded=items.reduce((n,p)=>n+p.cents,0);
@@ -156,7 +186,7 @@
  }
  async function updateProofStates(){const session=data?.view?.id;if(!session){proofStates={};proofSessionId='';return;}
   if(proofPending)return;proofPending=true;try{const r=await fetch('api/claim-proof.php?action=summary&session='+encodeURIComponent(session),{credentials:'same-origin'});const out=await r.json();if(out.ok&&data?.view?.id===session){proofStates=out.states||{};proofSessionId=session;render();}}catch(_){/* Optional proof status recovers on next refresh. */}finally{proofPending=false;}}
- async function refresh(){const requested=new URL(location.href).searchParams.get('session');const r=requested&&/^[a-f0-9]{32}$/.test(requested)?{data:await L.api('session',{query:{id:requested}})}:await L.api('last');
+ async function refresh(){const requested=new URL(location.href).searchParams.get('session');const r=requested&&/^[a-f0-9]{32}$/.test(requested)?{data:await L.api('session',{query:{id:requested}})}:await L.api('current');
   data=r.data||null;lastVersion=data?.view?.version||0;activeId=data?.view?.id||'';wheelOutcome=null;
   syncedSpin=data?.view?.lastSpin?.spinCount||0;initialSync=false;render();updateProofStates();refreshThumbs(true);
  }
@@ -174,7 +204,7 @@
    const id=validId(requested)?requested:pinned;
    // Pin the current live session: 'last' may prefer an unrelated saved game
    // after this session is ended on the phone, masking the terminal transition.
-   const result=id?{data:await L.api('session',{query:{id}})}:await L.api('last'),fresh=result.data||null,view=fresh?.view;
+   const result=id?{data:await L.api('session',{query:{id}})}:await L.api('current'),fresh=result.data||null,view=fresh?.view;
    if(!view){if(data){data=null;activeId='';syncedSpin=0;lastVersion=0;render();}return;}
    // End Game on a phone is already committed to the server; host must follow.
    // Only redirect a currently live session, never historical finished sessions.
@@ -330,7 +360,15 @@
  // A phone may request interface actions, but it never calls prize award APIs directly.
  // The logged-in host browser retains control of the session and all confirmations.
  async function remoteCommand(command){
-   if(command.startsWith('proof-'))return false; // Proof commands belong to proof.php only.
+   if(command.startsWith('proof-'))return false;
+   const chooser=$('host-prize-package-chooser');
+   if(chooser&&!chooser.hidden&&['up','down','left','right','select'].includes(command)){
+    if(command==='select')return await beginChosenPackage();
+    const count=eligiblePackages().length;
+    choiceIndex=(choiceIndex+(command==='left'||command==='up'?-1:1)+count)%count;
+    paintPackageChooser();return true;
+   }
+   if(command==='prize-video-play')return await playPrizeVideo();
    if(busy&&['spin','start','end','pause','resume'].includes(command))return false;
    const exactVolume=command.match(/^volume-(100|[0-9]{1,2})$/);if(exactVolume){const v=L.volume('music',Number(exactVolume[1]));$('music-volume').value=v;$('music-value').textContent=v+'%';return true;}
    if(command.startsWith('music-find-')){const slug=command.slice(11),normalize=t=>String(t).toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');const song=L.tracks.find(t=>normalize(t.title)===slug);if(!song)throw Error('Song not found in music library.');await L.playMusic(song.id);return true;}
@@ -361,6 +399,38 @@
    }
  }
  const hostTabs=['game','music','phones','display'];
+ let playingPrizeClaim='';
+ const videoFrame=raw=>{
+  try{const url=new URL(raw,document.baseURI),base=new URL(document.baseURI);
+   if(url.origin===base.origin&&url.pathname.endsWith('/api/index.php')&&
+      url.searchParams.get('action')==='prize_video'&&/^[a-f0-9]{32}$/.test(url.searchParams.get('id')||''))
+      return {kind:'video',src:url.href};
+  }catch(_){}return null;
+ };
+ function closePrizeVideo(){playingPrizeClaim='';$('host-prize-video-player').replaceChildren();$('host-prize-video').hidden=true;}
+ $('host-prize-video-close').onclick=closePrizeVideo;
+ async function playPrizeVideo(){
+  if(!data?.view?.id)return false;
+  const response=await L.api('prize_offer',{query:{session:data.view.id}});
+  const offer=response.offer;
+  if(!['pending','accepted'].includes(offer?.status))throw Error('This prize is not available for playback.');
+  // Re-read committed game state; the spinning screen may not yet have the claim.
+  const latest=await L.api('session',{query:{id:data.view.id}});
+  const claim=(latest.session?.claims||[]).find(c=>c.id===offer.claimId);
+  const item=videoFrame(offer.videoUrl||'');
+  if(!item)throw Error('Upload a prize video in the prize editor first.');
+  closePrizeVideo();playingPrizeClaim=offer.claimId;
+  const el=document.createElement(item.kind==='video'?'video':item.kind==='iframe'?'iframe':'a');el.href=item.kind==='link'?item.src:undefined;
+  if(item.kind==='link'){el.textContent='↗ Open prize video';el.target='_blank';el.rel='noopener noreferrer';}
+  else el.src=item.src;
+  if(item.kind==='video'){el.controls=true;el.autoplay=true;el.playsInline=true;el.preload='metadata';}
+  else if(item.kind==='iframe'){el.title='Prize video';el.allow='autoplay; encrypted-media; picture-in-picture';el.referrerPolicy='no-referrer';
+   el.setAttribute('sandbox','allow-scripts allow-same-origin allow-presentation');}
+  $('host-prize-video-player').append(el);
+  $('host-prize-video-title').textContent=claim?.name||'Prize video';$('host-prize-video').hidden=false;
+  setHostTab('display');if(item.kind==='video')el.play().catch(()=>msg('Tap play in the desktop video to start playback.',true));
+  return true;
+ }
  // Put the existing accessible tabs directly into the on-screen page header.
  // Standalone UI fixtures without the server header retain the same controls.
  const topBar=document.querySelector('body.game-fullwidth .header');

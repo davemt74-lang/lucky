@@ -19,6 +19,7 @@ final class GameEngine {
     }
     public static function defaults(): array {return ['pools'=>self::defaultPools(),'odds'=>self::DEFAULT_ODDS];}
     public static function validateConfig(array $config): array {
+        require_once __DIR__.'/PrizeSmartText.php';
         $pools=$config['pools']??null; $odds=$config['odds']??self::DEFAULT_ODDS;
         if (!is_array($pools) || !is_array($odds)) throw new DomainException('Invalid game configuration.');
         $used=[];$validated=[];
@@ -35,6 +36,7 @@ final class GameEngine {
                    !is_string($name)||trim($name)===''||strlen($name)>160 ||
                    !is_int($amount)||$amount<0||$amount>1000000000) throw new DomainException('Invalid or duplicate prize.');
                 $url=$p['url']??''; $image=$p['image']??''; $videoUrl=$p['videoUrl']??'';
+                $description=PrizeSmartText::validate($p['description']??'');
                 if(!is_string($url)||!self::validUrl($url)||!is_string($image)||!self::validUrl($image)||!is_string($videoUrl)||!self::validUrl($videoUrl))
                    throw new DomainException('Prize links must be blank or valid HTTP(S) URLs.');
                 $angles=$p['proofAngles']??[];
@@ -48,7 +50,7 @@ final class GameEngine {
                     $proof[]=['label'=>$label,'seconds'=>$seconds];
                 }
                 $used[$id]=true;$sum+=$amount;
-                $items[]=['id'=>$id,'name'=>trim($name),'cents'=>$amount,'url'=>$url,'image'=>$image,'videoUrl'=>$videoUrl,'proofAngles'=>$proof];
+                $items[]=['id'=>$id,'name'=>trim($name),'cents'=>$amount,'url'=>$url,'image'=>$image,'videoUrl'=>$videoUrl,'description'=>$description,'proofAngles'=>$proof];
             }
             if($sum>$pool['budgetCents']) throw new DomainException($tier.' prizes exceed their budget.');
             $validated[$tier]=['budgetCents'=>$pool['budgetCents'],'prizes'=>$items];
@@ -163,7 +165,7 @@ final class GameEngine {
         $index=$bonusMode?array_search($pick['id'],array_column($beforeSlices,'prizeId'),true):$slotIndex;
         $s['lastSpin']=['type'=>'award','index'=>$index,'slices'=>$beforeSlices,'at'=>gmdate('c'),'spinCount'=>$s['spinCount']];
         $claim=['id'=>bin2hex(random_bytes(16)),'prizeId'=>$pick['id'],'tier'=>$tier,'name'=>$pick['name'],
-            'cents'=>$pick['cents'],'url'=>$pick['url'],'image'=>$pick['image'],'videoUrl'=>$pick['videoUrl']??'','slot'=>$slotIndex===null?null:$slotIndex+1,
+            'cents'=>$pick['cents'],'url'=>$pick['url'],'image'=>$pick['image'],'videoUrl'=>$pick['videoUrl']??'','description'=>$pick['description']??'','slot'=>$slotIndex===null?null:$slotIndex+1,
             'at'=>gmdate('c'),'method'=>'spin'];
         $s['claims'][]=$claim;
         if($slotIndex!==null){
@@ -190,7 +192,7 @@ final class GameEngine {
             $slotIdx=null;
             foreach($s['slots'] as $i=>$slot){if($slot['prizeId']===$p['id']){$slotIdx=$i;break;}}
             $claim=['id'=>bin2hex(random_bytes(16)),'prizeId'=>$p['id'],'tier'=>$c['tier'],'name'=>$p['name'],'cents'=>$p['cents'],
-                'url'=>$p['url'],'image'=>$p['image'],'videoUrl'=>$p['videoUrl']??'','slot'=>$slotIdx===null?null:$slotIdx+1,'at'=>gmdate('c',strtotime($at)),'method'=>'import'];
+                'url'=>$p['url'],'image'=>$p['image'],'videoUrl'=>$p['videoUrl']??'','description'=>$p['description']??'','slot'=>$slotIdx===null?null:$slotIdx+1,'at'=>gmdate('c',strtotime($at)),'method'=>'import'];
             $s['claims'][]=$claim;$seen[$p['id']]=true;
             if($slotIdx!==null){$next=$c['tier']==='tier1'?'tier2':($c['tier']==='tier2'?'bonus':null);
                 $s['slots'][$slotIdx]=['tier'=>null,'prizeId'=>null,'pending'=>$next];if($next)self::promote($s,$slotIdx);}

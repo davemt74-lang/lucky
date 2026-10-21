@@ -840,3 +840,237 @@ body.admin-studio-page .prize-package-budget-label small{font-size:10px;color:#b
 .proof-editor-page .proof-rec-caption{font-size:10px;letter-spacing:0;font-weight:600}
 @keyframes lucky-proof-rec-pulse{50%{opacity:.4}}
 @media(prefers-reduced-motion:reduce){.proof-editor-page .proof-rec-dot{animation:none}}
+
+/* V5Q25: compact prize uploads, voice templates, desktop video and proof timers. */
+.prize-upload-icon{display:inline-flex;position:relative;justify-content:center;align-items:center;width:34px;height:34px;min-width:34px;border:1px solid #60728d;border-radius:9px;background:#1b2d42;color:#f5da99;cursor:pointer;overflow:hidden}
+.prize-upload-icon input[type=file]{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:0}
+.prize-upload-icon:focus-within{outline:2px solid #76deca;outline-offset:2px}
+.prize-description{width:100%;min-height:56px;background:#0c1b2c;color:#fff;border:1px solid #465a73;border-radius:9px;padding:9px;font:inherit}
+.prize-smart-tags{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.prize-smart-tags .btn{font-size:10px;padding:5px 7px}
+.package-image-field{min-width:150px}.package-image-upload{align-self:end}
+.phone-prize-photo{display:block;width:100%;max-height:280px;object-fit:contain;border-radius:12px;margin:10px 0;background:#101e31}.phone-prize-photo[hidden]{display:none}
+.phone-prize-description{font-size:14px;line-height:1.5;color:#e4edf5;white-space:pre-wrap}
+.host-prize-video{padding:8px;border:1px solid #5e7797;border-radius:14px;background:#091522;margin-bottom:18px}
+.host-prize-video-toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:6px}
+.host-prize-video-player video,.host-prize-video-player iframe{display:block;width:100%;height:auto;aspect-ratio:16/9;background:#000;border:0;border-radius:9px}
+.proof-stage-timer{position:absolute;z-index:18;top:14px;left:50%;transform:translateX(-50%);background:#0a152ee8;color:#fff;border:2px solid #ffcc80;border-radius:15px;padding:12px 18px;display:flex;flex-direction:column;align-items:center;min-width:136px;box-shadow:0 8px 40px #0009;pointer-events:none}
+.proof-stage-timer[hidden]{display:none}.proof-stage-timer strong{font-size:46px;line-height:1.1;font-variant-numeric:tabular-nums}.proof-stage-timer span{font-size:12px;font-weight:850}
+.proof-stage-timer[data-phase=recording]{border-color:#f55d67}.proof-manual-duration{display:inline-flex;gap:8px;align-items:center;font-size:12px}
+
+/* V5Q25: full-size game package chooser and Live source setup. */
+.host-package-chooser{padding:20px;margin-bottom:14px;text-align:center}
+.host-package-chooser h2{font-size:22px}.host-package-chooser p{color:#afc3d9;font-size:12px}
+.host-package-choice-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:14px;margin:18px 0}
+.host-package-choice{display:flex;flex-direction:column;gap:12px;align-items:center;padding:13px;border-radius:15px;border:2px solid #3e526e;background:#122039;color:#f1f5fb;cursor:pointer;text-align:center}
+.host-package-choice.selected{border-color:#f9d38d;box-shadow:0 0 0 3px #f9d38d22;background:#23334d}
+.host-package-choice img,.host-package-cover-fallback{display:block;object-fit:cover;width:100%;aspect-ratio:1.4;border-radius:10px;background:#273850}
+.host-package-cover-fallback{display:grid;place-items:center;font-size:66px;color:#e4be78}
+.live-setup-sections{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.host-live-controls{padding:18px;margin-bottom:16px}
+.live-camera-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.live-camera-item{padding:10px;background:#0e1a2d;border:1px solid #384c64;border-radius:12px;display:flex;flex-direction:column;gap:8px}
+.live-camera-item video{width:100%;aspect-ratio:16/9;background:#060d16;border-radius:9px}
+
+.phone-dashboard-arrows{padding:12px;margin:12px 0;border-radius:14px;background:#15253c}.phone-dashboard-arrows p{font-size:12px;color:#a6bed7}
+.phone-dashboard-arrows .phone-direction{display:flex;justify-content:center;gap:12px}
+.phone-dashboard-arrows button{min-width:65px;min-height:50px}
+.phone-dashboard-package-image{width:100%;max-height:130px;object-fit:cover;border-radius:10px;margin-top:9px}.phone-dashboard-package-image[hidden]{display:none}
+
+.proof-prize-video{position:absolute;inset:8px;z-index:16;background:#081223f2;border:1px solid #6983a5;border-radius:14px;padding:12px;display:flex;flex-direction:column}
+.proof-prize-video[hidden]{display:none}.proof-prize-video .host-prize-video-player{flex:1;display:grid;place-items:center;min-height:0}
+.host-prize-video-player a{display:inline-flex;padding:14px;background:#1c3654;color:#def5ff;border-radius:10px;font-weight:800}
+.phone-proof-prize{padding:14px;margin-bottom:10px}
+
+/* A new game has no claim history: the package chooser occupies the entire host. */
+body.game-fullwidth.game-no-live-session .host-workspace{grid-template-columns:minmax(0,1fr)}
+body.game-fullwidth.game-no-live-session .host-claims-column{display:none!important}
+/* V5Q.25: prize management uses distinct cards and complete editing dialogs. */
+body.admin-studio-page .prize-package-summary{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:18px 20px;margin:18px 0 20px;border:1px solid #344960;background:linear-gradient(130deg,#13243a,#1b2d42);border-radius:14px}
+body.admin-studio-page .prize-package-summary strong{display:block;margin-top:4px;font-size:21px;letter-spacing:-.03em;color:#f5f5fa}
+body.admin-studio-page .prize-package-summary p{font-size:12px;color:#aabed5;margin:6px 0 0}
+body.admin-studio-page .prize-package-state{border:1px solid #376b63;background:#173830;color:#aaf5d5;padding:7px 12px;border-radius:99px;font-size:11px;font-weight:800;white-space:nowrap}
+body.admin-studio-page .prize-gallery-header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:20px 0 14px}
+body.admin-studio-page .prize-gallery-header h3{font-size:21px;margin:4px 0}
+body.admin-studio-page .prize-gallery-header p:not(.mini-label){font-size:12px;color:#adc0da;margin:5px 0 0}
+body.admin-studio-page .prize-card-gallery{display:grid;gap:14px;margin:0 0 28px;min-width:0}
+body.admin-studio-page .prize-catalog-card{display:grid;grid-template-columns:108px minmax(0,1fr) auto;align-items:center;gap:18px;min-width:0;padding:16px;border:1px solid #3c5572;border-radius:16px;background:linear-gradient(130deg,#1d2c43,#132135);box-shadow:inset 0 1px #ffffff09,0 7px 18px #020b1740;transition:border-color .2s}
+body.admin-studio-page .prize-catalog-card:hover{border-color:#c9a76c}
+body.admin-studio-page .prize-catalog-art{height:98px;width:108px;border-radius:12px;background:#2a405b;overflow:hidden;display:grid;place-items:center;border:1px solid #45617a}
+body.admin-studio-page .prize-catalog-art img{width:100%;height:100%;object-fit:cover}
+body.admin-studio-page .prize-catalog-placeholder{font-size:44px;color:#e9b769}
+body.admin-studio-page .prize-catalog-heading{display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+body.admin-studio-page .prize-catalog-heading h3{font-size:16px;color:#f5f7fd;margin:0;overflow-wrap:anywhere}
+body.admin-studio-page .prize-catalog-value{font-size:15px;color:#f7d18d}
+body.admin-studio-page .prize-catalog-excerpt{font-size:12px;color:#b5c7dc;margin:8px 0 10px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+body.admin-studio-page .prize-catalog-metadata{display:flex;gap:6px;flex-wrap:wrap}
+body.admin-studio-page .prize-catalog-chip{font-size:10px;color:#c4d8e9;border:1px solid #3e5875;border-radius:7px;padding:5px 8px;background:#0d1a2a80}
+body.admin-studio-page .prize-catalog-edit{white-space:nowrap}
+body.admin-studio-page .prize-gallery-empty{color:#adc0da;padding:26px;border:1px dashed #536c86;border-radius:12px;text-align:center}
+body.admin-studio-page .prize-workspace-dialog{position:fixed;inset:0;margin:auto;width:min(920px,calc(100vw - 30px));max-width:920px;max-height:min(94vh,1100px);overflow:auto;color:#f4f7fc;border-radius:20px;padding:0;border:1px solid #56708e;background:#121f33;box-shadow:0 30px 110px #000b}
+body.admin-studio-page .prize-workspace-dialog::backdrop{background:#010814cf;backdrop-filter:blur(7px)}
+body.admin-studio-page .prize-dialog-shell{padding:24px 28px}
+body.admin-studio-page .prize-dialog-header{display:flex;justify-content:space-between;align-items:start;gap:24px;border-bottom:1px solid #394e67;padding-bottom:18px;margin-bottom:20px}
+body.admin-studio-page .prize-dialog-header h2{font-size:27px;line-height:1.2;margin:5px 0 7px;color:#fff}
+body.admin-studio-page .prize-dialog-header p:not(.mini-label){font-size:12px;color:#acc0d9;margin:0}
+body.admin-studio-page .prize-dialog-close{height:38px;width:38px;border:1px solid #506883;border-radius:10px;background:#203049;color:#f4f7fc;flex:none;cursor:pointer}
+body.admin-studio-page .prize-dialog-footer{display:flex;justify-content:flex-end;gap:10px;align-items:center;border-top:1px solid #394e67;margin-top:22px;padding-top:20px;flex-wrap:wrap}
+body.admin-studio-page .prize-dialog-footer .spacer{flex:1}
+body.admin-studio-page .prize-edit-form{display:grid;gap:18px}
+body.admin-studio-page .prize-edit-form>label,body.admin-studio-page .prize-edit-grid>label{display:grid;gap:7px;color:#dbe8f9;font-size:12px;font-weight:700}
+body.admin-studio-page .prize-edit-form input:not([type=file]),body.admin-studio-page .prize-edit-form textarea,body.admin-studio-page .prize-workspace-dialog .prize-package-config input:not([type=file]){width:100%;color:#fff;background:#0d182b;border:1px solid #526a85;border-radius:9px;padding:11px 12px;min-height:42px;font:inherit;box-sizing:border-box}
+body.admin-studio-page .prize-edit-form textarea{resize:vertical;min-height:112px}
+body.admin-studio-page .prize-edit-grid{display:grid;grid-template-columns:minmax(0,2fr) minmax(125px,1fr);gap:12px}
+body.admin-studio-page .prize-edit-media-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+body.admin-studio-page .prize-edit-media{padding:16px;border:1px solid #3d5470;border-radius:12px;background:#172842;min-width:0}
+body.admin-studio-page .prize-edit-media h3{font-size:15px;margin:0 0 12px}
+body.admin-studio-page .prize-edit-media-preview{height:170px;border-radius:9px;display:grid;place-items:center;overflow:hidden;background:#243953;border:1px solid #3c5573}
+body.admin-studio-page .prize-edit-media-preview img,body.admin-studio-page .prize-edit-media-preview video{height:100%;width:100%;object-fit:contain}
+body.admin-studio-page .prize-edit-media-empty,body.admin-studio-page .prize-edit-hint{color:#b0c3d9;font-size:12px}
+body.admin-studio-page .prize-edit-upload-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:11px}
+body.admin-studio-page .prize-edit-upload{position:relative;overflow:hidden;cursor:pointer}
+body.admin-studio-page .prize-edit-upload input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+body.admin-studio-page .prize-edit-proof{padding:15px;border:1px solid #3d5470;border-radius:12px;background:#172842}
+body.admin-studio-page .prize-edit-proof-heading{display:flex;justify-content:space-between;align-items:center;gap:12px}
+body.admin-studio-page .prize-edit-proof-heading h3{font-size:16px;margin:0}
+body.admin-studio-page .prize-edit-proof-heading p{color:#adc0d9;font-size:11px;margin:4px 0}
+body.admin-studio-page .prize-edit-angle-list{display:grid;gap:9px;margin-top:14px}
+body.admin-studio-page .prize-edit-angle{display:grid;grid-template-columns:60px 1fr 95px 40px;gap:10px;align-items:center}
+body.admin-studio-page .prize-edit-angle input{min-width:0}
+body.admin-studio-page #prize-edit-status{color:#f5ce83;font-size:12px;margin:0;min-height:18px}
+body.admin-studio-page .prize-delete-button{margin-right:auto;border-color:#7c4c56;color:#ffc3c8}
+body.admin-studio-page .prize-workspace-dialog .prize-package-config{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px;background:transparent;border:0;padding:0;margin:0;align-items:end}
+body.admin-studio-page .prize-workspace-dialog .prize-package-config>label:first-child{max-width:none;flex:auto}
+body.admin-studio-page .prize-workspace-dialog .prize-package-budget-label{min-width:0;flex:auto}
+body.admin-studio-page .prize-workspace-dialog .prize-package-config .platform-checkbox{align-items:center}
+body.admin-studio-page .prize-workspace-dialog .prize-package-config #package-selection-status{grid-column:1/-1}
+body.admin-studio-page .prize-workspace-dialog .prize-package-config .package-image-upload{align-self:end;justify-self:start}
+@media(max-width:850px){body.admin-studio-page .prize-catalog-card{grid-template-columns:86px minmax(0,1fr);gap:12px}body.admin-studio-page .prize-catalog-art{width:86px;height:90px}body.admin-studio-page .prize-catalog-edit{grid-column:2;justify-self:start}body.admin-studio-page .prize-edit-media-grid{grid-template-columns:1fr}}
+@media(max-width:580px){body.admin-studio-page .prize-workspace-dialog{width:calc(100vw - 12px);max-height:96vh;border-radius:12px}body.admin-studio-page .prize-dialog-shell{padding:16px}body.admin-studio-page .prize-dialog-header h2{font-size:21px}body.admin-studio-page .prize-edit-grid,body.admin-studio-page .prize-workspace-dialog .prize-package-config{grid-template-columns:1fr}body.admin-studio-page .prize-gallery-header{align-items:stretch;flex-direction:column}body.admin-studio-page .prize-catalog-card{grid-template-columns:70px minmax(0,1fr);padding:12px}body.admin-studio-page .prize-catalog-art{width:70px;height:75px}body.admin-studio-page .prize-catalog-heading{align-items:start;flex-direction:column}body.admin-studio-page .prize-edit-angle{grid-template-columns:1fr 72px 34px}body.admin-studio-page .prize-edit-angle>span{grid-column:1/-1}body.admin-studio-page .prize-package-summary{align-items:flex-start;flex-direction:column}}
+
+/* V5Q.25B: camera-first Live Display. No section-selector button bar. */
+.host-live-controls .live-camera-header{display:flex;justify-content:space-between;align-items:center;gap:18px;flex-wrap:wrap;margin-bottom:14px}
+.host-live-controls .live-camera-header h2{margin:0 0 5px;font-size:20px}
+.host-live-controls .live-camera-header p{margin:0;max-width:550px}
+.host-live-controls .live-camera-header #live-camera-detect{min-width:156px}
+.host-live-controls .live-camera-status{display:block;min-height:20px;margin:0 0 14px;color:#b8c9dc}
+.host-live-controls .live-camera-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,255px),1fr));gap:16px}
+.host-live-controls .live-camera-item{padding:14px;gap:12px;background:linear-gradient(145deg,#1b3049,#0e1b2e);border:1px solid #45607e;border-radius:15px}
+.host-live-controls .live-camera-item-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.host-live-controls .live-camera-item-label{display:flex;align-items:center;gap:9px;min-width:0;font-size:13px;color:#f2f7ff}
+.host-live-controls .live-camera-item-label strong{overflow-wrap:anywhere}
+.host-live-controls .live-camera-item-label input{accent-color:#79dec7;width:18px;height:18px;flex:none}
+.host-live-controls .live-camera-item video{width:100%;aspect-ratio:16/9;object-fit:cover;background:#080f1b;border-radius:10px;border:1px solid #304760}
+.host-live-controls .live-camera-item-status{font-size:11px;color:#a8c1d4}
+.host-live-controls .live-camera-preview-action{align-self:flex-start}
+@media(max-width:620px){.host-live-controls .live-camera-header{align-items:stretch;flex-direction:column}.host-live-controls .live-camera-header #live-camera-detect{width:100%}}
+
+/* The pre-recording countdown is a first-class control, not buried in camera settings. */
+.proof-header-actions .proof-manual-duration{color:#dce9f9;display:flex;flex-direction:column;gap:5px;font-size:11px;font-weight:750}
+.proof-header-actions #capture-precount-seconds{background:#14243b;color:#fff;border:1px solid #536d88;border-radius:8px;padding:7px 10px;min-height:36px}
+@media(max-width:650px){.claim-stage-head .proof-header-actions{flex-wrap:wrap}.proof-header-actions .proof-manual-duration{flex:1}}
+
+/* Photo/video attachments use small icon upload affordances inside the prize modal. */
+body.admin-studio-page .prize-edit-upload-icon{display:inline-flex;width:42px;height:42px;min-width:42px;padding:0;align-items:center;justify-content:center;font-size:18px;border-radius:10px}
+body.admin-studio-page .prize-edit-upload-icon:focus-within{outline:3px solid #7bdfca;outline-offset:2px}
+
+
+/* V5Q.25C — focused Game Catalog workspace with four accessible navigation tabs. */
+body.admin-studio-page #tab-games .game-catalog-intro{margin:0 0 18px}
+body.admin-studio-page #tab-games .game-catalog-intro h2{font-size:clamp(24px,2.4vw,31px);margin:4px 0 6px}
+body.admin-studio-page #tab-games .game-catalog-intro p:last-child{color:#aebfd4;font-size:13px;line-height:1.5;margin:0;max-width:720px}
+body.admin-studio-page .game-catalog-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:0 0 20px;padding:7px;border:1px solid #3a4e68;border-radius:16px;background:#0b182a}
+body.admin-studio-page .game-catalog-tabs [role=tab]{display:flex;align-items:center;justify-content:center;gap:9px;min-width:0;min-height:49px;padding:11px 10px;border:1px solid transparent;border-radius:11px;background:transparent;color:#aebfd4;font-size:12px;font-weight:800;white-space:normal;cursor:pointer;transition:background .15s,color .15s,border-color .15s}
+body.admin-studio-page .game-catalog-tabs [role=tab] span{font-size:16px;line-height:1;flex:none;color:#edc77a}
+body.admin-studio-page .game-catalog-tabs [role=tab]:hover{color:white;background:#1b304d}
+body.admin-studio-page .game-catalog-tabs [role=tab][aria-selected=true]{background:linear-gradient(125deg,#f7dc94,#efae65);border-color:#ffe6a4;box-shadow:0 3px 12px #0004;color:#10192c}
+body.admin-studio-page .game-catalog-tabs [role=tab][aria-selected=true] span{color:#27334a}
+body.admin-studio-page .game-catalog-tabs [role=tab]:focus-visible{outline:3px solid #88e0dc;outline-offset:2px}
+body.admin-studio-page #tab-games .game-catalog-pane{min-width:0;min-height:260px;padding:20px;border:1px solid #344a65;background:#111e33;border-radius:16px;outline-offset:4px}
+body.admin-studio-page #tab-games .game-catalog-pane[hidden]{display:none!important}
+body.admin-studio-page #tab-games .game-catalog-pane-heading{display:flex;gap:16px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:0 0 8px}
+body.admin-studio-page #tab-games .game-catalog-pane-heading h3{font-size:19px;margin:0 0 3px;color:#f0f4ff}
+body.admin-studio-page #tab-games .game-catalog-pane-heading p{margin:0;color:#b1c1d5;font-size:12px;line-height:1.5}
+body.admin-studio-page #tab-games .game-catalog-help{font-size:11px;line-height:1.6;color:#94a9c5;margin:0}
+body.admin-studio-page #tab-games .game-catalog-pane>.game-update-connection,body.admin-studio-page #tab-games .game-catalog-pane>.game-package-installer{margin-top:0}
+body.admin-studio-page #tab-games .game-catalog-pane>.game-update-connection{border:0;background:transparent;padding:0}
+body.admin-studio-page #tab-games .game-catalog-pane>.game-update-connection>.card-title-row{margin-bottom:14px}
+@media(max-width:1150px){body.admin-studio-page .game-catalog-tabs{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){body.admin-studio-page #tab-games .game-catalog-pane{padding:14px}body.admin-studio-page .game-catalog-tabs{gap:6px;padding:5px}body.admin-studio-page .game-catalog-tabs [role=tab]{font-size:11px;padding:10px 5px;gap:5px;min-height:47px}body.admin-studio-page #tab-games .game-catalog-pane-heading button{width:100%}}
+
+/* V5Q.25D: shared Admin camera profile and reusable camera tiles. */
+.global-camera-admin{padding:26px;min-width:0}
+.global-camera-header{display:flex;align-items:flex-start;justify-content:space-between;gap:22px;flex-wrap:wrap}
+.global-camera-header h2{font-size:24px;margin:5px 0 9px}
+.global-camera-header p:not(.mini-label){max-width:630px;margin:0;color:#b7c9dc;font-size:13px;line-height:1.55}
+.global-camera-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:20px 0 8px}
+.global-camera-status{padding:12px 14px;background:#102a36;border:1px solid #385e67;border-radius:11px;color:#c5ece8;font-size:12px}
+.global-camera-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:16px;margin:16px 0 19px}
+.global-camera-card{min-width:0;display:flex;flex-direction:column;gap:11px;padding:16px;border:1px solid #3c536e;border-radius:17px;background:linear-gradient(140deg,#1a2c44,#0e1b2f);box-shadow:0 8px 22px #0002}
+.global-camera-card-header{display:flex;align-items:center;justify-content:space-between}
+.global-camera-toggle{display:flex;gap:9px;align-items:center;font-size:13px}
+.global-camera-toggle strong{overflow-wrap:anywhere}
+.global-camera-toggle input{height:19px;width:19px;accent-color:#76dfcd;flex:none}
+.global-camera-card video{width:100%;aspect-ratio:16/9;object-fit:cover;background:#06101e;border:1px solid #36506c;border-radius:11px}
+.global-camera-name{font-size:11px;color:#a9c0d9;display:grid;gap:6px}
+.global-camera-name input{width:100%;min-width:0;background:#101b2c;border:1px solid #3d5270;border-radius:9px;padding:10px 11px;color:#e8f2ff;font-size:13px}
+.global-camera-card [data-preview]{align-self:flex-start}
+.camera-shared-tag{border:1px solid #638b75;background:#25534260;border-radius:999px;color:#aaf4c9;font-size:10px;padding:5px 8px;white-space:nowrap}
+@media(max-width:640px){.global-camera-admin{padding:16px}.global-camera-header #global-camera-detect{width:100%}}
+
+/* A dedicated controller mode while the host previews the entire edited movie. */
+.phone-movie-controller{text-align:center;padding:25px 18px;display:flex;flex-direction:column;align-items:center;gap:14px}
+.phone-movie-controller[hidden]{display:none!important}
+.phone-movie-controller h2{font-size:25px}.phone-movie-buttons{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;width:100%}
+.phone-movie-buttons button{background:#28354c;border:1px solid #65758c;border-radius:14px;padding:22px 6px;font-size:15px;font-weight:850;color:#fff}
+.phone-movie-buttons button.is-active{border-color:#f3bb71;background:#65472c;color:#ffe1a2}
+.phone-movie-buttons button:disabled{opacity:.45}.phone-movie-hint{color:#aab8cb;font-size:12px}
+
+/* V5Q26A: clear prize award/claimed-prize hierarchy on the phone. */
+.phone-controller-page .phone-prize-offer,.phone-controller-page .phone-proof-prize{max-width:540px;width:100%;margin:12px auto 18px;border-radius:24px;border:1px solid #b99a6f80;box-shadow:0 20px 60px #07090c88;background:linear-gradient(155deg,#28364b,#121e32 75%);padding:clamp(18px,4vw,26px);gap:14px;text-align:center}
+.phone-prize-win-banner{display:flex;justify-content:space-between;align-items:center;gap:9px;color:#ffdc99;font-size:10px;font-weight:850;letter-spacing:.13em;text-transform:uppercase}
+.phone-prize-win-dot{display:grid;place-items:center;background:#5e482e;border:1px solid #af8652;color:#ffe2ad;width:28px;height:28px;border-radius:50%;font-size:15px}
+.phone-prize-win-label,.phone-proof-win-label{border:1px solid #3c8f79;background:#18453966;padding:7px 11px;border-radius:999px;color:#98f1cc;font-size:10px;font-weight:900;letter-spacing:.06em}
+.phone-proof-win-label{display:inline-flex;align-self:center}
+.phone-controller-page .phone-prize-title{font-size:clamp(20px,6vw,27px);font-weight:900;line-height:1.2;margin:1px 0;color:#fff;overflow-wrap:anywhere}
+.phone-controller-page .phone-prize-description{font-size:14px;line-height:1.6;color:#d4dfed;margin:0;overflow-wrap:anywhere}
+.phone-prize-media{position:relative;width:100%;aspect-ratio:16/10;background:radial-gradient(circle at center,#34456a,#0c1527 85%);border:1px solid #64738b60;border-radius:18px;display:flex;align-items:center;justify-content:center;overflow:hidden;min-height:130px;max-height:300px}
+.phone-prize-media .phone-prize-photo{display:block;width:100%;height:100%;object-fit:contain;border:0;margin:0;max-height:unset;border-radius:0;position:relative;z-index:1}
+.phone-prize-media .phone-prize-photo[hidden]{display:none!important}
+.phone-prize-media-empty{font-size:56px;opacity:.65;position:absolute;inset:0;display:grid;place-items:center;pointer-events:none}
+.phone-prize-media:has(.phone-prize-photo:not([hidden])) .phone-prize-media-empty{display:none}
+.phone-offer-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:2px}
+.phone-offer-actions button,.phone-proof-prize button{min-width:0;white-space:normal;line-height:1.3;min-height:48px;border-radius:12px;font-size:12px}
+.phone-controller-page .phone-prize-decision{display:flex;flex-direction:column;gap:10px;margin-top:6px}
+.phone-controller-page .phone-prize-decision [data-phone=prize-accept]{width:100%;min-height:62px;font-size:17px;font-weight:900;border-radius:14px;box-shadow:0 8px 24px #0004}
+.phone-controller-page .phone-prize-decision [data-phone=prize-decline]{width:100%;min-height:40px;color:#bec9d9;background:transparent;border:1px solid #67758a88}
+.phone-proof-prize .phone-prize-media{max-height:230px}
+.phone-proof-prize #phone-proof-play-video{width:100%;margin:3px 0 0}
+.phone-proof-controls{border:1px solid #59718d;background:#16233b;border-radius:16px;padding:10px 15px;margin:8px auto 16px;max-width:540px}
+.phone-proof-controls summary{font-weight:850;cursor:pointer;padding:9px 2px}
+@media(max-width:360px){.phone-offer-actions{grid-template-columns:1fr}.phone-controller-page .phone-prize-offer,.phone-controller-page .phone-proof-prize{padding:15px}}
+
+/* V5Q.26B — administrator movie archive */
+body.admin-studio-page .video-gallery-tabs{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0}
+body.admin-studio-page .video-gallery-tabs button{background:#17263d;color:#dce8f8;border:1px solid #405774;padding:10px 14px;border-radius:10px;font:inherit;font-weight:700;cursor:pointer}
+body.admin-studio-page .video-gallery-tabs button.selected{background:#3c405d;color:#ffdfa2;border-color:#d4b46f}
+body.admin-studio-page .video-gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,270px),1fr));gap:16px}
+body.admin-studio-page .video-gallery-card{background:#111e31;border:1px solid #3b526d;border-radius:15px;overflow:hidden;min-width:0}
+body.admin-studio-page .video-gallery-poster{aspect-ratio:16/9;background:#050c15;display:grid;place-items:center;overflow:hidden}
+body.admin-studio-page .video-gallery-poster video{width:100%;height:100%;object-fit:cover;pointer-events:none}
+body.admin-studio-page .video-gallery-symbol{font-size:44px;color:#8ca5c1}
+body.admin-studio-page .video-gallery-content{display:grid;gap:9px;padding:14px}
+body.admin-studio-page .video-gallery-content strong{overflow-wrap:anywhere}
+body.admin-studio-page .video-gallery-date{color:#a3b7ce;font-size:12px}
+body.admin-studio-page .video-gallery-state{font-size:12px;font-weight:800;text-transform:capitalize;color:#bed9f0}
+body.admin-studio-page .video-gallery-error{color:#f8bbb1;overflow-wrap:anywhere}
+body.admin-studio-page .video-gallery-actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:5px}
+body.admin-studio-page .video-gallery-actions .btn{font-size:12px;min-height:36px}
+body.admin-studio-page .video-gallery-empty{grid-column:1/-1;padding:28px;border:1px dashed #4b5f79;border-radius:13px;color:#bfd1e7}
+.lucky-video-gallery-dialog{border:0;background:transparent;padding:0;max-width:min(94vw,1100px);width:100%;color:#e9f3ff}
+.lucky-video-gallery-dialog::backdrop{background:rgba(0,0,0,.88)}
+.video-gallery-player-shell{background:#0c1729;padding:16px;border:1px solid #4a607d;border-radius:16px;box-shadow:0 24px 100px #0009}
+.video-gallery-player-head{display:flex;justify-content:space-between;gap:16px;align-items:center;margin-bottom:12px}
+.video-gallery-player-shell video{background:black;width:100%;max-height:80vh;aspect-ratio:16/9;object-fit:contain;border-radius:10px;display:block}
+
+/* Video library: authenticated movie posters and media metadata. */
+.video-gallery-poster img { width:100%; height:100%; object-fit:cover; border-radius:inherit; display:block; }
+.video-gallery-meta { color:var(--muted,#96a2b9); font-size:.78rem; }

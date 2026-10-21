@@ -409,3 +409,15 @@ body.editor-workspace .studio-card-heading{font-size:12px;margin:14px 0 4px}
 body.editor-workspace #editor-new-template{width:100%;margin:7px 0 13px}
 body.editor-workspace #studio-pane-template-create .btn{width:100%;margin-top:12px}
 body.editor-workspace .studio-sequence-lane.studio-titles-lane{border-top:1px solid #a369a6}
+
+/* V5Q26: cinema-like assembled timeline preview, not the export dialog */
+.lucky-movie-dialog{width:100vw;max-width:none;height:100dvh;max-height:none;margin:0;padding:0;border:0;background:#080c15;color:#f4f7ff;overflow:hidden}
+.lucky-movie-dialog::backdrop{background:#000e}
+.lucky-movie-shell{height:100%;width:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;padding:clamp(18px,4vw,60px)}
+.lucky-movie-screen{width:min(100%,calc(86dvh * 16 / 9));max-height:83dvh;aspect-ratio:16/9;position:relative;display:flex;align-items:center;justify-content:center;background:#000;overflow:hidden;border-radius:12px;box-shadow:0 22px 60px #0009}
+.lucky-movie-screen video,.lucky-movie-screen img{display:block;width:100%;height:100%;object-fit:contain}
+.lucky-movie-screen audio{max-width:90%;width:90%}
+.lucky-movie-screen .studio-monitor-caption{position:absolute;z-index:2}
+.lucky-movie-close{position:fixed;top:16px;right:18px;border:1px solid #ffffff50;color:#fff;background:#182236;border-radius:50%;width:44px;height:44px;z-index:10;font-size:22px}
+.lucky-movie-status{font-size:12px;color:#b7bed0;text-align:center;max-width:90vw;min-height:18px}
+@media(max-width:650px){.lucky-movie-shell{padding:15px}.lucky-movie-screen{border-radius:5px}}

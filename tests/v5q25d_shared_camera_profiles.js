@@ -1,0 +1,30 @@
+'use strict';
+const assert=require('node:assert/strict');
+const cells=new Map();global.localStorage={getItem:k=>cells.has(k)?cells.get(k):null,setItem:(k,v)=>cells.set(k,String(v))};
+const camera=require('../public/camera-profiles.js');
+let passes=0;const check=(title,ok)=>{assert.ok(ok,title);passes++;console.log('PASS '+title)};
+check('No global camera setup defaults to empty',camera.shared().length===0);
+localStorage.setItem('lucky-selected-camera-ids',JSON.stringify(['prior-camera']));
+check('Earlier camera choices remain available until Admin saves defaults',camera.shared()[0]==='prior-camera');
+camera.saveShared(['front','side']);
+check('Admin saves origin-local shared cameras',camera.shared().join(',')==='front,side');
+check('All new game IDs inherit common cameras',camera.selected('spin-wheel').length===2&&camera.selected('couch-trivia').includes('side'));
+camera.setGameCamera('spin-wheel','extra',true);
+check('Game may add camera to shared defaults',camera.selected('spin-wheel').includes('extra'));
+check('In-game extras do not modify shared Admin selections',camera.shared().length===2&&!camera.shared().includes('extra'));
+check('Game camera addition does not leak to other games',!camera.selected('couch-trivia').includes('extra'));
+camera.setGameCamera('spin-wheel','side',false);
+check('Game can exclude a shared camera without disabling it globally',!camera.selected('spin-wheel').includes('side')&&camera.shared().includes('side'));
+camera.setGameCamera('spin-wheel','side',true);
+check('Re-enabling a shared camera removes its per-game exclusion',camera.selected('spin-wheel').includes('side'));
+camera.setGameCamera('spin-wheel','fourth',true);
+check('Four cameras available for proof capture',camera.selected('spin-wheel').length===4);
+let refused=false;try{camera.setGameCamera('spin-wheel','fifth',true);}catch(e){refused=/4|four/i.test(e.message)}
+check('Fifth game camera refused without changing saved selection',refused&&camera.selected('spin-wheel').length===4);
+refused=false;try{camera.saveShared(['a','b','c','d','e']);}catch(e){refused=true}
+check('Admin cannot save more than four shared camera defaults',refused&&camera.shared().join(',')==='front,side');
+camera.alias('side','Side Room');
+check('Friendly device names persist across sections',camera.getAliases().side==='Side Room');
+camera.saveShared([]);
+check('Explicit empty Admin profile overrides legacy camera selection',camera.shared().length===0);
+console.log(`Shared camera profile contract: ${passes} / ${passes}`);

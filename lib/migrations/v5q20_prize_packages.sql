@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS prize_packages (
  name VARCHAR(100) NOT NULL,
  config_json LONGTEXT NOT NULL,
  budget_cents INT UNSIGNED NULL DEFAULT NULL,
+ image_url VARCHAR(2048) NOT NULL DEFAULT '',
  enabled TINYINT(1) NOT NULL DEFAULT 1,
  publication_status VARCHAR(12) NOT NULL DEFAULT 'published',
  player_selectable TINYINT(1) NOT NULL DEFAULT 1,

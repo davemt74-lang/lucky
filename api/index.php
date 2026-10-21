@@ -39,6 +39,31 @@ function streamTrack(PDO $db,string $id):never {
  while($left>0&&!feof($f)){$chunk=fread($f,min(65536,$left));if($chunk==='')break;echo $chunk;$left-=strlen($chunk);}
  fclose($f);exit;
 }
+function streamPrizeVideo(string $id):never {
+ requireAdmin();
+ if(!preg_match('/^[a-f0-9]{32}$/D',$id))throw new DomainException('Prize video unavailable.',404);
+ $dir=LUCKY_ROOT.'/storage/prize-videos/';$file='';$mime='';
+ foreach(['mp4'=>'video/mp4','webm'=>'video/webm'] as $ext=>$type){
+  if(is_file($dir.$id.'.'.$ext)){$file=$dir.$id.'.'.$ext;$mime=$type;break;}
+ }
+ if($file==='')throw new DomainException('Prize video unavailable.',404);
+ $size=(int)filesize($file);$start=0;$end=$size-1;
+ header_remove('Cache-Control');header('Cache-Control: private, no-store');
+ header('X-Content-Type-Options: nosniff');header('Content-Type: '.$mime);header('Accept-Ranges: bytes');
+ if(isset($_SERVER['HTTP_RANGE'])){
+  $range=(string)$_SERVER['HTTP_RANGE'];
+  if(!preg_match('/^bytes=(\d*)-(\d*)$/D',$range,$matches)||($matches[1]===''&&$matches[2]==='')){http_response_code(416);header('Content-Range: bytes */'.$size);exit;}
+  if($matches[1]==='')$start=max(0,$size-(int)$matches[2]);else $start=(int)$matches[1];
+  if($matches[2]!==''&&$matches[1]!=='')$end=min($end,(int)$matches[2]);
+  if($start>$end||$start >= $size){http_response_code(416);header('Content-Range: bytes */'.$size);exit;}
+  http_response_code(206);header('Content-Range: bytes '.$start.'-'.$end.'/'.$size);
+ }
+ header('Content-Length: '.($end-$start+1));
+ if(($_SERVER['REQUEST_METHOD']??'GET')==='HEAD')exit;
+ $handle=fopen($file,'rb');fseek($handle,$start);$remaining=$end-$start+1;
+ while($remaining>0&&!feof($handle)){$chunk=fread($handle,min(65536,$remaining));if($chunk==='')break;echo $chunk;$remaining-=strlen($chunk);}
+ fclose($handle);exit;
+}
 function streamPrizeImage(PDO $db,string $id):never {
  if(!preg_match('/^[a-f0-9]{32}$/D',$id))throw new DomainException('Image unavailable.',404);
  $q=$db->prepare('SELECT mime,bytes FROM prize_images WHERE id=?');$q->execute([$id]);$r=$q->fetch();
@@ -56,6 +81,7 @@ try {
   header('Cache-Control: public, max-age=86400, immutable');readfile($art['path']);exit;
  }
  if($action==='prize_image'&&$method==='GET')streamPrizeImage($db,strval($_GET['id']??''));
+ if($action==='prize_video'&&in_array($method,['GET','HEAD'],true))streamPrizeVideo(strval($_GET['id']??''));
  if($action==='track'&&in_array($method,['GET','HEAD'],true))streamTrack($db,strval($_GET['id']??''));
  if($method==='GET'){
   if($action==='health')success(['service'=>'Lucky Game Hub','installed'=>true,'database'=>'connected','build'=>'5P']);
@@ -122,6 +148,12 @@ try {
    PrizeDecision::requireReady($db);
    $state=stateFromRow(sessionRow($db,$session));
     success(['offer'=>SpinReveal::pending($state)?null:PrizeDecision::latest($db,$session)]);
+  }
+  if($action==='current'){
+   requireAdmin();require_once __DIR__.'/../lib/CurrentGame.php';
+   $game=strval($_GET['game']??'spin-wheel');GameRegistry::module($game);
+   $row=CurrentGame::row($db,$game);
+   success(['data'=>$row?getSessionView($db,(string)$row['id']):null]);
   }
   if($action==='session')success(getSessionView($db,strval($_GET['id']??'')));
   if($action==='watch')success(['view'=>getSessionView($db,strval($_GET['id']??''),true,strval($_GET['token']??''))]);
@@ -285,6 +317,23 @@ try {
   }catch(Throwable $e){$db->rollBack();throw $e;}
   success(['offer'=>$result]);
  }
+ if($action==='prize_video_upload'){
+  $video=$_FILES['video']??null;
+  if(!is_array($video)||($video['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_OK||!is_uploaded_file((string)($video['tmp_name']??'')))
+   throw new DomainException('Choose an MP4 or WebM file within the server upload limit.',422);
+  if(($video['size']??0)<=0||$video['size']>50*1024*1024)throw new DomainException('Prize video must be 50 MB or less.',422);
+  $mime=(new finfo(FILEINFO_MIME_TYPE))->file($video['tmp_name']);
+  $ext=['video/mp4'=>'mp4','video/webm'=>'webm'][$mime]??null;
+  if($ext===null)throw new DomainException('Upload an MP4 or WebM video.',422);
+  $dir=LUCKY_ROOT.'/storage/prize-videos/';
+  if(!is_dir($dir)||!is_file($dir.'.htaccess'))throw new RuntimeException('Private prize video storage is missing. Deploy all storage protection files.');
+  if(count(glob($dir.'*.mp4')?:[])+count(glob($dir.'*.webm')?:[])>=120)throw new DomainException('The prize video library limit has been reached (120 uploads).',422);
+  $id=bin2hex(random_bytes(16));$path=$dir.$id.'.'.$ext;
+  if(!move_uploaded_file($video['tmp_name'],$path))throw new RuntimeException('Unable to save uploaded prize video.');
+  @chmod($path,0600);
+  audit($db,'prize.video-upload',null,['id'=>$id,'mime'=>$mime,'bytes'=>(int)$video['size']]);
+  success(['id'=>$id,'path'=>'api/index.php?action=prize_video&id='.$id],201);
+ }
  if($action==='image_upload'){
   if(empty($_FILES['image'])||!is_uploaded_file($_FILES['image']['tmp_name']))throw new DomainException('Choose a JPG, PNG, or WebP photo.');
   $f=$_FILES['image'];if($f['error']!==UPLOAD_ERR_OK||$f['size']<=0||$f['size']>5*1024*1024)throw new DomainException('Image must be 5MB or less.');
@@ -324,7 +373,7 @@ try {
     $out=PrizePackages::save($db,(string)($in['id']??''),(int)($in['version']??0),
      $in['name']??'',is_array($in['config']??null)?$in['config']:[],
      ($in['enabled']??false)===true,($in['playerSelectable']??false)===true,
-     array_key_exists('budgetCents',$in)?$in['budgetCents']:null);
+     array_key_exists('budgetCents',$in)?$in['budgetCents']:null,$in['image']??'');
     audit($db,'package.saved',null,['packageId'=>$out['id'],'version'=>$out['version']]);
    }elseif($action==='package_publish'){
     if(!array_key_exists('published',$in)||!is_bool($in['published']))throw new DomainException('Publication status must be Draft or Published.',400);
@@ -428,7 +477,9 @@ try {
   $game=strval($in['game']??'spin-wheel');
   if($game==='spin-wheel')PrizeDecision::requireReady($db);
   $db->beginTransaction();try{
+   GameSessionLifecycle::lockConsole($db);
    $config=GameSessionLifecycle::lockGame($db,$game);
+   GameSessionLifecycle::assertConsoleVacant($db);
    GameSessionLifecycle::assertVacant($db,$game);
    if($game==='spin-wheel'){
     PrizePackages::requireReady($db);
@@ -528,12 +579,13 @@ try {
   if(!preg_match('/^[A-Za-z0-9_-]{12,80}$/D',$key))throw new DomainException('Missing unique request key.',400);
   $db->beginTransaction();try{
    $lookup=sessionRow($db,$id);$game=(string)$lookup['game_id'];
+   if($action==='resume_saved')GameSessionLifecycle::lockConsole($db);
    GameSessionLifecycle::lockGame($db,$game);
    $row=sessionRow($db,$id,true);
    $q=$db->prepare('SELECT payload_json FROM game_events WHERE session_id=? AND idempotency_key=?');$q->execute([$id,$key]);
    if($previous=$q->fetch()){$out=json_decode($previous['payload_json'],true,512,JSON_THROW_ON_ERROR);$db->commit();success(['result'=>$out,'repeat'=>true]);}
    $state=stateFromRow($row);
-   if($action==='resume_saved')GameSessionLifecycle::assertVacant($db,$game,$id);
+   if($action==='resume_saved'){GameSessionLifecycle::assertConsoleVacant($db,$id);GameSessionLifecycle::assertVacant($db,$game,$id);}
    if($game==='spin-wheel' && (SpinReveal::pending($state)||PrizeDecision::pending($db,$id)))
     throw new DomainException('Resolve the current prize reveal or decision before changing the session.',409);
    $event=GameSessionLifecycle::transition($state,$action==='save_session'?'save':$action);

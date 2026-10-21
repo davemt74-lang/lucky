@@ -26,6 +26,16 @@ final class PrizePackages {
   $db->exec("ALTER TABLE prize_packages ADD COLUMN budget_cents INT UNSIGNED NULL DEFAULT NULL AFTER config_json");
   return true;
  }
+ public static function ensureImageColumn(PDO $db):bool {
+  if(!$db->query("SHOW TABLES LIKE 'prize_packages'")->fetchColumn())return false;
+  if($db->query("SHOW COLUMNS FROM prize_packages LIKE 'image_url'")->fetch())return false;
+  $db->exec("ALTER TABLE prize_packages ADD COLUMN image_url VARCHAR(2048) NOT NULL DEFAULT '' AFTER budget_cents");
+  return true;
+ }
+ private static function image(mixed $value):string {
+  if(!is_string($value)||!GameEngine::validUrl($value))throw new DomainException('Use a valid package image HTTP(S) URL or leave blank.',422);
+  return $value;
+ }
  private static function budget(mixed $budget,array $config):?int {
   if($budget!==null&&!is_int($budget))throw new DomainException('Package budget must be an integer amount in cents or blank.',422);
   if($budget===null)return null;
@@ -57,12 +67,12 @@ final class PrizePackages {
  }
  public static function rows(PDO $db,string $game='spin-wheel',bool $admin=false):array {
   self::requireReady($db);
-  $q=$db->prepare('SELECT id,name,enabled,player_selectable,publication_status,version,config_json,budget_cents FROM prize_packages WHERE game_id=?'.($admin?'': " AND enabled=1 AND player_selectable=1 AND publication_status='published'"). ' ORDER BY sort_order ASC,id ASC');
+  $q=$db->prepare('SELECT id,name,enabled,player_selectable,publication_status,version,config_json,budget_cents,image_url FROM prize_packages WHERE game_id=?'.($admin?'': " AND enabled=1 AND player_selectable=1 AND publication_status='published'"). ' ORDER BY sort_order ASC,id ASC');
   $q->execute([$game]);$rows=[];
   foreach($q as $r){
    $item=['id'=>$r['id'],'name'=>$r['name'],'enabled'=>(bool)$r['enabled'],
     'playerSelectable'=>(bool)$r['player_selectable'],'publicationStatus'=>$r['publication_status'],'version'=>(int)$r['version'],
-     'budgetCents'=>$r['budget_cents']===null?null:(int)$r['budget_cents']];
+     'budgetCents'=>$r['budget_cents']===null?null:(int)$r['budget_cents'],'image'=>$r['image_url']??''];
    if($admin)$item['config']=json_decode($r['config_json'],true,512,JSON_THROW_ON_ERROR);
    $rows[]=$item;
   }
@@ -120,21 +130,21 @@ final class PrizePackages {
   $id=bin2hex(random_bytes(16));
   $q=$db->prepare("INSERT INTO prize_packages (id,game_id,name,config_json,budget_cents,enabled,player_selectable,publication_status,sort_order) VALUES (?,'spin-wheel',?,?,?,1,1,'draft',?)");
   $q->execute([$id,$name,json_encode($config,JSON_THROW_ON_ERROR),$budget,$count]);
-  return ['id'=>$id,'name'=>$name,'enabled'=>true,'playerSelectable'=>true,'publicationStatus'=>'draft','version'=>1,'config'=>$config,'budgetCents'=>$budget];
+  return ['id'=>$id,'name'=>$name,'enabled'=>true,'playerSelectable'=>true,'publicationStatus'=>'draft','version'=>1,'config'=>$config,'budgetCents'=>$budget,'image'=>''];
  }
- public static function save(PDO $db,string $id,int $version,string $name,array $cfg,bool $enabled,bool $player,mixed $budgetCents=null):array {
+ public static function save(PDO $db,string $id,int $version,string $name,array $cfg,bool $enabled,bool $player,mixed $budgetCents=null,mixed $image=''):array {
   self::requireReady($db);self::lockGame($db);self::id($id);$name=self::label($name);
   $cfg=GameEngine::validateConfig($cfg);
-  $budgetCents=self::budget($budgetCents,$cfg);
+  $budgetCents=self::budget($budgetCents,$cfg);$image=self::image($image);
   $q=$db->prepare("SELECT version,enabled,publication_status FROM prize_packages WHERE id=? AND game_id='spin-wheel' FOR UPDATE");
   $q->execute([$id]);$r=$q->fetch();
   if(!$r)throw new DomainException('Prize package not found.',404);
   if((int)$r['version']!==$version)throw new DomainException('This package was changed elsewhere. Reload before saving.',409);
   if(!$enabled&&self::chosen($db)===$id)throw new DomainException('Select another enabled package before disabling this one.',409);
-  $q=$db->prepare("UPDATE prize_packages SET name=?,config_json=?,budget_cents=?,enabled=?,player_selectable=?,version=version+1 WHERE id=? AND game_id='spin-wheel' AND version=?");
-  $q->execute([$name,json_encode($cfg,JSON_THROW_ON_ERROR),$budgetCents,(int)$enabled,(int)$player,$id,$version]);
+  $q=$db->prepare("UPDATE prize_packages SET name=?,config_json=?,budget_cents=?,image_url=?,enabled=?,player_selectable=?,version=version+1 WHERE id=? AND game_id='spin-wheel' AND version=?");
+  $q->execute([$name,json_encode($cfg,JSON_THROW_ON_ERROR),$budgetCents,$image,(int)$enabled,(int)$player,$id,$version]);
   if($q->rowCount()!==1)throw new DomainException('Prize package update conflict.',409);
-  return ['id'=>$id,'name'=>$name,'enabled'=>$enabled,'playerSelectable'=>$player,'publicationStatus'=>$r['publication_status'],'version'=>$version+1,'config'=>$cfg,'budgetCents'=>$budgetCents];
+  return ['id'=>$id,'name'=>$name,'enabled'=>$enabled,'playerSelectable'=>$player,'publicationStatus'=>$r['publication_status'],'version'=>$version+1,'config'=>$cfg,'budgetCents'=>$budgetCents,'image'=>$image];
  }
  public static function publish(PDO $db,string $id,int $version,bool $published):array {
   self::requireReady($db);self::lockGame($db);self::id($id);

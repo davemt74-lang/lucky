@@ -6,6 +6,7 @@ require __DIR__.'/../lib/ControllerGame.php';require_once __DIR__.'/../lib/Packa
 require_once __DIR__.'/../lib/SchemaGuard.php';
 require_once __DIR__.'/../lib/ControllerRate.php';
 require_once __DIR__.'/../lib/PhoneGameDashboard.php';
+require_once __DIR__.'/../lib/MoviePreview.php';
 headerSecurity();
 header('Referrer-Policy: no-referrer');
 header('X-Robots-Tag: noindex, nofollow');
@@ -26,7 +27,7 @@ try {
   if(!$originHost||strcasecmp((string)$originHost,$host)!==0)throw new DomainException('Origin not permitted.',403);
  }
  $action=strval($_GET['action']??'');$in=jsonInput();$db=db();
- $phoneActions=['claim','claim_display','status','command','disconnect','package_status','package_command','dashboard_games','dashboard_launch'];
+ $phoneActions=['claim','claim_display','status','command','disconnect','package_status','package_command','dashboard_games','dashboard_launch','movie_command'];
  if(in_array($action,$phoneActions,true)){
   if($action==='claim'){
    $id=strval($in['id']??'');$key=strval($in['key']??'');$name=ControllerPairing::label($in['name']??'');
@@ -60,7 +61,7 @@ try {
    success(['id'=>$newId,'controllerToken'=>$token,'status'=>'pending']);
   }
   $id=strval($in['id']??'');$token=(string)($_SERVER['HTTP_X_CONTROLLER_TOKEN']??'');
-  $p=ControllerPairing::authenticate($db,$id,$token,in_array($action,['command','select_package','package_command','dashboard_games','dashboard_launch'],true));
+  $p=ControllerPairing::authenticate($db,$id,$token,in_array($action,['command','select_package','package_command','dashboard_games','dashboard_launch','movie_command'],true));
   $status=ControllerPairing::status($p);
   if(in_array($action,['package_status','package_command'],true)){
    $session=(string)($in['session']??'');$viewer=(string)($in['viewer']??'');
@@ -138,6 +139,27 @@ try {
    }catch(Throwable $e){$db->rollBack();throw $e;}
    success(['launch'=>$out]);
   }
+  if($action==='movie_command'){
+   if($status!=='paired')throw new DomainException('Phone approval required.',403);
+   $verb=(string)($in['verb']??'');
+   if(!in_array($verb,['play','pause','stop'],true))throw new DomainException('Unknown movie command.',422);
+   $nonce=ControllerPairing::nonce($in['nonce']??null);
+   $db->beginTransaction();try{
+    $q=$db->prepare('SELECT * FROM controller_pairs WHERE id=? FOR UPDATE');$q->execute([$id]);$locked=$q->fetch();
+    if(!$locked||!hash_equals((string)$locked['controller_hash'],ControllerPairing::tokenHash($token))||ControllerPairing::status($locked)!=='paired')throw new DomainException('Phone pairing no longer approved.',403);
+    MoviePreview::requireReady($db);
+    $owner=(int)$locked['host_admin_id'];
+    $q=$db->prepare('SELECT command FROM controller_commands WHERE pair_id=? AND client_nonce=?');$q->execute([$id,$nonce]);$prior=$q->fetchColumn();
+    if($prior!==false){if($prior!=='movie-'.$verb)throw new DomainException('Command identifier already used.',409);$out=MoviePreview::public(MoviePreview::row($db,$owner));$db->commit();success(['movie'=>$out,'repeat'=>true]);}
+    $q=$db->prepare('SELECT COUNT(*) FROM controller_commands WHERE pair_id=? AND created_at>=UTC_TIMESTAMP()-INTERVAL 1 SECOND');$q->execute([$id]);$second=(int)$q->fetchColumn();
+    $q=$db->prepare('SELECT COUNT(*) FROM controller_commands WHERE pair_id=? AND created_at>=UTC_TIMESTAMP()-INTERVAL 1 MINUTE');$q->execute([$id]);ControllerRate::check($second,(int)$q->fetchColumn(),'movie-control');
+    $session=(string)($in['session']??'');ControllerPairing::checkId($session);
+    $out=MoviePreview::control($db,$owner,$session,$verb);
+    $q=$db->prepare('INSERT INTO controller_commands(pair_id,client_nonce,command,delivered_at) VALUES (?,?,?,UTC_TIMESTAMP())');$q->execute([$id,$nonce,'movie-'.$verb]);
+    $db->commit();
+   }catch(Throwable $e){$db->rollBack();throw $e;}
+   success(['movie'=>$out,'repeat'=>false]);
+  }
   if($action==='status'){
    $commandId=(int)($in['commandId']??0);$delivery=null;
    if($commandId>0){
@@ -167,7 +189,8 @@ try {
     }
     }
    }
-   success(['status'=>$status,'deviceName'=>$p['device_name'],'expiresAt'=>$p['paired_expires_at'],'game'=>$status==='paired'?($current??ControllerGame::snapshot($db)):null,'proof'=>$proof?['active'=>true,'claimId'=>$proof['claim_id'],'reviewCount'=>(int)$proof['review_count'],'consent'=>(bool)($proof['consent_ack']??false),'phase'=>(string)($proof['capture_phase']??'live'),'savedCount'=>(int)($proof['saved_count']??0)]:['active'=>false],'delivery'=>$delivery,'reason'=>$reason??null]);
+   success(['status'=>$status,'deviceName'=>$p['device_name'],'expiresAt'=>$p['paired_expires_at'],'game'=>$status==='paired'?($current??ControllerGame::snapshot($db)):null,'proof'=>$proof?['active'=>true,'claimId'=>$proof['claim_id'],'reviewCount'=>(int)$proof['review_count'],'consent'=>(bool)($proof['consent_ack']??false),'phase'=>(string)($proof['capture_phase']??'live'),'savedCount'=>(int)($proof['saved_count']??0)]:['active'=>false],'delivery'=>$delivery,'reason'=>$reason??null,
+    'moviePreview'=>$status==='paired'&&SchemaGuard::missing($db,['movie_preview_state'])===[]?MoviePreview::public(MoviePreview::row($db,(int)$p['host_admin_id'])):null]);
   }
   if($action==='select_package'){
    $package=PrizePackages::id($in['package']??null);
@@ -210,6 +233,17 @@ try {
     // Gameplay is executed and committed on the server, not merely queued for an optional browser tab.
     // UI/audio commands remain queued for the signed-in host display.
     $direct=in_array($command,ControllerGame::DIRECT,true);
+    if($command==='prize-video-play'){
+     $snapshot=ControllerGame::snapshot($db);
+     if(!in_array(($snapshot['offer']['status']??''),['pending','accepted'],true)||empty($snapshot['offer']['videoUrl']))
+      throw new DomainException('This prize has no playable video.',409);
+     if(($snapshot['offer']['status']??'')==='accepted'){
+      $proof=$db->prepare('SELECT claim_id FROM controller_proof_state WHERE host_admin_id=? AND is_open=1 AND updated_at>UTC_TIMESTAMP()-INTERVAL 12 SECOND LIMIT 1');
+      $proof->execute([(int)$locked['host_admin_id']]);
+      if($proof->fetchColumn()!==($snapshot['offer']['claimId']??''))
+       throw new DomainException('Open this claimed prize proof on the desktop to play its video.',409);
+     }
+    }
     if($command==='end'&&($in['confirm']??false)!==true)throw new DomainException('Confirm End Game on the phone first.',409);
     $effect=$direct?ControllerGame::apply($db,$command,$id,$nonce,(int)$locked['host_admin_id']):null;
     $sessionId=$direct?null:(ControllerGame::current($db)['id']??null);
@@ -234,7 +268,7 @@ try {
   $isDisplay=$viewer!=='';
   if($isDisplay){$r=sessionRow($db,$session);if(!hash_equals((string)$r['viewer_token'],$viewer))throw new DomainException('Invalid TV display authorization.',403);}
   else {requireAdmin();assertCsrf();}
-  $filter=$isDisplay?"u.session_id=? AND c.command NOT LIKE 'proof-%'":'p.host_admin_id=?';$scope=$isDisplay?$session:(int)$_SESSION['admin_id'];
+  $filter=$isDisplay?"u.session_id=? AND c.command NOT LIKE 'proof-%' AND c.command<>'prize-video-play'":'p.host_admin_id=?';$scope=$isDisplay?$session:(int)$_SESSION['admin_id'];
   if($action==='ui_events'){
    $after=max(0,(int)($in['after']??0));
    $q=$db->prepare("SELECT c.id,c.command,p.device_name, u.acknowledged_at FROM controller_ui_events u JOIN controller_commands c ON c.id=u.command_id JOIN controller_pairs p ON p.id=c.pair_id WHERE $filter AND p.status='paired' AND p.paired_expires_at>UTC_TIMESTAMP() AND c.id>? AND c.created_at>UTC_TIMESTAMP()-INTERVAL 15 SECOND ORDER BY c.id ASC LIMIT 32");
