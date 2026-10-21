@@ -68,7 +68,7 @@
  }
  async function status(){if(!state||busy||statusBusy)return;statusBusy=true;
   try{const data=await request('status',pendingCommand?{commandId:pendingCommand.id}:{});if(data.status==='paired'){const wasActive=active,wasFailing=failures>=3;failures=0;active=true;
-    const needsDashboard=dashboardRequested||(!data.proof?.active&&['ready','saved','ended'].includes(data.game?.status));
+    const needsDashboard=dashboardRequested||(!data.game?.upgradeRequired&&!data.proof?.active&&['ready','saved','ended'].includes(data.game?.status));
     if(needsDashboard){
      show('phone-dashboard');game=data.game;clearPrizeVideo();updateProof(null);
      if(!wasActive||!dashboardGames.length)void loadDashboard();
