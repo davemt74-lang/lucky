@@ -75,6 +75,16 @@ final class GamePackageInstaller {
    'title'=>trim($title),'publisher'=>trim($publisher),
    'host'=>$host,'phone'=>$phone,'files'=>$normalized];
  }
+ /** Inspect ZIP identity before selecting the owner's pinned signing key. */
+ public static function inspectIdentity(string $upload):string {
+  $zip=self::archive($upload);
+  try {
+   $files=self::entries($zip);
+   $raw=self::contents($zip,$files['manifest.json']['index'],131072);
+   $json=json_decode($raw,true,16,JSON_THROW_ON_ERROR);
+   return self::validateManifest($json)['id'];
+  }finally{$zip->close();}
+ }
  private static function archive(string $path):ZipArchive {
   if(!class_exists(ZipArchive::class))throw new DomainException('ZIP support is missing from the HomeServer PHP runtime.',503);
   if(!is_file($path)||is_link($path)||filesize($path)<50||filesize($path)>self::MAX_ZIP)
