@@ -101,11 +101,21 @@
   }catch(e){say('Game connection unavailable: '+e.message,true);}
   finally{polling=false;}
  }
- $('pkg-start').onclick=async()=>{
+ async function startGame(){
   if(loading||!validGame)return;loading=true;configure(session);
   try{const result=await L.api('start',{body:{game}});configure(result.data);}
   catch(e){say(e.message,true);}finally{loading=false;configure(session);}
- };
+ }
+ async function phoneAutostart(){
+  try{
+   const req=JSON.parse(sessionStorage.getItem('lucky-phone-dashboard-autostart')||'null');
+   sessionStorage.removeItem('lucky-phone-dashboard-autostart');
+   if(req?.game===game&&Date.now()-req.created<30000){
+    await startGame();
+   }
+  }catch(_){}
+ }
+ $('pkg-start').onclick=startGame;
  async function command(verb,payload){
   if(loading||!session||session.view.status==='ended')return;
   loading=true;
@@ -177,6 +187,6 @@
  });
  frame.addEventListener('load',()=>{if(session)sendState(session.view);});
  if(!validGame){say('Invalid game identifier.',true);return;}
- reload();setInterval(reload,1000);
+ reload();void phoneAutostart();setInterval(reload,1000);
  if(phonePanel){setInterval(listPhones,2000);}
 })();
