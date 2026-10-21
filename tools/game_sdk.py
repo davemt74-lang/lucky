@@ -28,7 +28,9 @@ MAX_ENTRIES = 150
 SUPPORTED_CAPABILITIES = {
     "storage.read", "storage.write", "players.read", "players.write",
     "scores.read", "scores.write", "rounds.read", "rounds.write",
-    "turns.read", "turns.write", "timers.read", "timers.write", "session.write"
+    "turns.read", "turns.write", "timers.read", "timers.write",
+    "teams.read", "teams.write", "achievements.read", "achievements.write",
+    "events.read", "events.write", "session.write"
 }
 VALID_ID = re.compile(r"^[a-z0-9][a-z0-9-]{1,62}$")
 VALID_VER = re.compile(r"^(0|[1-9]\d{0,4})\.(0|[1-9]\d{0,4})\.(0|[1-9]\d{0,4})$")
