@@ -16,7 +16,7 @@ window.__session={id:'SESSION',claims:[],odds:{bonusChance:0},pools:{
  tier2:{prizes:[{id:'p2',name:'Blow Job',cents:3000}]},bonus:{prizes:[]}}};
 window.__acks=[];
 Lucky.api=async(action,options={})=>{
- if(action==='last')return {data:{view:__view,session:__session}};
+ if(action==='current')return {data:{view:__view,session:__session}};
  if(action==='session')return {view:__view,session:__session};
  if(action==='spin_revealed'){
   __acks.push(options.body);
