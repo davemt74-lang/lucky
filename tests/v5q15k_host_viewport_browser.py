@@ -10,7 +10,7 @@ MOCK=game.MOCK+"""
 const __origHostApi=window.Lucky.api;
 window.Lucky.api=async (...args)=>{
  const reply=await __origHostApi(...args);
- if(args[0]==='last'&&reply.data)reply.data.viewerToken='test-token';
+ if(args[0]==='current'&&reply.data)reply.data.viewerToken='test-token';
  return reply;
 };
 """
