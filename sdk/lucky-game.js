@@ -27,7 +27,7 @@
   const pending=new Map();
   let nextId=0;
   function request(operation,args={}) {
-    if(typeof operation!=='string'||!/^[a-z]+\\.[a-z]+$/.test(operation))
+    if(typeof operation!=='string'||!/^[a-z]+\.[a-z]+$/.test(operation))
       return Promise.reject(new TypeError('Invalid SDK operation'));
     if(!current||!['active','paused'].includes(current.status))
       return Promise.reject(new Error('This game session is not running'));
