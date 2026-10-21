@@ -9,11 +9,11 @@ css=(BASE/'public/style.css').read_text()+'\n'+(BASE/'public/platform.css').read
 script=(BASE/'public/game.js').read_text()
 SID='c'*32
 mock='''<script>
-window.__gameStatus='ended';window.__version=1;window.__apiCalls=[];
+window.__gameStatus='ended';window.__version=1;
 window.LuckyWheel=class{constructor(){this.slices=[]}setSlices(x){this.slices=x}async spinTo(){}};
 window.Lucky={ $:id=>document.getElementById(id),money:n=>'$'+(n/100).toFixed(2),
 note:(id,text)=>{document.getElementById(id).textContent=text;},
-api:async(a)=>{__apiCalls.push(a);if(a==='session')return{data:{view:{id:'SESSION_ID',status:__gameStatus,version:__version,claims:[],slots:[],spinCount:0,endedAt:'2026-10-19T00:00:00Z'},session:{pools:{bonus:{prizes:[]}},claims:[]}}};if(a==='current')return{data:null};return {};},
+api:async(a)=>{if(a==='session')return{view:{id:'SESSION_ID',status:__gameStatus,version:__version,claims:[],slots:[],spinCount:0,endedAt:'2026-10-19T00:00:00Z'},session:{pools:{bonus:{prizes:[]}},claims:[]}};if(a==='current')return{data:null};return {};},
 loadTracks:async()=>[],bindMusic:()=>{}, beep:()=>{},speak:()=>{},pref:{musicOn:false},idempotency:()=> 't'};
 </script>'''.replace('SESSION_ID',SID)
 html='<html><head><base href="https://example.test/"><style>'+css+'</style>'+mock+'</head><body>'+markup+'<script>'+script+'</script></body></html>'
@@ -29,7 +29,6 @@ async def main():
    await page.route('https://example.test/index.php*',lambda route:route.fulfill(status=200,content_type='text/html',body='<html><body>Game dashboard</body></html>'))
    await page.goto('https://example.test/game.php?session='+SID,wait_until='domcontentloaded')
    await page.wait_for_timeout(250)
-   print('POSTGAME_DEBUG',await page.evaluate("() => ({href:location.href,state:document.getElementById('game-state')?.textContent,reviewHidden:document.getElementById('postgame-review')?.hidden,editor:document.getElementById('review-highlight')?.getAttribute('href'),calls:window.__apiCalls})"),flush=True)
    ok(f'{width}px completed game exposes Review highlights in Game menu',await page.locator('#postgame-review').evaluate('(e)=>!e.hidden'))
    ok(f'{width}px review is moved inside Game menu',await page.locator('#console-menu #postgame-review').count()==1)
    ok(f'{width}px link targets exact game session',await page.locator('#review-highlight').get_attribute('href')=='editor.php?session='+SID)
