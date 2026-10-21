@@ -119,12 +119,18 @@ try{
  err24(fn()=>$run($id,'scores.add',['playerId'=>'one','delta'=>1]),'Saved sessions cannot mutate',409);
  zip24($zip,$game,'1.1.0',GamePluginCapabilities::SUPPORTED);
  GamePackageInstaller::install($zip);GamePackageActivation::activate($game,'1.1.0','1.0.0',true);
- ck24($run($id,'storage.get',['key'=>'level'])['result']['value']['value']===7,'Game storage survives package upgrade');
+ $q=$db->prepare('SELECT value_json FROM game_plugin_storage WHERE game_id=? AND scope_id=? AND storage_key=?');
+ $q->execute([$game,str_repeat('0',32),'level']);
+ ck24(json_decode($q->fetchColumn(),true,16,JSON_THROW_ON_ERROR)===7,'Game storage survives package upgrade while session is saved');
  ck24(stateFromRow(sessionRow($db,$id))['packageVersion']==='1.0.0','Saved session retains its original package permissions/version');
  $db->beginTransaction();$resumed=stateFromRow(sessionRow($db,$id,true));
  GameSessionLifecycle::transition($resumed,'resume_saved');saveState($db,$resumed);$db->commit();
  ck24($run($id,'scores.list')['result']['value']['one']===25,'Game scores survive HomeServer restart/resume');
+ $db->beginTransaction();$paused=stateFromRow(sessionRow($db,$id,true));
+ GameSessionLifecycle::transition($paused,'save');saveState($db,$paused);$db->commit();
  GamePackageActivation::activate($game,'1.0.0','1.1.0',true);
+ $db->beginTransaction();$reopened=stateFromRow(sessionRow($db,$id,true));
+ GameSessionLifecycle::transition($reopened,'resume_saved');saveState($db,$reopened);$db->commit();
  ck24($run($id,'storage.get',['key'=>'level'])['result']['value']['value']===7,'Game storage survives rollback');
  echo "V5Q.24: real MariaDB scoped KV, CAS, permissions, players, scores, rounds, turns, timers, replay and recovery PASSED\n";
 }finally{
