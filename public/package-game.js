@@ -139,7 +139,7 @@
   if(capabilitiesBusy||loading||!session||session.view.status!=='active'){
    reply(false,null,'Game is busy or paused');return;
   }
-  if(typeof request.operation!=='string'||!/^[a-z]+\\.[a-z]+$/.test(request.operation)||
+  if(typeof request.operation!=='string'||!/^[a-z]+\.[a-z]+$/.test(request.operation)||
      !request.args||typeof request.args!=='object'||Array.isArray(request.args)||
      JSON.stringify(request.args).length>8192){
    reply(false,null,'Invalid game capability request');return;
