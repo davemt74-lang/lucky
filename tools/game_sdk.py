@@ -25,6 +25,11 @@ MAX_FILE = 12 * 1024 * 1024
 MAX_TOTAL = 90 * 1024 * 1024
 MAX_ZIP = 40 * 1024 * 1024
 MAX_ENTRIES = 150
+SUPPORTED_CAPABILITIES = {
+    "storage.read", "storage.write", "players.read", "players.write",
+    "scores.read", "scores.write", "rounds.read", "rounds.write",
+    "turns.read", "turns.write", "timers.read", "timers.write", "session.write"
+}
 VALID_ID = re.compile(r"^[a-z0-9][a-z0-9-]{1,62}$")
 VALID_VER = re.compile(r"^(0|[1-9]\d{0,4})\.(0|[1-9]\d{0,4})\.(0|[1-9]\d{0,4})$")
 VALID_FILE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_./-]*\."
@@ -62,6 +67,13 @@ def manifest_check(m):
         must(isinstance(phone, str), "Phone must be null or a path")
         valid_path(phone)
         must(phone.endswith(".html"), "Phone must be HTML")
+    capabilities = m.get("capabilities", [])
+    must(isinstance(capabilities, list) and
+         len(capabilities) == len(set(capabilities)) and
+         all(isinstance(cap, str) and cap in SUPPORTED_CAPABILITIES
+             for cap in capabilities), "Invalid or duplicate game capabilities")
+    schema = m.get("dataVersion", 1)
+    must(type(schema) is int and 1 <= schema <= 65535, "Invalid game data version")
     files = m.get("files")
     must(isinstance(files, dict) and 0 < len(files) <= MAX_ENTRIES - 2,
          "Missing or excessive manifest files")
@@ -102,6 +114,8 @@ def collect(source):
          "id": meta.get("id"), "version": meta.get("version"),
          "title": meta.get("title"), "publisher": meta.get("publisher"),
          "host": meta.get("host"), "phone": meta.get("phone"),
+         "capabilities": meta.get("capabilities", []),
+         "dataVersion": meta.get("dataVersion", 1),
          "files": {name: hashlib.sha256(data).hexdigest()
                    for name, data in result.items()}}
     manifest_check(m)
@@ -199,7 +213,8 @@ def init(args):
         (ROOT / "sdk" / "lucky-game.js").read_bytes())
     meta = {"id": args.id, "version": "0.1.0", "title": args.title,
             "publisher": args.publisher, "host": "host.html",
-            "phone": None if args.no_phone else "phone.html"}
+            "phone": None if args.no_phone else "phone.html",
+            "capabilities": [], "dataVersion": 1}
     (destination / "game.json").write_text(json.dumps(meta, indent=2) + "\n")
     (destination / "host.html").write_text(
         '<!doctype html><html><head><meta charset="utf-8"><title>Game host</title>'
