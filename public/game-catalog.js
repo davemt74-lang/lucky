@@ -117,6 +117,9 @@
    card.append(text('strong',game.title+' · '+game.id+' · v'+game.version));
    card.append(text('small',(game.phone?'Custom phone UI included':'No phone UI')+
     ' · '+(game.signatureVerified?'Publisher signature verified':'Locally uploaded game')));
+   card.append(text('small',game.capabilities?.length
+    ?'SDK capabilities: '+game.capabilities.join(', ')+' · Data schema v'+(game.dataVersion||1)
+    :'SDK capabilities: none (sandboxed UI and basic inputs only)'));
    card.append(text('small','Imported '+game.installedAt+' · '+game.fileCount+' files · '+
     (game.builtIn?'Protected built-in game update':now===game.version?'Currently active':'Available for activation')));
    if(!game.builtIn&&damaged.has(game.id)){
@@ -141,7 +144,8 @@
     activate.textContent=now===game.version?'Active version':(now?'Switch / Roll back to this version':'Activate game version');
     activate.disabled=now===game.version;
     activate.onclick=async()=>{
-     if(!confirm('Activate '+game.title+' v'+game.version+'? Any active session must be finished or saved first. The previous version will be preserved.'))return;
+     if(!confirm('Activate '+game.title+' v'+game.version+'? Requested SDK permissions: '+
+      ((game.capabilities||[]).join(', ')||'none')+'. Existing sessions must be saved or ended.'))return;
      activate.disabled=true;
      try{
       const out=await api('game_package_activate',{body:{
