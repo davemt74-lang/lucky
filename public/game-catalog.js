@@ -213,7 +213,9 @@
       row.append(text('small','Requires game SDK ≥ '+release.sdkMin+' · SHA-256: '+release.sha256));
       if(release.notes)row.append(text('p',release.notes));
       const stage=text('button','Download & stage verified ZIP','btn btn-outline');
-      stage.type='button';stage.disabled=release.bytes>40*1024*1024;
+      stage.type='button';stage.disabled=release.bytes>40*1024*1024||release.compatible===false;
+      if(release.compatible===false)stage.textContent='Requires newer game SDK ('+release.sdkMin+')';
+      else if(release.bytes>40*1024*1024)stage.textContent='Exceeds 40 MB package limit';
       stage.onclick=async()=>{
        if(!confirm('Download and stage '+release.game+' v'+release.version+' from '+config.publisher+'? No game is activated.'))return;
        stage.disabled=true;
