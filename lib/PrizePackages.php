@@ -24,8 +24,8 @@ final class PrizePackages {
  public static function prepareForCreate(PDO $db):void {
   require_once __DIR__.'/MigrationSql.php';
   require_once __DIR__.'/PrizePublicationMigration.php';
-  $q=$db->query("SHOW TABLES LIKE 'prize_packages'");
-  if(!$q->fetchColumn()){
+  $q=$db->query("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ('prize_packages','prize_package_selection')");
+  if((int)$q->fetchColumn()!==2){
    foreach(MigrationSql::statements((string)file_get_contents(__DIR__.'/migrations/v5q20_prize_packages.sql')) as $sql)$db->exec($sql);
   }
   PrizePublicationMigration::ensure($db);
@@ -116,7 +116,7 @@ final class PrizePackages {
    throw new DomainException('This prize package is not available for selection.',403);
   $q=$db->prepare('UPDATE prize_package_selection SET package_id=? WHERE game_id=?');$q->execute([$id,'spin-wheel']);
  }
- public static function create(PDO $db,string $name,?string $cloneFrom=null):array {
+ public static function create(PDO $db,string $name,?string $cloneFrom=null,?int $budgetCents=null,bool $overrideBudget=false):array {
   self::requireReady($db);self::lockGame($db);
   $name=self::label($name);
   $count=(int)$db->query("SELECT COUNT(*) FROM prize_packages WHERE game_id='spin-wheel'")->fetchColumn();
@@ -128,6 +128,7 @@ final class PrizePackages {
   if(!$sourceRow)throw new DomainException('Package to duplicate is unavailable.',404);
   $config=GameEngine::validateConfig(json_decode($sourceRow['config_json'],true,512,JSON_THROW_ON_ERROR));
   $budget=$sourceRow['budget_cents']===null?null:(int)$sourceRow['budget_cents'];
+  if($overrideBudget)$budget=self::budget($budgetCents,$config);
   $id=bin2hex(random_bytes(16));
   $q=$db->prepare("INSERT INTO prize_packages (id,game_id,name,config_json,budget_cents,enabled,player_selectable,publication_status,sort_order) VALUES (?,'spin-wheel',?,?,?,1,1,'draft',?)");
   $q->execute([$id,$name,json_encode($config,JSON_THROW_ON_ERROR),$budget,$count]);
