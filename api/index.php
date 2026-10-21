@@ -63,6 +63,11 @@ try {
   if($action==='game_catalog'){
    requireAdmin();success(['games'=>GameCatalog::all()]);
   }
+  if($action==='phone_dashboard_launch'){
+   requireAdmin();
+   require_once __DIR__.'/../lib/PhoneGameDashboard.php';
+   success(['launch'=>PhoneGameDashboard::pendingForHost($db,(int)$_SESSION['admin_id'])]);
+  }
   if($action==='game_packages'){
    requireAdmin();$state=GamePackageActivation::inspect();success(['packages'=>GamePackageInstaller::listing(),'active'=>$state['active'],'issues'=>$state['issues']]);
   }
