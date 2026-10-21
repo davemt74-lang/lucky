@@ -2,7 +2,7 @@
 temporary offline status, refresh/reconnect, and End Game state convergence."""
 import asyncio
 from playwright.async_api import async_playwright
-from v5q22h_phone_browser import HTML as SOURCE, FRAME, SID, VIEWER
+from v5q22h_phone_browser import HTML as SOURCE, FRAME, SID, VIEWER, PAIR, TOKEN
 HTML=SOURCE.replace(
  "window.confirm=()=>true;window.__approved=false;window.__revoked=false;window.__commands=[];",
  "window.confirm=()=>true;window.__approved=false;window.__revoked=false;window.__commands=[];window.__dropOnce=true;window.__offline=false;window.__applied=new Set();"
