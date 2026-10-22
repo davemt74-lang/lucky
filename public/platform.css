@@ -91,7 +91,7 @@ body.game-show-mode .platform-sidebar,body.game-show-mode .page-intro,body.game-
 .phone-controller button:focus-visible,.phone-pair-panel button:focus-visible{outline:3px solid #fbc96e;outline-offset:3px}
 
 /* V5P.1: authoritative phone game-state readout. */
-.phone-game-state{margin:0 0 1rem;padding:1rem;border:1px solid rgba(255,255,255,.18);font-weight:650;line-height:1.5;overflow-wrap:anywhere;}
+.phone-game-state{margin:18px 0 0;padding:1rem;border:1px solid rgba(255,255,255,.18);font-weight:650;line-height:1.5;overflow-wrap:anywhere;}
 .phone-controller button:disabled{opacity:.45;cursor:not-allowed;}
 
 /* V5P.2 directional navigation and phone command composer */
@@ -1165,7 +1165,7 @@ body.game-fullwidth .header{position:relative;z-index:60}
 .phone-controller-page .phone-prize-offer .phone-prize-decision{order:10}
 .phone-controller-page .phone-prize-decision [data-phone=prize-accept]{background:linear-gradient(145deg,#73e88c,#29b057);color:#062b18;border-color:#91f2a3}
 .phone-controller-page .phone-prize-decision [data-phone=prize-decline]{color:#ffb0b5;border-color:#a74d5b;background:#4b263466}
-.phone-bottom-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);z-index:90;width:min(100%,565px);display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:2px;padding:7px 7px max(8px,env(safe-area-inset-bottom));border:1px solid #38506d;border-bottom:0;border-radius:17px 17px 0 0;background:#0a1a30f5;box-shadow:0 -12px 32px #0009;backdrop-filter:blur(8px)}
+.phone-bottom-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);z-index:90;width:min(100%,565px);display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:2px;padding:7px 7px max(8px,env(safe-area-inset-bottom));border:1px solid #38506d;border-bottom:0;border-radius:17px 17px 0 0;background:#0a1a30f5;box-shadow:0 -12px 32px #0009;backdrop-filter:blur(8px)}
 .phone-bottom-nav[hidden]{display:none!important}
 .phone-bottom-nav button{display:grid;place-items:center;align-content:center;gap:4px;min-width:0;min-height:53px;padding:5px 0;border:0;border-radius:10px;background:transparent;color:#bad0e2;font:inherit}
 .phone-bottom-nav button span{font-size:20px;line-height:1.1}
@@ -1173,7 +1173,7 @@ body.game-fullwidth .header{position:relative;z-index:60}
 .phone-bottom-nav button.is-active{background:#263953;color:#ffda98}
 .phone-bottom-nav button:disabled{opacity:.42;cursor:not-allowed}
 .phone-bottom-nav button:focus-visible{outline:2px solid #f5c472;outline-offset:1px}
-.phone-quick-menu{width:min(92vw,430px);max-height:85dvh;overflow:auto;border:1px solid #46617d;border-radius:19px;background:#101f33;color:#f4f8ff;padding:22px;box-shadow:0 25px 65px #000d}
+.phone-quick-menu{box-sizing:border-box;position:fixed;inset:0;width:100%;max-width:none;height:100dvh;max-height:none;margin:0;overflow:auto;border:0;border-radius:0;background:#101f33;color:#f4f8ff;padding:calc(env(safe-area-inset-top) + 18px) clamp(16px,4vw,28px) calc(env(safe-area-inset-bottom) + 24px);box-shadow:0 25px 65px #000d}
 .phone-quick-menu::backdrop{background:#040a16dd;backdrop-filter:blur(4px)}
 .phone-quick-menu header{display:flex;align-items:center;justify-content:space-between}
 .phone-quick-menu header strong span{color:#f7c67b}
@@ -1188,3 +1188,24 @@ body.game-fullwidth .header{position:relative;z-index:60}
 .phone-menu-privacy{padding-top:13px;border-top:1px solid #405371}
 .phone-menu-disconnect{width:100%;margin-top:12px;min-height:44px;color:#ffb5bd;border-color:#a6575f}
 @media(max-width:360px){.phone-wheel-face{width:150px;height:150px}.phone-bottom-nav{padding-left:3px;padding-right:3px}.phone-brand-label strong{font-size:12px}.phone-controller-page .phone-identity{gap:5px}}
+
+/* V5Q.27A: six-action dock, full-screen More tabs, and center-Select D-pad. */
+.phone-bottom-nav #phone-mic-toggle[aria-pressed=true]{background:#174f65;color:#baf2ff;box-shadow:inset 0 0 0 2px #69cfe9}
+.phone-voice-status{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.phone-menu-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:20px 0 14px;border-bottom:1px solid #405771;padding-bottom:10px}
+.phone-menu-tabs button{min-height:48px;border:1px solid #47617c;border-radius:12px;background:#182d47;color:#c7d9ec;font-size:15px;font-weight:800}
+.phone-menu-tabs button[aria-selected=true]{background:#31516d;border-color:#f5c77b;color:#fff1c9}
+.phone-menu-tabs button:focus-visible,.phone-arrows-dialog button:focus-visible{outline:3px solid #fbc96e;outline-offset:2px}
+.phone-menu-panel{width:min(100%,620px);margin:0 auto}
+.phone-menu-panel .phone-audio{margin:14px 0;padding:18px}
+.phone-menu-panel .phone-audio p{margin:0 0 18px}
+.phone-arrows-dialog{box-sizing:border-box;width:min(92vw,390px);max-height:90dvh;padding:18px;border:1px solid #6786a8;border-radius:20px;background:#102239;color:#f4f8ff;box-shadow:0 24px 75px #000c}
+.phone-arrows-dialog::backdrop{background:#030916dc;backdrop-filter:blur(5px)}
+.phone-arrows-dialog header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.phone-arrows-dialog h2{margin:0;font-size:22px}
+.phone-arrows-dialog header button{width:42px;height:42px;border:1px solid #54728c;border-radius:12px;background:#213c58;color:#fff;font-size:20px}
+.phone-arrows-dialog p{margin:12px 0 2px;text-align:center;font-size:13px;color:#c1d2e5}
+.phone-direction-popup{max-width:290px;grid-template-rows:repeat(3,minmax(64px,1fr));gap:9px;margin:18px auto 8px}
+.phone-direction-popup button{min-height:64px;font-size:28px;font-weight:850}
+.phone-direction-popup [data-phone=select]{grid-column:2;grid-row:2;border-color:#e9b96c;background:#725331;color:#fff1cd;font-size:13px}
+@media(max-width:360px){.phone-bottom-nav button small{font-size:9px}.phone-bottom-nav button span{font-size:19px}}
