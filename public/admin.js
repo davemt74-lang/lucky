@@ -1,5 +1,5 @@
 (() => {
- 'use strict';const L=Lucky,$=L.$;let settings=null,activeTier='tier1',editIntroGame='spin-wheel',introConfig=null,history=[],sessions=[],readyGames=[],packages=[],packageId='',selectedPackage='',packageDirty=false,packagesAvailable=false;
+ 'use strict';const L=Lucky,$=L.$;let settings=null,activeTier='tier1',history=[],sessions=[],readyGames=[],packages=[],packageId='',selectedPackage='',packageDirty=false,packagesAvailable=false;
  const amount=s=>{const n=Number(s);if(!Number.isFinite(n)||n<0||n>10000000)throw Error('Invalid dollar amount.');return Math.round(n*100);};
  const cents=c=>(Number(c||0)/100).toFixed(2);
  const elem=(tag,txt='',cls='')=>{const e=document.createElement(tag);if(txt)e.textContent=txt;if(cls)e.className=cls;return e;};
@@ -276,22 +276,11 @@
  $('package-settings-cancel').onclick=()=>$('package-settings-modal').close();
  $('package-settings-save').onclick=async()=>{if(await save())$('package-settings-modal').close();};
  $('save-prizes').onclick=save;
- async function loadIntro(){const r=await L.api('settings',{query:{game:editIntroGame}});introConfig=r.settings;
-   $('intro-title').value=introConfig.intro.title;$('intro-subtitle').value=introConfig.intro.subtitle;
-   L.fillTracks('intro-track',introConfig.intro.trackId);$('intro-volume').value=introConfig.intro.volume;
-   $('intro-announcement').checked=introConfig.intro.announcement!==false;
-   $('theme-accent').value=introConfig.theme.accent||'#f6cb74';$('theme-background').value=introConfig.theme.background||'#0d1423';}
- $('intro-game').onchange=async()=>{editIntroGame=$('intro-game').value;try{await loadIntro();}catch(e){status(e.message,true);}};
- $('save-intro').onclick=async()=>{try{const intro={title:$('intro-title').value,subtitle:$('intro-subtitle').value,trackId:$('intro-track').value,volume:Number($('intro-volume').value),announcement:$('intro-announcement').checked};
-  const theme={accent:$('theme-accent').value,background:$('theme-background').value};
-  await L.api('settings_save',{body:{game:editIntroGame,intro,theme}});status('Game intro and theme saved.');}
-  catch(e){status(e.message,true);}};
  async function refreshMusic(){const tracks=await L.loadTracks();const list=$('music-items');list.replaceChildren();
   for(const t of tracks){const row=elem('div','','platform-claim');const title=elem('strong',t.title),desc=elem('span',t.kind==='upload'?'Uploaded audio':'Hosted URL'),remove=elem('button','Remove','btn btn-outline');
    remove.onclick=async()=>{if(!confirm('Remove '+t.title+'?'))return;try{await L.api('track_remove',{body:{id:t.id}});await refreshMusic();status('Track removed.');}catch(e){status(e.message,true);}};
    row.append(title,desc,remove);list.append(row);
   }
-  if(introConfig)L.fillTracks('intro-track',introConfig.intro.trackId);
  }
  $('music-upload').onsubmit=async e=>{e.preventDefault();const f=e.currentTarget,button=f.querySelector('button');button.disabled=true;
   try{const form=new FormData(f);await L.api('upload',{body:form});f.reset();await refreshMusic();status('Uploaded song saved to the shared server library.');}
@@ -427,7 +416,7 @@
   const open=document.querySelector('.admin-console').classList.toggle('nav-open');
   $('admin-nav-toggle').setAttribute('aria-expanded',String(open));
  };
- const initialTab=new URLSearchParams(location.search).get('tab');if(['games','cameras','prizes','intro','music','sessions','history','videos','migration'].includes(initialTab))document.querySelector(`[data-tab="${initialTab}"]`)?.click();
+ const initialTab=new URLSearchParams(location.search).get('tab');if(initialTab==='intro')document.querySelector('[data-tab=games]')?.click();if(['games','cameras','prizes','music','sessions','history','videos','migration'].includes(initialTab))document.querySelector(`[data-tab="${initialTab}"]`)?.click();
  try{const legacy=JSON.parse(localStorage.getItem('lucky-spin-v3')||'null');$('legacy-status').textContent=legacy?.pools?'Legacy prize pools found. You can import their definitions.':'No V5 game configuration found in this browser.';}catch(_){$('legacy-status').textContent='No readable V5 game data found.';}
- Promise.all([loadSettings(),refreshMusic(),refreshHistory(),refreshSessions(),L.api('last')]).then(async ([_,__,___,____,last])=>{window.__lastSession=last.data;await loadIntro();status('Admin settings loaded.');}).catch(e=>status(e.message,true));
+ Promise.all([loadSettings(),refreshMusic(),refreshHistory(),refreshSessions(),L.api('last')]).then(async ([_,__,___,____,last])=>{window.__lastSession=last.data;status('Admin settings loaded.');}).catch(e=>status(e.message,true));
 })();

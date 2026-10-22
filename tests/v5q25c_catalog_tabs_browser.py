@@ -9,12 +9,13 @@ HTML='<section id="tab-games"'+SECTION
 HTML=HTML.replace('aria-label="Game catalog" hidden>','aria-label="Game catalog">',1)
 BASE='''<script>
 window.__api=[];
-window.Lucky={api:async(action,opts={})=>{
+window.Lucky={loadTracks:async()=>[],fillTracks:(id,value)=>{const node=document.getElementById(id);if(node){node.replaceChildren(new Option('No song selected',''));node.value=value||'';}},api:async(action,opts={})=>{
  __api.push({action,body:opts.body});
  if(action==='game_catalog')return {games:[{id:'spin-wheel',title:'Spin the Wheel',
   publisherName:'Lucky Games',tagline:'Classic game',description:'Wheel fun',category:'Games',
   version:'bundled',ageRating:'Everyone',playersMin:1,playersMax:8,controllerMode:'custom',
   enabled:true,builtIn:true,status:'ready',images:{} }]};
+ if(action==='settings')return {settings:{intro:{title:'Spin splash',subtitle:'Ready to play',trackId:'',volume:70,announcement:true},theme:{accent:'#f6cb74',background:'#0d1423'}}};
  if(action==='game_packages')return {packages:[],issues:[],active:{}};
  if(action==='game_publisher_channels')return {channels:[]};
  if(action==='game_update_connection')return {connection:{connected:false}};

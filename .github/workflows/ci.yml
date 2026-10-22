@@ -65,6 +65,7 @@ jobs:
           php tests/v5q25_session_contract.php
           php tests/v5q25_prize_smart_tags.php
           php tests/v5q26_movie_preview_contract.php
+          php tests/v5q26c_splash_contract.php
           node tests/v5q25d_shared_camera_profiles.js
           python tests/v5q25_game_entrypoint_contract.py
           python tests/v5q25_recording_countdown_contract.py
@@ -161,6 +162,7 @@ jobs:
           python tests/v5q25_phone_photo_video_browser.py
           python tests/v5q25_session_scope_browser.py
           python tests/v5q25c_catalog_tabs_browser.py
+          python tests/v5q26c_game_splash_browser.py
           python tests/v5q25d_shared_cameras_browser.py
           python tests/v5q26_movie_preview_browser.py
           python tests/v5q26b_phone_lifecycle_browser.py

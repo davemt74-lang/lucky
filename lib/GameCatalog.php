@@ -8,7 +8,7 @@ require_once __DIR__.'/GameRegistry.php';
  * Catalog-only entries are not executable game modules.
  */
 final class GameCatalog {
- private const IMAGE_SLOTS=['cover','hero','logo','gallery'];
+ private const IMAGE_SLOTS=['cover','hero','logo','gallery','splash'];
  public static function base(?string $root=null):string {
   return $root ?? dirname(__DIR__).'/storage/game-catalog';
  }
@@ -29,9 +29,29 @@ final class GameCatalog {
   return ['id'=>$id,'title'=>(string)($manifest['name']??$id),'tagline'=>'','description'=>(string)($manifest['description']??''),
    'publisherName'=>'','publisherWebsite'=>'','category'=>'Games','version'=>$registered?($builtIn?'bundled':(string)($manifest['packageVersion']??'0.1.0')):'0.1.0',
    'ageRating'=>'','playersMin'=>1,'playersMax'=>8,'controllerMode'=>$registered?(GameRegistry::controller($id)===null?'none':'custom'):'custom',
-   'enabled'=>$registered,'images'=>['cover'=>null,'hero'=>null,'logo'=>null,'gallery'=>[]],
+   'enabled'=>$registered,'images'=>['cover'=>null,'hero'=>null,'logo'=>null,'splash'=>null,'gallery'=>[]],
+   'splash'=>null,
    'status'=>$registered?'ready':'draft','source'=>$registered?($builtIn?'bundled':'package'):'catalog-only',
    'builtIn'=>$builtIn,'canDelete'=>!$builtIn];
+ }
+ /** Validate stored splash defaults for both draft and installed game profiles. */
+ public static function splash(mixed $value):array {
+  if(!is_array($value)||!isset($value['intro'])||!is_array($value['intro'])||!isset($value['theme'])||!is_array($value['theme']))
+   throw new DomainException('Invalid game splash settings.',422);
+  $intro=$value['intro'];$theme=$value['theme'];
+  $title=self::field($intro,'title',100);
+  if($title==='')throw new DomainException('Enter a splash title.',422);
+  $subtitle=self::field($intro,'subtitle',200);
+  $track=self::field($intro,'trackId',32);
+  if($track!==''&&!preg_match('/^[a-f0-9]{32}$/D',$track))throw new DomainException('Invalid intro track.',422);
+  $volume=$intro['volume']??null;
+  if(!is_int($volume)||$volume<0||$volume>100)throw new DomainException('Intro volume must be 0–100.',422);
+  $accent=self::field($theme,'accent',7,'#f6cb74');
+  $background=self::field($theme,'background',7,'#0d1423');
+  if(!preg_match('/^#[a-fA-F0-9]{6}$/D',$accent)||!preg_match('/^#[a-fA-F0-9]{6}$/D',$background))
+   throw new DomainException('Invalid splash color.',422);
+  return ['intro'=>['title'=>$title,'subtitle'=>$subtitle,'trackId'=>$track,'volume'=>$volume,'announcement'=>($intro['announcement']??true)===true],
+   'theme'=>['accent'=>$accent,'background'=>$background]];
  }
  private static function path(string $id,?string $root=null):string {
   return self::base($root).'/'.self::slug($id);
@@ -102,7 +122,8 @@ final class GameCatalog {
     'ageRating'=>self::field($input,'ageRating',40,$current['ageRating']),
     'playersMin'=>$min,'playersMax'=>$max,
     'enabled'=>($input['enabled']??$current['enabled'])===true,
-    'controllerMode'=>$registered?(GameRegistry::controller($id)===null?'none':'custom'):$controller
+    'controllerMode'=>$registered?(GameRegistry::controller($id)===null?'none':'custom'):$controller,
+    'splash'=>array_key_exists('splash',$input)?self::splash($input['splash']):($current['splash']??null)
    ]);
    self::atomic($folder.'/metadata.json',json_encode($current,JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR));
    return self::load($id,$root);
@@ -142,7 +163,7 @@ final class GameCatalog {
   $id=self::slug($id);
   if(!preg_match('/^[a-f0-9]{32}\.(?:jpg|png|webp)$/D',$file))throw new DomainException('Invalid game artwork.',404);
   $meta=self::load($id,$root);$images=$meta['images']??[];
-  $allowed=array_merge(array_values(array_filter([$images['cover']??null,$images['hero']??null,$images['logo']??null])), $images['gallery']??[]);
+  $allowed=array_merge(array_values(array_filter([$images['cover']??null,$images['hero']??null,$images['logo']??null,$images['splash']??null])), $images['gallery']??[]);
   if(!in_array($file,$allowed,true))throw new DomainException('Game artwork is unavailable.',404);
   $path=self::path($id,$root).'/assets/'.$file;
   if(!is_file($path)||is_link($path))throw new DomainException('Game artwork is missing.',404);

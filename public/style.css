@@ -196,3 +196,8 @@ body[data-page="intro"]{min-height:100vh;margin:0}.intro-stage{min-height:100vh;
 .hub-voice{margin:0 0 28px;padding:18px 24px;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
 .hub-voice>div{flex:1;min-width:220px}.hub-voice p{margin:6px 0 0;color:#abbdd1;font-size:.91rem}.hub-voice>span:last-child{color:#c1cee1;font-size:.81rem;min-width:140px}
 @media(max-width:650px){.hub-voice{padding:18px;gap:12px}.hub-voice>div{flex:1 1 100%}}
+
+/* Per-game uploaded splash background; protected by the game catalog artwork route. */
+.intro-stage>.intro-background{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:cover;object-position:center;z-index:-2;filter:brightness(.55) saturate(.93)}
+.intro-stage:has(.intro-background):after{mask-image:none;background:linear-gradient(180deg,rgba(6,11,20,.56),rgba(5,10,20,.23) 42%,rgba(5,9,19,.76))}
+.intro-stage>.intro-background[hidden]{display:none}

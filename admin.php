@@ -10,7 +10,6 @@ shellStart('Admin Studio','admin','admin-studio-page');
   <button type="button" data-tab="games"><span class="admin-nav-symbol" aria-hidden="true">▦</span> Game catalog</button>
   <button type="button" data-tab="cameras"><span class="admin-nav-symbol" aria-hidden="true">▣</span> Cameras</button>
   <button type="button" data-tab="prizes" class="selected" aria-current="page"><span class="admin-nav-symbol" aria-hidden="true">✦</span> Prizes & budgets</button>
-  <button type="button" data-tab="intro"><span class="admin-nav-symbol" aria-hidden="true">◈</span> Intro & theme</button>
   <button type="button" data-tab="music"><span class="admin-nav-symbol" aria-hidden="true">♫</span> Music library</button>
   <button type="button" data-tab="sessions"><span class="admin-nav-symbol" aria-hidden="true">▣</span> Game sessions</button>
   <button type="button" data-tab="history"><span class="admin-nav-symbol" aria-hidden="true">◷</span> Finished archive</button>
@@ -59,6 +58,26 @@ shellStart('Admin Studio','admin','admin-studio-page');
   </div>
   <h4>Game gallery</h4><div id="catalog-gallery" class="game-catalog-gallery"></div>
   <label>Add gallery image (up to 8)<input type="file" accept="image/jpeg,image/png,image/webp" data-game-art="gallery"></label>
+  <fieldset id="catalog-splash-settings" class="game-splash-settings">
+   <legend>Game splash &amp; intro</legend>
+   <p class="game-catalog-help">Configure the selected game's splash screen. Intro and theme settings are saved with the game profile.</p>
+   <div class="game-catalog-fields">
+    <label>Splash title<input id="intro-title" maxlength="100" required></label>
+    <label>Subtitle<input id="intro-subtitle" maxlength="200"></label>
+    <label>Intro song<select id="intro-track"><option value="">No song selected</option></select></label>
+    <label>Intro volume<input id="intro-volume" type="range" min="0" max="100" value="70"></label>
+    <label class="platform-checkbox"><input id="intro-announcement" type="checkbox" checked> Spoken welcome</label>
+    <label>Accent color<input id="theme-accent" type="color" value="#f6cb74"></label>
+    <label>Background color<input id="theme-background" type="color" value="#0d1423"></label>
+   </div>
+   <div class="game-splash-artwork">
+    <div class="game-splash-preview-shell"><img id="catalog-splash-preview" alt="Uploaded game splash background" hidden><span id="catalog-splash-placeholder">No splash background uploaded</span></div>
+    <div class="game-splash-upload-options"><strong>Splash background image</strong><p>Upload a JPG, PNG or WebP, up to 6 MB. Wide landscape images work best; the splash screen scales the image to fill the display.</p>
+     <label class="btn btn-outline game-splash-upload">↥ Upload background image<input type="file" accept="image/jpeg,image/png,image/webp" data-game-art="splash" aria-label="Upload splash background image"></label>
+     <a class="btn btn-outline" id="catalog-preview-splash" href="intro.php?game=spin-wheel" target="_blank" rel="noopener">Preview splash ↗</a>
+    </div>
+   </div>
+  </fieldset>
   <div class="platform-control-row"><button class="btn btn-primary" type="submit">Save game profile</button><span id="catalog-save-status" class="mini-label" role="status" aria-live="polite"></span></div>
  </form>
  </div>
@@ -161,7 +180,6 @@ shellStart('Admin Studio','admin','admin-studio-page');
  <div id="global-camera-list" class="global-camera-grid" aria-label="Detected cameras on this computer"></div>
  <p class="console-footnote">Camera permissions and device IDs are specific to this browser, computer and site address. Streams never leave this device. Open this Admin section on the game-host computer to configure shared cameras. Other computers need their own camera setup.</p>
 </section>
-<section id="tab-intro" class="surface platform-admin-panel" hidden><div class="card-title-row"><h2>Per-game splash & intro</h2><button id="save-intro" class="btn btn-primary">Save intro</button></div><div class="platform-admin-form"><label>Game<select id="intro-game"><option value="spin-wheel">Spin the Wheel</option><option value="game-2">Game 2 — reserved</option></select></label><label>Intro title<input id="intro-title" maxlength="100"></label><label>Subtitle<input id="intro-subtitle" maxlength="200"></label><label>Intro song<select id="intro-track"><option value="">No intro music</option></select></label><label>Intro volume <input id="intro-volume" type="range" min="0" max="100" value="70"></label><label class="platform-checkbox"><input type="checkbox" id="intro-announcement" checked> Spoken welcome</label><label>Accent color<input type="color" id="theme-accent" value="#f6cb74"></label><label>Background color<input type="color" id="theme-background" value="#0d1423"></label></div><a class="btn btn-outline" href="intro.php?game=spin-wheel" target="_blank" rel="noopener">Preview splash ↗</a></section>
 <section id="tab-music" class="surface platform-admin-panel" hidden><h2>Shared server music library</h2><p>Tracks can be played from the host device or audience display. Upload an authorized song or add its direct audio URL.</p><div class="platform-library-grid"><form id="music-upload" class="platform-form"><h3>Upload audio</h3><label>Song title<input name="title" required maxlength="160"></label><label>Audio file (up to 20MB)<input name="track" type="file" accept="audio/*,.mp3,.m4a,.wav,.ogg,.webm" required></label><button class="btn btn-teal" type="submit">Upload track</button></form><form id="music-add-url" class="platform-form"><h3>Link a hosted track</h3><label>Song title<input name="title" required maxlength="160"></label><label>Direct audio URL<input name="url" type="url" required></label><button class="btn btn-outline" type="submit">Add URL</button></form></div><div id="music-items" class="platform-claim-list"></div></section>
 <section id="tab-sessions" class="surface platform-admin-panel" hidden>
  <div class="card-title-row"><div><p class="mini-label">SHARED GAME ENGINE</p><h2>Game sessions</h2></div><button type="button" id="refresh-sessions" class="btn btn-outline">↻ Refresh sessions</button></div>
@@ -180,4 +198,4 @@ shellStart('Admin Studio','admin','admin-studio-page');
 <section id="tab-history" class="surface platform-admin-panel" hidden><h2>Finished-game archive</h2><p>Completed games are preserved with their audit records, prizes, and session timestamps.</p><button class="btn btn-outline" id="refresh-history">↻ Refresh</button><div id="history-items" class="platform-claim-list"></div><button class="btn btn-outline" id="export-history">Export history CSV</button></section>
 <section id="tab-migration" class="surface platform-admin-panel" hidden><h2>Import a V5 browser configuration</h2><p>The older game stored prizes and music in one browser. You can import its Tier 1, Tier 2, and Bonus prize definitions here. This does not erase the old browser copy. Existing claimed prizes are imported into a separate completed historical session, never into an active game. Duplicate imports of the same game are blocked.</p><p id="legacy-status" class="voice-status">Checking this browser…</p><button id="import-legacy" class="btn btn-outline">Import prizes and archived claims</button></section>
 </div><p id="admin-status" class="voice-status" role="status" aria-live="polite"></p></div></div>
-<script src="public/client.js" defer></script><script src="public/video-gallery.js?v=5q26a-gallery" defer></script><script src="public/camera-profiles.js?v=5q25d" defer></script><script src="public/camera-admin.js?v=5q25d" defer></script><script src="public/admin.js?v=5q26a-gallery" defer></script><script src="public/game-catalog.js?v=5q23c" defer></script><script src="public/game-catalog-tabs.js?v=5q26a" defer></script><?php shellEnd(); ?>
+<script src="public/client.js" defer></script><script src="public/video-gallery.js?v=5q26a-gallery" defer></script><script src="public/camera-profiles.js?v=5q25d" defer></script><script src="public/camera-admin.js?v=5q25d" defer></script><script src="public/admin.js?v=5q26c-splash" defer></script><script src="public/game-catalog.js?v=5q26c-splash" defer></script><script src="public/game-catalog-tabs.js?v=5q26a" defer></script><?php shellEnd(); ?>
