@@ -2,22 +2,49 @@
  'use strict';
  const $=id=>document.getElementById(id), api=Lucky.api;
  const text=(tag,value='',cls='')=>{const e=document.createElement(tag);e.textContent=value;e.className=cls;return e;};
- let games=[],selected='';
+ let games=[],selected='',introRequest=0,tracksReady=null;
  const fields={title:'catalog-title',tagline:'catalog-tagline',description:'catalog-description',
   publisherName:'catalog-publisher',publisherWebsite:'catalog-publisher-website',
   category:'catalog-category',version:'catalog-version',ageRating:'catalog-age'};
  const artURL=(id,name)=>'api/index.php?'+new URLSearchParams({action:'game_art',id,file:name});
  const note=(msg,bad=false)=>{const e=$('catalog-save-status');e.textContent=msg;e.classList.toggle('platform-error',bad);};
  function showImages(game){
-  for(const slot of ['cover','hero','logo']){
+  for(const slot of ['cover','hero','logo','splash']){
    const img=$('catalog-'+slot+'-preview'),name=game.images?.[slot];
    img.hidden=!name;if(name)img.src=artURL(game.id,name);else img.removeAttribute('src');
   }
+  $('catalog-splash-placeholder').hidden=!!game.images?.splash;
   const gallery=$('catalog-gallery');gallery.replaceChildren();
   for(const name of game.images?.gallery||[]){
    const img=document.createElement('img');img.alt='Screenshot from '+game.title;
    img.loading='lazy';img.src=artURL(game.id,name);gallery.append(img);
   }
+ }
+ const defaultSplash=game=>({intro:{title:game.title||'Game intro',subtitle:'Ready to play',trackId:'',volume:70,announcement:true},theme:{accent:'#f6cb74',background:'#0d1423'}});
+ function splashValues(){return {intro:{title:$('intro-title').value.trim(),subtitle:$('intro-subtitle').value.trim(),trackId:$('intro-track').value,
+  volume:Number($('intro-volume').value),announcement:$('intro-announcement').checked},
+  theme:{accent:$('theme-accent').value,background:$('theme-background').value}};}
+ function fillSplash(saved,game){const data=saved&&typeof saved==='object'?saved:defaultSplash(game);
+  $('intro-title').value=data.intro?.title||game.title;$('intro-subtitle').value=data.intro?.subtitle||'';
+  $('intro-volume').value=Number.isFinite(Number(data.intro?.volume))?data.intro.volume:70;
+  $('intro-announcement').checked=data.intro?.announcement!==false;
+  $('theme-accent').value=data.theme?.accent||'#f6cb74';$('theme-background').value=data.theme?.background||'#0d1423';
+  Lucky.fillTracks('intro-track',data.intro?.trackId||'');
+ }
+ async function loadSplash(game){const requested=++introRequest;
+  const preview=$('catalog-preview-splash');const installed=game.status==='ready';
+  preview.hidden=!installed;preview.href='intro.php?game='+encodeURIComponent(game.id);
+  $('catalog-splash-settings').disabled=false;
+  // Preview immediately from persisted metadata; registered games use the authoritative game_settings row.
+  fillSplash(game.splash,game);
+  try{
+   tracksReady=tracksReady||Lucky.loadTracks();await tracksReady;
+   if(selected!==game.id||introRequest!==requested)return;
+   let data=game.splash;
+   if(installed){const response=await api('settings',{query:{game:game.id}});data={intro:response.settings.intro,theme:response.settings.theme};}
+   if(selected!==game.id||introRequest!==requested)return;
+   fillSplash(data,game);
+  }catch(err){if(selected===game.id&&introRequest===requested)note('Unable to load this game’s splash settings: '+err.message,true);}
  }
  function edit(id){
   const game=games.find(item=>item.id===id);if(!game)return;
@@ -33,7 +60,7 @@
   $('catalog-controller').value=game.controllerMode;
   $('catalog-controller').disabled=game.status==='ready';
   $('catalog-enabled').checked=!!game.enabled;
-  showImages(game);paintList();note('');
+  showImages(game);paintList();note('');loadSplash(game);
  }
  function paintList(){
   const area=$('catalog-game-list');area.replaceChildren();
@@ -71,7 +98,12 @@
   for(const [key,control] of Object.entries(fields))body[key]=$(control).value;
   body.playersMin=Number($('catalog-min').value);body.playersMax=Number($('catalog-max').value);
   body.controllerMode=$('catalog-controller').value;body.enabled=$('catalog-enabled').checked;
-  try {note('Saving…');await api('game_catalog_save',{body});await reload(selected);note('Game profile saved to local catalog.');}
+   body.splash=splashValues();
+   if(!body.splash.intro.title){note('Enter a splash title.',true);return;}
+  try {note('Saving…');const game=games.find(g=>g.id===selected);
+    // Existing game_settings data remains authoritative for playable games. Drafts keep settings in catalog metadata until installed.
+    if(game?.status==='ready')await api('settings_save',{body:{game:selected,...body.splash}});
+    await api('game_catalog_save',{body});await reload(selected);note('Game profile and splash settings saved.');}
   catch(e){note(e.message,true);}
  };
  document.querySelectorAll('[data-game-art]').forEach(input=>input.onchange=async()=>{

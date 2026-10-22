@@ -1104,3 +1104,21 @@ body.game-fullwidth .header{position:relative;z-index:60}
 .phone-proof-countdown[hidden]{display:none!important}
 .phone-controller-page [data-phone^="prize-"]:disabled{opacity:.5;cursor:wait}
 @media(max-width:360px){.phone-controller-page .phone-prize-media{min-height:105px}.phone-controller-page .phone-prize-title{font-size:20px}}
+
+/* V5Q.26C — game-profile-owned splash/intro editor. */
+.game-splash-settings{margin:18px 0 6px;border:1px solid #425471;border-radius:16px;padding:20px;min-width:0;background:#101d30}
+.game-splash-settings legend{padding:0 8px;color:#ffe0a1;font-weight:850;font-size:17px}
+.game-splash-settings .game-catalog-help{margin:4px 0 20px;font-size:13px}
+.game-splash-settings .game-catalog-fields{margin:0 0 16px}
+.game-splash-artwork{display:grid;grid-template-columns:minmax(180px,1.1fr) minmax(200px,1fr);gap:17px;align-items:start}
+.game-splash-preview-shell{display:grid;place-items:center;overflow:hidden;position:relative;aspect-ratio:16/9;border:1px dashed #64728c;border-radius:12px;background:linear-gradient(120deg,#25304b,#0f192a)}
+.game-splash-preview-shell img{width:100%;height:100%;object-fit:cover}
+.game-splash-preview-shell img[hidden],.game-splash-preview-shell span[hidden]{display:none}
+.game-splash-preview-shell span{font-size:13px;color:#a9bbd2;text-align:center;padding:18px}
+.game-splash-upload-options{display:flex;align-items:flex-start;flex-direction:column;gap:11px}
+.game-splash-upload-options strong{color:#f3f6ff}
+.game-splash-upload-options p{color:#a8bed5;font-size:13px;line-height:1.5;margin:0}
+.game-splash-upload{position:relative;cursor:pointer;display:inline-flex;max-width:100%}
+.game-splash-upload input[type=file]{position:absolute;opacity:0;width:1px;height:1px;left:0;bottom:0}
+.game-splash-upload:focus-within{outline:2px solid #f4c577;outline-offset:3px}
+@media(max-width:750px){.game-splash-artwork{grid-template-columns:1fr}.game-splash-settings{padding:14px}}
