@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__.'/GameRegistry.php';
+require_once __DIR__.'/GameCatalog.php';
 
 /**
  * Per-game bootstrap. Registered modules provide validated defaults; no game
@@ -23,6 +24,8 @@ final class GameFoundation {
   $defaults=$module->validateSettings($module->defaults());
   $intro=['title'=>strval($manifest['name']??$game),'subtitle'=>'Ready to play','trackId'=>'','volume'=>70,'announcement'=>true];
   $theme=['accent'=>'#f6cb74','background'=>'#0d1423'];
+  $catalogSplash=GameCatalog::load($game)['splash']??null;
+  if(is_array($catalogSplash)){$intro=$catalogSplash['intro']??$intro;$theme=$catalogSplash['theme']??$theme;}
   $q=$db->prepare('INSERT IGNORE INTO game_settings(game_id,config_json,intro_json,theme_json) VALUES (?,?,?,?)');
   $q->execute([$game,json_encode($defaults,JSON_THROW_ON_ERROR),json_encode($intro,JSON_THROW_ON_ERROR),json_encode($theme,JSON_THROW_ON_ERROR)]);
   $q=$db->prepare('SELECT config_json FROM game_settings WHERE game_id=? FOR UPDATE');
