@@ -361,6 +361,21 @@
    else $('phone-movie-state').textContent=verb==='pause'?'Pausing desktop movie…':'Resuming desktop movie…';
   }catch(e){message(e.message,true);}finally{movieBusy=false;document.querySelectorAll('.phone-movie-buttons button').forEach(b=>b.disabled=false);}
  }
+
+ const closeMenu=()=>{const dialog=$('phone-quick-menu');if(dialog?.open)dialog.close();};
+ const openMenu=()=>{const dialog=$('phone-quick-menu');if(active&&state&&dialog&&!dialog.open){syncNav();dialog.showModal();}};
+ $('phone-menu-toggle').onclick=openMenu;
+ $('phone-menu-close').onclick=closeMenu;
+ document.querySelectorAll('[data-phone-view]').forEach(button=>button.addEventListener('click',()=>{
+  const target=button.dataset.phoneView;
+  if(target==='more'){openMenu();return;}
+  closeMenu();if(button.disabled)return;
+  if(target==='home'){if(!mayGoHome()){message('Finish the active game or proof before returning home.',true);return;}
+   dashboardRequested=true;show('phone-dashboard');void loadDashboard();return;}
+  if(target==='game'&&mayGoGame()||target==='prize'&&mayGoPrize()||target==='camera'&&mayGoCamera()){
+   show('phone-controls');if(game)updateGame(game);updateProof(proofState);
+  }
+ }));
  $('phone-movie-play').onclick=()=>movieControl('play');
  $('phone-movie-pause').onclick=()=>movieControl('pause');
  $('phone-movie-stop').onclick=()=>movieControl('stop');
@@ -389,7 +404,7 @@
  });
  document.querySelectorAll('[data-phone]').forEach(button=>button.addEventListener('click',()=>send(button.dataset.phone)));
  $('phone-proof-consent')?.addEventListener('change',e=>send(e.target.checked?'proof-consent-on':'proof-consent-off'));
- $('phone-disconnect').addEventListener('click',async()=>{try{await request('disconnect');}catch(_){}forget();});
+ $('phone-disconnect').addEventListener('click',async()=>{closeMenu();try{await request('disconnect');}catch(_){}forget();});
  try{const existing=JSON.parse(sessionStorage.getItem(storageKey)||'null');if(existing&&/^[a-f0-9]{32}$/.test(existing.id)&&/^[a-f0-9]{64}$/.test(existing.token))state=existing;}catch(_){}
  if(state){if(location.protocol!=='about:')history.replaceState(null,'','controller.php');show('phone-wait');status();}
  else if((/^[a-f0-9]{32}$/.test(params.get('invite')||'')&&/^[a-f0-9]{64}$/.test(params.get('key')||''))||(/^[a-f0-9]{32}$/.test(params.get('session')||'')&&/^[a-f0-9]{48}$/.test(params.get('viewer')||''))){show('phone-join');message('Scan complete. Enter your phone name to request approval.');}
