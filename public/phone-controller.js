@@ -243,6 +243,10 @@
    if(available)select.value=current.selectedPackage;
    select.disabled=!active||!canChoose||busy;
   }
+  const wheel=$('phone-wheel-face');if(wheel)wheel.dataset.phase=current.spinning?'spinning':current.status||'ready';
+  const hint=$('phone-wheel-hint');if(hint)hint.textContent=current.spinning?'Wheel spinning on the TV…':
+   current.status==='paused'?'Game paused on the host':'Watch the wheel on the TV';
+  syncNav();
   const panel=$('phone-game-state');if(!panel)return;
   if(current.upgradeRequired){
    panel.textContent='HOST DATABASE UPDATE REQUIRED · On desktop, sign in and run upgrade.php. Your phone is still paired.';
@@ -282,6 +286,12 @@
   if(recordButton){recordButton.textContent=countdown?'Starting soon…':recording?'● Recording…':'● Record';recordButton.disabled=opening||upgrade||countdown||recording||!proofState.consent;}
   const stopButton=document.querySelector('[data-phone="proof-stop"]');if(stopButton){stopButton.hidden=!(countdown||recording);stopButton.textContent=countdown?'✕ Cancel countdown':'■ Stop recording';stopButton.disabled=!(countdown||recording);}
   const saveButton=document.querySelector('[data-phone="proof-save"]');if(saveButton)saveButton.disabled=!reviewing;
+  const banner=$('phone-proof-live-banner');if(banner){banner.hidden=!showing;banner.dataset.phase=phase;}
+  const title=$('phone-proof-live-title');if(title)title.textContent=countdown?'Recording countdown on the computer…':
+   recording?'● REC · Recording on the computer':processing?'Processing video…':
+   reviewing?'Review your clip on the computer':saving?'Saving clip to the timeline…':
+   saved?'✓ Video saved to the timeline':opening?'Opening proof on the computer…':'Desktop camera ready';
+  syncNav();
   const approved=showing&&Number(proofState.savedCount)>0;
   if($('phone-proof-saved'))$('phone-proof-saved').hidden=reviewing||recording||processing||saving||!approved;
  }
