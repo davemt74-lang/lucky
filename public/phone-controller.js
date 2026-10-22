@@ -14,8 +14,9 @@
  const mayGoCamera=()=>active&&!!proofState?.active;
  const mayGoGame=()=>active&&!currentMovie&&!!game&&(liveGame()||!!game.upgradeRequired||mayGoPrize()||mayGoCamera());
  function syncNav(){
-  const paired=active&&!!state,navbar=$('phone-bottom-nav'),toggle=$('phone-menu-toggle');
+  const paired=active&&!!state,navbar=$('phone-bottom-nav'),toggle=$('phone-menu-toggle'),arrows=$('phone-arrows-toggle');
   if(navbar)navbar.hidden=!paired;if(toggle)toggle.hidden=!paired;
+  if(arrows){arrows.disabled=!paired||!!currentMovie||!!proofState?.active||mayGoPrize();if(arrows.disabled&&$('phone-arrows-dialog')?.open)$('phone-arrows-dialog').close();}
   const availability={home:mayGoHome(),game:mayGoGame(),prize:mayGoPrize(),camera:mayGoCamera(),more:paired};
   const current=visibleScreen==='phone-dashboard'?'home':visibleScreen==='phone-movie'?'more':mayGoCamera()?'camera':mayGoPrize()?'prize':'game';
   document.querySelectorAll('[data-phone-view]').forEach(button=>{
@@ -36,7 +37,7 @@
   syncNav();
  };
  const safeName=()=>String($('phone-name').value||'').trim().slice(0,48);
- function forget(){const menu=$('phone-quick-menu');if(menu?.open)menu.close();currentMovie=null;lastPrizeOffer='';clearPrizeVideo();try{window.speechSynthesis?.cancel();}catch(_){}toggleListening(false);commandQueue=[];feedback=null;pendingCommand=null;game=null;gameVersion=-1;updateProof(null);state=null;try{sessionStorage.removeItem(storageKey);}catch(_){}active=false;show('phone-join');message('Connection expired. Scan a new QR code on the host screen.',true);}
+ function forget(){const menu=$('phone-quick-menu');if(menu?.open)menu.close();const arrows=$('phone-arrows-dialog');if(arrows?.open)arrows.close();currentMovie=null;lastPrizeOffer='';clearPrizeVideo();try{window.speechSynthesis?.cancel();}catch(_){}toggleListening(false);commandQueue=[];feedback=null;pendingCommand=null;game=null;gameVersion=-1;updateProof(null);state=null;try{sessionStorage.removeItem(storageKey);}catch(_){}active=false;show('phone-join');message('Connection expired. Scan a new QR code on the host screen.',true);}
  async function request(action,body={},authenticated=true){const headers={'Content-Type':'application/json'};
   if(authenticated){if(!state)throw Error('Phone not paired.');headers['X-Controller-Token']=state.token;body={id:state.id,...body};}
   const response=await fetch('api/controller.php?action='+encodeURIComponent(action),{method:'POST',headers,credentials:'omit',cache:'no-store',body:JSON.stringify(body)});
@@ -48,7 +49,7 @@
   const picker=$('phone-dashboard-package-picker'),select=$('phone-dashboard-package-select');
   if(!picker||!select)return;
   const options=(game?.packages||[]).filter(p=>p.enabled&&p.playerSelectable&&(p.publicationStatus||'published')==='published');
-  picker.hidden=options.length<2||!!game?.upgradeRequired;const arrows=$('phone-dashboard-arrows');if(arrows)arrows.hidden=picker.hidden;
+  picker.hidden=options.length<2||!!game?.upgradeRequired;
   const signature=JSON.stringify(options.map(p=>[p.id,p.name]));
   if(select.dataset.signature!==signature){
    select.dataset.signature=signature;select.replaceChildren();
@@ -218,10 +219,10 @@
     $('phone-proof-play-video').hidden=!hasPrizeUpload(proofOffer.videoUrl);
    }
   }
-  const gameShell=$('phone-gameplay-shell'),proofMode=$('phone-proof-mode'),audio=$('phone-game-audio'),offerMode=$('phone-prize-offer');
+  const gameShell=$('phone-gameplay-shell'),proofMode=$('phone-proof-mode'),offerMode=$('phone-prize-offer');
   if(gameShell)gameShell.hidden=proof||offer;
   if(proofMode)proofMode.hidden=!proof;
-  if(audio)audio.hidden=proof||offer;
+  
   if(offerMode)offerMode.hidden=!offer;
   if(offer)prizeDetails(game.offer,'phone-offer');
   if($('phone-offer-description'))$('phone-offer-description').textContent=offer?game.offer.description||'':'';
@@ -338,16 +339,16 @@
  const mic=$('phone-mic-toggle'),voiceStatus=$('phone-voice-status');
  function toggleListening(on){
   if(!on){listening=false;try{speech?.stop();}catch(_){};mic?.setAttribute('aria-pressed','false');mic?.classList.remove('phone-voice-active');if(voiceStatus)voiceStatus.textContent='Microphone off.';return;}
-  if(!SpeechRecognition){voiceStatus.textContent='Voice recognition unavailable in this browser.';return;}
-  if(!window.isSecureContext){voiceStatus.textContent='Voice control needs HTTPS or localhost.';return;}
-  if(!active){voiceStatus.textContent='Connect your phone before enabling listening.';return;}
+  if(!SpeechRecognition){voiceStatus.textContent='Voice recognition unavailable in this browser.';message(voiceStatus.textContent,true);return;}
+  if(!window.isSecureContext){voiceStatus.textContent='Voice control needs HTTPS or localhost.';message(voiceStatus.textContent,true);return;}
+  if(!active){voiceStatus.textContent='Connect your phone before enabling listening.';message(voiceStatus.textContent,true);return;}
   try{
    speech=new SpeechRecognition();speech.lang='en-US';speech.interimResults=false;speech.continuous=false;
    speech.onresult=event=>{const words=Array.from(event.results).filter(r=>r.isFinal).map(r=>r[0]?.transcript||'').join(' ').trim();if(words){voiceStatus.textContent='Heard: '+words;const parsed=window.LuckyCommands?.parse(words);if(parsed?.type==='stop-listening')toggleListening(false);else submitPhrase(words,true);}};
-   speech.onerror=event=>{voiceStatus.textContent='Microphone: '+(event.error||'error');if(['not-allowed','service-not-allowed','audio-capture'].includes(event.error))toggleListening(false);};
+   speech.onerror=event=>{voiceStatus.textContent='Microphone: '+(event.error||'error');message(voiceStatus.textContent,true);if(['not-allowed','service-not-allowed','audio-capture'].includes(event.error))toggleListening(false);};
    speech.onend=()=>{if(listening&&document.visibilityState==='visible'){try{speech.start();}catch(_){toggleListening(false);}}};
    listening=true;speech.start();mic?.setAttribute('aria-pressed','true');mic?.classList.add('phone-voice-active');voiceStatus.textContent='Listening…';
-  }catch(e){toggleListening(false);voiceStatus.textContent='Could not start microphone: '+e.message;}
+  }catch(e){toggleListening(false);voiceStatus.textContent='Could not start microphone: '+e.message;message(voiceStatus.textContent,true);}
  }
  mic?.addEventListener('click',()=>toggleListening(!listening));
  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'&&listening)toggleListening(false);});
@@ -362,10 +363,24 @@
   }catch(e){message(e.message,true);}finally{movieBusy=false;document.querySelectorAll('.phone-movie-buttons button').forEach(b=>b.disabled=false);}
  }
 
+ function setMenuTab(tab){
+  for(const button of document.querySelectorAll('[data-phone-menu-tab]')){
+   const selected=button.dataset.phoneMenuTab===tab;
+   button.setAttribute('aria-selected',String(selected));button.tabIndex=selected?0:-1;
+   const panel=$('phone-menu-panel-'+button.dataset.phoneMenuTab);if(panel)panel.hidden=!selected;
+  }
+ }
+ const closeArrows=()=>{const dialog=$('phone-arrows-dialog');if(dialog?.open)dialog.close();};
  const closeMenu=()=>{const dialog=$('phone-quick-menu');if(dialog?.open)dialog.close();};
- const openMenu=()=>{const dialog=$('phone-quick-menu');if(active&&state&&dialog&&!dialog.open){syncNav();dialog.showModal();}};
+ const openMenu=()=>{const dialog=$('phone-quick-menu');if(active&&state&&dialog&&!dialog.open){closeArrows();syncNav();setMenuTab('controls');dialog.showModal();}};
+ const openArrows=()=>{const dialog=$('phone-arrows-dialog'),button=$('phone-arrows-toggle');if(!active||!state||button.disabled||!dialog||dialog.open)return;
+  closeMenu();dialog.showModal();button.setAttribute('aria-expanded','true');button.classList.add('is-active');};
  $('phone-menu-toggle').onclick=openMenu;
  $('phone-menu-close').onclick=closeMenu;
+ $('phone-arrows-toggle').onclick=openArrows;
+ $('phone-arrows-close').onclick=closeArrows;
+ $('phone-arrows-dialog').addEventListener('close',()=>{$('phone-arrows-toggle').setAttribute('aria-expanded','false');$('phone-arrows-toggle').classList.remove('is-active');});
+ document.querySelectorAll('[data-phone-menu-tab]').forEach(button=>button.addEventListener('click',()=>setMenuTab(button.dataset.phoneMenuTab)));
  document.querySelectorAll('[data-phone-view]').forEach(button=>button.addEventListener('click',()=>{
   const target=button.dataset.phoneView;
   if(target==='more'){openMenu();return;}
