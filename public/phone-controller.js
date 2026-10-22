@@ -7,11 +7,36 @@
   if(active)noticeTimer=setTimeout(()=>{e.textContent='';e.classList.remove('platform-error');},warning?6500:2300);
  };
  const setConnection=(kind,label)=>{const el=$('phone-connection-state');if(el){el.dataset.state=kind;el.textContent=label;}};
- const show=(name)=>{for(const id of ['phone-join','phone-wait','phone-controls','phone-dashboard','phone-movie'])$(id).hidden=id!==name;
+ let visibleScreen='phone-join';
+ const liveGame=()=>!!game&&['active','paused'].includes(game.status);
+ const mayGoHome=()=>active&&!currentMovie&&!proofState?.active&&!liveGame()&&game?.offer?.status!=='pending';
+ const mayGoPrize=()=>active&&!proofState?.active&&game?.offer?.status==='pending';
+ const mayGoCamera=()=>active&&!!proofState?.active;
+ const mayGoGame=()=>active&&!currentMovie&&!!game&&(liveGame()||!!game.upgradeRequired||mayGoPrize()||mayGoCamera());
+ function syncNav(){
+  const paired=active&&!!state,navbar=$('phone-bottom-nav'),toggle=$('phone-menu-toggle');
+  if(navbar)navbar.hidden=!paired;if(toggle)toggle.hidden=!paired;
+  const availability={home:mayGoHome(),game:mayGoGame(),prize:mayGoPrize(),camera:mayGoCamera(),more:paired};
+  const current=visibleScreen==='phone-dashboard'?'home':visibleScreen==='phone-movie'?'more':mayGoCamera()?'camera':mayGoPrize()?'prize':'game';
+  document.querySelectorAll('[data-phone-view]').forEach(button=>{
+   const name=button.dataset.phoneView;button.disabled=!availability[name];
+   const selected=current===name&&availability[name];button.classList.toggle('is-active',selected);
+   if(selected)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');
+  });
+  const note=$('phone-menu-context');
+  if(note)note.textContent=currentMovie?'Movie preview is active on the host. Stop playback before choosing another game.':
+   mayGoCamera()?'Finish the recording or proof review before returning to the game library.':
+   mayGoPrize()?'Accept or decline your pending prize to continue.':
+   liveGame()?'End or save the current game before selecting another.':'Your private home arcade.';
+ }
+ const show=(name)=>{visibleScreen=name;
+  for(const id of ['phone-join','phone-wait','phone-controls','phone-dashboard','phone-movie'])$(id).hidden=id!==name;
   $('phone-disconnect').hidden=name==='phone-join';
-  setConnection(name==='phone-join'?'disconnected':name==='phone-wait'?'waiting':'connected',name==='phone-join'?'● Not connected':name==='phone-wait'?'◌ Awaiting approval':'● Connected');};
+  setConnection(name==='phone-join'?'disconnected':name==='phone-wait'?'waiting':'connected',name==='phone-join'?'● Not connected':name==='phone-wait'?'◌ Awaiting approval':'● Connected');
+  syncNav();
+ };
  const safeName=()=>String($('phone-name').value||'').trim().slice(0,48);
- function forget(){currentMovie=null;lastPrizeOffer='';clearPrizeVideo();try{window.speechSynthesis?.cancel();}catch(_){}toggleListening(false);commandQueue=[];feedback=null;pendingCommand=null;game=null;gameVersion=-1;updateProof(null);state=null;try{sessionStorage.removeItem(storageKey);}catch(_){}active=false;show('phone-join');message('Connection expired. Scan a new QR code on the host screen.',true);}
+ function forget(){const menu=$('phone-quick-menu');if(menu?.open)menu.close();currentMovie=null;lastPrizeOffer='';clearPrizeVideo();try{window.speechSynthesis?.cancel();}catch(_){}toggleListening(false);commandQueue=[];feedback=null;pendingCommand=null;game=null;gameVersion=-1;updateProof(null);state=null;try{sessionStorage.removeItem(storageKey);}catch(_){}active=false;show('phone-join');message('Connection expired. Scan a new QR code on the host screen.',true);}
  async function request(action,body={},authenticated=true){const headers={'Content-Type':'application/json'};
   if(authenticated){if(!state)throw Error('Phone not paired.');headers['X-Controller-Token']=state.token;body={id:state.id,...body};}
   const response=await fetch('api/controller.php?action='+encodeURIComponent(action),{method:'POST',headers,credentials:'omit',cache:'no-store',body:JSON.stringify(body)});
@@ -109,7 +134,7 @@
    }}
    else if(data.status==='pending'){active=false;show('phone-wait');message('Waiting for host approval…');}
    else {forget();}}
-  catch(e){if(/invalid|disconnected|expired|authorization/i.test(e.message))forget();else {failures++;setConnection('interrupted','! Reconnecting');setConnection('interrupted','! Reconnecting');if(failures>=3&&(failures===3||e.message!==lastConnectionError)){lastConnectionError=e.message;message('Connection interrupted: '+e.message+' Retrying…',true);}}}
+  catch(e){if(/invalid|disconnected|expired|authorization/i.test(e.message))forget();else {failures++;setConnection('interrupted','! Reconnecting');if(failures>=3&&(failures===3||e.message!==lastConnectionError)){lastConnectionError=e.message;message('Connection interrupted: '+e.message+' Retrying…',true);}}}
   finally{statusBusy=false;if(!pendingCommand&&commandQueue.length&&active&&!busy){const next=commandQueue.shift();setTimeout(()=>send(next),0);}}
  }
  async function join(ev){ev.preventDefault();const name=safeName();if(!name){message('Please enter a phone name.',true);return;}
