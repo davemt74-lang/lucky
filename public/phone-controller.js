@@ -7,11 +7,36 @@
   if(active)noticeTimer=setTimeout(()=>{e.textContent='';e.classList.remove('platform-error');},warning?6500:2300);
  };
  const setConnection=(kind,label)=>{const el=$('phone-connection-state');if(el){el.dataset.state=kind;el.textContent=label;}};
- const show=(name)=>{for(const id of ['phone-join','phone-wait','phone-controls','phone-dashboard','phone-movie'])$(id).hidden=id!==name;
+ let visibleScreen='phone-join';
+ const liveGame=()=>!!game&&['active','paused'].includes(game.status);
+ const mayGoHome=()=>active&&!currentMovie&&!proofState?.active&&!liveGame()&&game?.offer?.status!=='pending';
+ const mayGoPrize=()=>active&&!proofState?.active&&game?.offer?.status==='pending';
+ const mayGoCamera=()=>active&&!!proofState?.active;
+ const mayGoGame=()=>active&&!currentMovie&&!!game&&(liveGame()||!!game.upgradeRequired||mayGoPrize()||mayGoCamera());
+ function syncNav(){
+  const paired=active&&!!state,navbar=$('phone-bottom-nav'),toggle=$('phone-menu-toggle');
+  if(navbar)navbar.hidden=!paired;if(toggle)toggle.hidden=!paired;
+  const availability={home:mayGoHome(),game:mayGoGame(),prize:mayGoPrize(),camera:mayGoCamera(),more:paired};
+  const current=visibleScreen==='phone-dashboard'?'home':visibleScreen==='phone-movie'?'more':mayGoCamera()?'camera':mayGoPrize()?'prize':'game';
+  document.querySelectorAll('[data-phone-view]').forEach(button=>{
+   const name=button.dataset.phoneView;button.disabled=!availability[name];
+   const selected=current===name&&availability[name];button.classList.toggle('is-active',selected);
+   if(selected)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');
+  });
+  const note=$('phone-menu-context');
+  if(note)note.textContent=currentMovie?'Movie preview is active on the host. Stop playback before choosing another game.':
+   mayGoCamera()?'Finish the recording or proof review before returning to the game library.':
+   mayGoPrize()?'Accept or decline your pending prize to continue.':
+   liveGame()?'End or save the current game before selecting another.':'Your private home arcade.';
+ }
+ const show=(name)=>{visibleScreen=name;
+  for(const id of ['phone-join','phone-wait','phone-controls','phone-dashboard','phone-movie'])$(id).hidden=id!==name;
   $('phone-disconnect').hidden=name==='phone-join';
-  setConnection(name==='phone-join'?'disconnected':name==='phone-wait'?'waiting':'connected',name==='phone-join'?'● Not connected':name==='phone-wait'?'◌ Awaiting approval':'● Connected');};
+  setConnection(name==='phone-join'?'disconnected':name==='phone-wait'?'waiting':'connected',name==='phone-join'?'● Not connected':name==='phone-wait'?'◌ Awaiting approval':'● Connected');
+  syncNav();
+ };
  const safeName=()=>String($('phone-name').value||'').trim().slice(0,48);
- function forget(){currentMovie=null;lastPrizeOffer='';clearPrizeVideo();try{window.speechSynthesis?.cancel();}catch(_){}toggleListening(false);commandQueue=[];feedback=null;pendingCommand=null;game=null;gameVersion=-1;updateProof(null);state=null;try{sessionStorage.removeItem(storageKey);}catch(_){}active=false;show('phone-join');message('Connection expired. Scan a new QR code on the host screen.',true);}
+ function forget(){const menu=$('phone-quick-menu');if(menu?.open)menu.close();currentMovie=null;lastPrizeOffer='';clearPrizeVideo();try{window.speechSynthesis?.cancel();}catch(_){}toggleListening(false);commandQueue=[];feedback=null;pendingCommand=null;game=null;gameVersion=-1;updateProof(null);state=null;try{sessionStorage.removeItem(storageKey);}catch(_){}active=false;show('phone-join');message('Connection expired. Scan a new QR code on the host screen.',true);}
  async function request(action,body={},authenticated=true){const headers={'Content-Type':'application/json'};
   if(authenticated){if(!state)throw Error('Phone not paired.');headers['X-Controller-Token']=state.token;body={id:state.id,...body};}
   const response=await fetch('api/controller.php?action='+encodeURIComponent(action),{method:'POST',headers,credentials:'omit',cache:'no-store',body:JSON.stringify(body)});
@@ -109,7 +134,7 @@
    }}
    else if(data.status==='pending'){active=false;show('phone-wait');message('Waiting for host approval…');}
    else {forget();}}
-  catch(e){if(/invalid|disconnected|expired|authorization/i.test(e.message))forget();else {failures++;setConnection('interrupted','! Reconnecting');setConnection('interrupted','! Reconnecting');if(failures>=3&&(failures===3||e.message!==lastConnectionError)){lastConnectionError=e.message;message('Connection interrupted: '+e.message+' Retrying…',true);}}}
+  catch(e){if(/invalid|disconnected|expired|authorization/i.test(e.message))forget();else {failures++;setConnection('interrupted','! Reconnecting');if(failures>=3&&(failures===3||e.message!==lastConnectionError)){lastConnectionError=e.message;message('Connection interrupted: '+e.message+' Retrying…',true);}}}
   finally{statusBusy=false;if(!pendingCommand&&commandQueue.length&&active&&!busy){const next=commandQueue.shift();setTimeout(()=>send(next),0);}}
  }
  async function join(ev){ev.preventDefault();const name=safeName();if(!name){message('Please enter a phone name.',true);return;}
@@ -218,6 +243,10 @@
    if(available)select.value=current.selectedPackage;
    select.disabled=!active||!canChoose||busy;
   }
+  const wheel=$('phone-wheel-face');if(wheel)wheel.dataset.phase=current.spinning?'spinning':current.status||'ready';
+  const hint=$('phone-wheel-hint');if(hint)hint.textContent=current.spinning?'Wheel spinning on the TV…':
+   current.status==='paused'?'Game paused on the host':'Watch the wheel on the TV';
+  syncNav();
   const panel=$('phone-game-state');if(!panel)return;
   if(current.upgradeRequired){
    panel.textContent='HOST DATABASE UPDATE REQUIRED · On desktop, sign in and run upgrade.php. Your phone is still paired.';
@@ -257,6 +286,12 @@
   if(recordButton){recordButton.textContent=countdown?'Starting soon…':recording?'● Recording…':'● Record';recordButton.disabled=opening||upgrade||countdown||recording||!proofState.consent;}
   const stopButton=document.querySelector('[data-phone="proof-stop"]');if(stopButton){stopButton.hidden=!(countdown||recording);stopButton.textContent=countdown?'✕ Cancel countdown':'■ Stop recording';stopButton.disabled=!(countdown||recording);}
   const saveButton=document.querySelector('[data-phone="proof-save"]');if(saveButton)saveButton.disabled=!reviewing;
+  const banner=$('phone-proof-live-banner');if(banner){banner.hidden=!showing;banner.dataset.phase=phase;}
+  const title=$('phone-proof-live-title');if(title)title.textContent=countdown?'Recording countdown on the computer…':
+   recording?'● REC · Recording on the computer':processing?'Processing video…':
+   reviewing?'Review your clip on the computer':saving?'Saving clip to the timeline…':
+   saved?'✓ Video saved to the timeline':opening?'Opening proof on the computer…':'Desktop camera ready';
+  syncNav();
   const approved=showing&&Number(proofState.savedCount)>0;
   if($('phone-proof-saved'))$('phone-proof-saved').hidden=reviewing||recording||processing||saving||!approved;
  }
@@ -326,6 +361,21 @@
    else $('phone-movie-state').textContent=verb==='pause'?'Pausing desktop movie…':'Resuming desktop movie…';
   }catch(e){message(e.message,true);}finally{movieBusy=false;document.querySelectorAll('.phone-movie-buttons button').forEach(b=>b.disabled=false);}
  }
+
+ const closeMenu=()=>{const dialog=$('phone-quick-menu');if(dialog?.open)dialog.close();};
+ const openMenu=()=>{const dialog=$('phone-quick-menu');if(active&&state&&dialog&&!dialog.open){syncNav();dialog.showModal();}};
+ $('phone-menu-toggle').onclick=openMenu;
+ $('phone-menu-close').onclick=closeMenu;
+ document.querySelectorAll('[data-phone-view]').forEach(button=>button.addEventListener('click',()=>{
+  const target=button.dataset.phoneView;
+  if(target==='more'){openMenu();return;}
+  closeMenu();if(button.disabled)return;
+  if(target==='home'){if(!mayGoHome()){message('Finish the active game or proof before returning home.',true);return;}
+   dashboardRequested=true;show('phone-dashboard');void loadDashboard();return;}
+  if(target==='game'&&mayGoGame()||target==='prize'&&mayGoPrize()||target==='camera'&&mayGoCamera()){
+   show('phone-controls');if(game)updateGame(game);updateProof(proofState);
+  }
+ }));
  $('phone-movie-play').onclick=()=>movieControl('play');
  $('phone-movie-pause').onclick=()=>movieControl('pause');
  $('phone-movie-stop').onclick=()=>movieControl('stop');
@@ -354,7 +404,7 @@
  });
  document.querySelectorAll('[data-phone]').forEach(button=>button.addEventListener('click',()=>send(button.dataset.phone)));
  $('phone-proof-consent')?.addEventListener('change',e=>send(e.target.checked?'proof-consent-on':'proof-consent-off'));
- $('phone-disconnect').addEventListener('click',async()=>{try{await request('disconnect');}catch(_){}forget();});
+ $('phone-disconnect').addEventListener('click',async()=>{closeMenu();try{await request('disconnect');}catch(_){}forget();});
  try{const existing=JSON.parse(sessionStorage.getItem(storageKey)||'null');if(existing&&/^[a-f0-9]{32}$/.test(existing.id)&&/^[a-f0-9]{64}$/.test(existing.token))state=existing;}catch(_){}
  if(state){if(location.protocol!=='about:')history.replaceState(null,'','controller.php');show('phone-wait');status();}
  else if((/^[a-f0-9]{32}$/.test(params.get('invite')||'')&&/^[a-f0-9]{64}$/.test(params.get('key')||''))||(/^[a-f0-9]{32}$/.test(params.get('session')||'')&&/^[a-f0-9]{48}$/.test(params.get('viewer')||''))){show('phone-join');message('Scan complete. Enter your phone name to request approval.');}

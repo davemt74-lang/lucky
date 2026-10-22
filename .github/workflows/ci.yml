@@ -166,6 +166,7 @@ jobs:
           python tests/v5q25d_shared_cameras_browser.py
           python tests/v5q26_movie_preview_browser.py
           python tests/v5q26b_phone_lifecycle_browser.py
+          python tests/v5q26d_phone_navigation_browser.py
           python tests/v5q26b_video_gallery_browser.py
       - name: Phone controller regressions
         run: |
