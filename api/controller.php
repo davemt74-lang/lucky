@@ -298,7 +298,7 @@ try {
  if($action==='proof_state'){
   SchemaGuard::require($db,['controller_proof_state'],'Live prize proof controls');
   if(!$db->query("SHOW COLUMNS FROM controller_proof_state LIKE 'consent_ack'")->fetch())throw new DomainException('Run upgrade.php to activate V5Q.15F phone recording consent.',409);
-  $session=(string)($in['session']??'');$claim=(string)($in['claim']??'');$open=($in['open']??false)===true;$reviewCount=max(0,min(4,(int)($in['reviewCount']??0)));$consent=$open&&($in['consent']??false)===true;$phase=$open?(string)($in['phase']??'live'):'live';if(!in_array($phase,['live','recording','processing','review','saving','saved'],true))throw new DomainException('Invalid recording phase.',422); 
+  $session=(string)($in['session']??'');$claim=(string)($in['claim']??'');$open=($in['open']??false)===true;$reviewCount=max(0,min(4,(int)($in['reviewCount']??0)));$consent=$open&&($in['consent']??false)===true;$phase=$open?(string)($in['phase']??'live'):'live';if(!in_array($phase,['live','opening','countdown','recording','processing','review','saving','saved'],true))throw new DomainException('Invalid recording phase.',422); 
   ControllerPairing::checkId($session);
   sessionRow($db,$session);
   if($open){ControllerPairing::checkId($claim);$q=$db->prepare('SELECT id FROM game_claims WHERE id=? AND session_id=?');$q->execute([$claim,$session]);if(!$q->fetch())throw new DomainException('Claim does not belong to this session.',403);}
