@@ -1122,3 +1122,69 @@ body.game-fullwidth .header{position:relative;z-index:60}
 .game-splash-upload input[type=file]{position:absolute;opacity:0;width:1px;height:1px;left:0;bottom:0}
 .game-splash-upload:focus-within{outline:2px solid #f4c577;outline-offset:3px}
 @media(max-width:750px){.game-splash-artwork{grid-template-columns:1fr}.game-splash-settings{padding:14px}}
+
+/* V5Q.26D: phone controller design system and guarded navigation. */
+.phone-controller-page{background:radial-gradient(ellipse 90% 55% at 50% -10%,#1c3152,#071222 77%);color:#f5f8ff}
+.phone-controller-page .phone-controller{padding-bottom:max(105px,calc(env(safe-area-inset-bottom) + 95px))}
+.phone-controller-page .phone-controller-top{background:linear-gradient(145deg,#0c2139,#0c1729);border-color:#344e6a}
+.phone-controller-page .phone-identity{display:flex;align-items:center;gap:8px}
+.phone-brand{display:flex;align-items:center;gap:9px;min-width:140px;flex:1}
+.phone-brand-icon{width:36px;height:36px;flex:none;display:grid;place-items:center;border-radius:11px;background:linear-gradient(135deg,#ffe09b,#df9b52);color:#12233c;font-size:22px}
+.phone-brand-label{display:flex;flex-direction:column;gap:1px;min-width:0}
+.phone-brand-label strong{font-size:14px;font-weight:900;line-height:1.15;letter-spacing:.03em}
+.phone-brand-label strong span{color:#f2c57a}
+.phone-brand-label small{font-size:9px;font-weight:750;letter-spacing:.1em;color:#b5cbe3}
+#phone-menu-toggle{display:grid;place-items:center;min-width:36px;height:36px;border:1px solid #46617e;border-radius:10px;background:#182b43;color:#f1f6fd;font-size:18px}
+#phone-menu-toggle[hidden]{display:none!important}
+.phone-wheel-visual{max-width:540px;margin:10px auto 16px;padding:16px 12px 14px;text-align:center;border:1px solid #3b6684;border-radius:19px;background:linear-gradient(155deg,#122e4d,#111a32 75%);overflow:hidden}
+.phone-wheel-title{display:block;font-size:11px;letter-spacing:.14em;color:#f7d496;font-weight:900}
+.phone-wheel-face{width:178px;height:178px;display:grid;place-items:center;margin:8px auto 0;aspect-ratio:1;border:9px solid #e9ae54;border-radius:50%;background:conic-gradient(#bc2b59 0deg 45deg,#efac43 45deg 90deg,#1c7187 90deg 135deg,#7a41a1 135deg 180deg,#f18446 180deg 225deg,#267e65 225deg 270deg,#426ab8 270deg 315deg,#ce4b61 315deg 360deg);box-shadow:0 0 0 3px #ffd391,0 0 25px #d68b3888,0 10px 24px #0009;position:relative}
+.phone-wheel-face:before{content:"";position:absolute;inset:4px;border:2px solid #fbd895;border-radius:50%}
+.phone-wheel-face i{display:block;border:5px solid #bb802c;border-radius:50%;width:37px;height:37px;background:radial-gradient(circle at 30% 30%,#ffde8b,#ba6d2c);box-shadow:0 0 14px #0009}
+.phone-wheel-visual{position:relative}
+.phone-wheel-pointer{width:0;height:0;border-left:12px solid transparent;border-right:12px solid transparent;border-top:24px solid #ffe0a0;position:absolute;top:35px;left:calc(50% - 12px);filter:drop-shadow(0 3px 1px #000)}
+#phone-wheel-hint{font-size:12px;color:#c1d2e8;display:block;margin-top:16px}
+.phone-wheel-face[data-phase=spinning]{animation:phone-wheel-rotate 2.5s linear infinite}
+@keyframes phone-wheel-rotate{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.phone-wheel-face[data-phase=spinning]{animation:none}}
+.phone-proof-live-banner{max-width:540px;margin:12px auto;display:flex;align-items:center;gap:9px;padding:13px 15px;border:1px solid #4f7995;border-radius:13px;background:#153048;color:#c9ecfa;font-size:13px}
+.phone-proof-live-banner[hidden]{display:none!important}
+.phone-proof-live-banner[data-phase=countdown]{background:#44351e;border-color:#a9864e;color:#ffe0a1}
+.phone-proof-live-banner[data-phase=recording]{background:#47222a;border-color:#bf4f5e;color:#ffd1d5}
+.phone-proof-live-banner[data-phase=saved]{background:#193a34;border-color:#548971;color:#abf2ce}
+.phone-controller-page .phone-prize-offer{display:flex;flex-direction:column;gap:11px;background:linear-gradient(145deg,#301e48,#142038 70%);border-color:#a67aab}
+.phone-controller-page .phone-prize-offer .phone-prize-win-banner{order:1}
+.phone-controller-page .phone-prize-offer>h2{order:2;margin:1px 0}
+.phone-controller-page .phone-prize-offer .phone-prize-media{order:3;border:2px solid #be9146;background:radial-gradient(circle at center,#3f3158,#141d34)}
+.phone-controller-page .phone-prize-offer .phone-prize-tier{order:4;align-self:center}
+.phone-controller-page .phone-prize-offer #phone-offer-name{order:5}
+.phone-controller-page .phone-prize-offer #phone-offer-value{order:6}
+.phone-controller-page .phone-prize-offer #phone-offer-description{order:7}
+.phone-controller-page .phone-prize-offer .phone-offer-actions{order:8}
+.phone-controller-page .phone-prize-offer #phone-offer-help{order:9}
+.phone-controller-page .phone-prize-offer .phone-prize-decision{order:10}
+.phone-controller-page .phone-prize-decision [data-phone=prize-accept]{background:linear-gradient(145deg,#73e88c,#29b057);color:#062b18;border-color:#91f2a3}
+.phone-controller-page .phone-prize-decision [data-phone=prize-decline]{color:#ffb0b5;border-color:#a74d5b;background:#4b263466}
+.phone-bottom-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);z-index:90;width:min(100%,565px);display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:2px;padding:7px 7px max(8px,env(safe-area-inset-bottom));border:1px solid #38506d;border-bottom:0;border-radius:17px 17px 0 0;background:#0a1a30f5;box-shadow:0 -12px 32px #0009;backdrop-filter:blur(8px)}
+.phone-bottom-nav[hidden]{display:none!important}
+.phone-bottom-nav button{display:grid;place-items:center;align-content:center;gap:4px;min-width:0;min-height:53px;padding:5px 0;border:0;border-radius:10px;background:transparent;color:#bad0e2;font:inherit}
+.phone-bottom-nav button span{font-size:20px;line-height:1.1}
+.phone-bottom-nav button small{font-size:10px}
+.phone-bottom-nav button.is-active{background:#263953;color:#ffda98}
+.phone-bottom-nav button:disabled{opacity:.42;cursor:not-allowed}
+.phone-bottom-nav button:focus-visible{outline:2px solid #f5c472;outline-offset:1px}
+.phone-quick-menu{width:min(92vw,430px);max-height:85dvh;overflow:auto;border:1px solid #46617d;border-radius:19px;background:#101f33;color:#f4f8ff;padding:22px;box-shadow:0 25px 65px #000d}
+.phone-quick-menu::backdrop{background:#040a16dd;backdrop-filter:blur(4px)}
+.phone-quick-menu header{display:flex;align-items:center;justify-content:space-between}
+.phone-quick-menu header strong span{color:#f7c67b}
+.phone-quick-menu header button{width:39px;height:39px;background:#263a54;border:1px solid #4c647f;border-radius:9px;color:#fff;font-size:18px}
+.phone-quick-menu h2{font-size:21px;margin:20px 0 6px}
+.phone-quick-menu p{font-size:12px;color:#b4c7db;line-height:1.5}
+.phone-menu-items{display:grid;gap:8px;margin:16px 0}
+.phone-menu-items button{display:flex;align-items:center;text-align:left;gap:14px;border:1px solid #3e5570;border-radius:12px;padding:12px;background:#192e48;color:#f9fcff;font-size:20px;min-height:56px}
+.phone-menu-items button span{display:flex;flex-direction:column;gap:3px;font-size:13px;font-weight:850}
+.phone-menu-items button span small{font-size:11px;font-weight:400;color:#b2c8df}
+.phone-menu-items button:disabled{opacity:.44}
+.phone-menu-privacy{padding-top:13px;border-top:1px solid #405371}
+.phone-menu-disconnect{width:100%;margin-top:12px;min-height:44px;color:#ffb5bd;border-color:#a6575f}
+@media(max-width:360px){.phone-wheel-face{width:150px;height:150px}.phone-bottom-nav{padding-left:3px;padding-right:3px}.phone-brand-label strong{font-size:12px}.phone-controller-page .phone-identity{gap:5px}}
