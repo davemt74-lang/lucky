@@ -6,8 +6,10 @@
  const message=(m,warning=false)=>{const e=$('phone-status');if(!e)return;clearTimeout(noticeTimer);e.textContent=m;e.classList.toggle('platform-error',warning);
   if(active)noticeTimer=setTimeout(()=>{e.textContent='';e.classList.remove('platform-error');},warning?6500:2300);
  };
+ const setConnection=(kind,label)=>{const el=$('phone-connection-state');if(el){el.dataset.state=kind;el.textContent=label;}};
  const show=(name)=>{for(const id of ['phone-join','phone-wait','phone-controls','phone-dashboard','phone-movie'])$(id).hidden=id!==name;
-  $('phone-disconnect').hidden=name==='phone-join';};
+  $('phone-disconnect').hidden=name==='phone-join';
+  setConnection(name==='phone-join'?'disconnected':name==='phone-wait'?'waiting':'connected',name==='phone-join'?'● Not connected':name==='phone-wait'?'◌ Awaiting approval':'● Connected');};
  const safeName=()=>String($('phone-name').value||'').trim().slice(0,48);
  function forget(){currentMovie=null;lastPrizeOffer='';clearPrizeVideo();try{window.speechSynthesis?.cancel();}catch(_){}toggleListening(false);commandQueue=[];feedback=null;pendingCommand=null;game=null;gameVersion=-1;updateProof(null);state=null;try{sessionStorage.removeItem(storageKey);}catch(_){}active=false;show('phone-join');message('Connection expired. Scan a new QR code on the host screen.',true);}
  async function request(action,body={},authenticated=true){const headers={'Content-Type':'application/json'};
@@ -107,7 +109,7 @@
    }}
    else if(data.status==='pending'){active=false;show('phone-wait');message('Waiting for host approval…');}
    else {forget();}}
-  catch(e){if(/invalid|disconnected|expired|authorization/i.test(e.message))forget();else {failures++;if(failures>=3&&(failures===3||e.message!==lastConnectionError)){lastConnectionError=e.message;message('Connection interrupted: '+e.message+' Retrying…',true);}}}
+  catch(e){if(/invalid|disconnected|expired|authorization/i.test(e.message))forget();else {failures++;setConnection('interrupted','! Reconnecting');setConnection('interrupted','! Reconnecting');if(failures>=3&&(failures===3||e.message!==lastConnectionError)){lastConnectionError=e.message;message('Connection interrupted: '+e.message+' Retrying…',true);}}}
   finally{statusBusy=false;if(!pendingCommand&&commandQueue.length&&active&&!busy){const next=commandQueue.shift();setTimeout(()=>send(next),0);}}
  }
  async function join(ev){ev.preventDefault();const name=safeName();if(!name){message('Please enter a phone name.',true);return;}
@@ -119,7 +121,29 @@
   }catch(e){message(e.message,true);}finally{busy=false;$('phone-join-form').querySelector('button').disabled=false;}
  }
 
- let lastPrizeOffer='';
+ let lastPrizeOffer='';let declining=false;
+ const prizeCents=offer=>Math.max(0,Math.round(Number(offer?.cents)||0));
+ function prizeDetails(offer,prefix){
+  $(prefix+'-name').textContent=offer?.name||'Prize';
+  $(prefix+'-value').textContent='$'+(prizeCents(offer)/100).toFixed(2);
+  const tier=$(prefix+'-tier'),value=String(offer?.tier||'').trim();
+  tier.hidden=!value;tier.textContent=value?value.replace(/([a-z])([0-9])/i,'$1 $2').replace(/-/g,' ').toUpperCase()+' PRIZE':'';
+ }
+ function lockDecision(locked){document.querySelectorAll('#phone-prize-offer [data-phone^="prize-"]').forEach(btn=>{btn.disabled=locked;});}
+ async function confirmDecline(){
+  if(declining||!active||game?.offer?.status!=='pending')return;
+  const dialog=$('phone-decline-dialog');if(!dialog)return;
+  declining=true;
+  const accepted=await new Promise(resolve=>{
+   let done=false;
+   const close=value=>{if(done)return;done=true;dialog.close();resolve(value);};
+   $('phone-decline-cancel').onclick=()=>close(false);
+   $('phone-decline-confirm').onclick=()=>close(true);
+   dialog.oncancel=event=>{event.preventDefault();close(false);};
+   dialog.showModal();$('phone-decline-cancel').focus();
+  });
+  declining=false;if(accepted&&game?.offer?.status==='pending')await send('prize-decline',true);
+ }
  function hasPrizeUpload(raw){
   if(typeof raw!=='string'||!raw||raw.length>2048)return false;
   try{const url=new URL(raw,document.baseURI),base=new URL(document.baseURI);
@@ -161,7 +185,7 @@
   const proof=!!proofState?.active,offer=!proof&&game?.offer?.status==='pending';
   const proofOffer=proof&&game?.offer?.status==='accepted'?game.offer:null;
   const proofCard=$('phone-proof-prize');if(proofCard){proofCard.hidden=!proofOffer;
-   if(proofOffer){$('phone-proof-prize-name').textContent=proofOffer.name+' · $'+(Number(proofOffer.cents)/100).toFixed(2);
+   if(proofOffer){prizeDetails(proofOffer,'phone-proof-prize');
     $('phone-proof-prize-description').textContent=proofOffer.description||'';
     const img=$('phone-proof-prize-photo');let image=null;try{image=new URL(proofOffer.image||'',document.baseURI);}catch(_){}
     if(image&&['https:','http:'].includes(image.protocol)&&!image.username&&!image.password){img.src=image.href;img.hidden=false;img.onerror=()=>{img.hidden=true;};}
@@ -174,7 +198,7 @@
   if(proofMode)proofMode.hidden=!proof;
   if(audio)audio.hidden=proof||offer;
   if(offerMode)offerMode.hidden=!offer;
-  if(offer&&$('phone-offer-name'))$('phone-offer-name').textContent=game.offer.name+' · $'+(Number(game.offer.cents)/100).toFixed(2);
+  if(offer)prizeDetails(game.offer,'phone-offer');
   if($('phone-offer-description'))$('phone-offer-description').textContent=offer?game.offer.description||'':'';
   presentPrize(offer?game.offer:null);
  }
@@ -220,26 +244,30 @@
   if(accordion.hidden!==!showing){accordion.hidden=!showing;accordion.open=showing;}
   const phase=proofState.phase||(Number(proofState.reviewCount)>0?'review':'live');
   const reviewing=showing&&(phase==='review'||Number(proofState.reviewCount)>0&&phase==='live');
-  const opening=phase==='opening',upgrade=phase==='upgrade';
+  const opening=phase==='opening',countdown=phase==='countdown',upgrade=phase==='upgrade';
   const recording=phase==='recording',processing=phase==='processing',saving=phase==='saving',saved=phase==='saved';
   const consent=$('phone-proof-consent');if(consent){consent.checked=!!proofState.consent;consent.disabled=opening||upgrade||recording||processing||saving;}
   const label=$('phone-proof-phase');
-  if(label)label.textContent=recording?'● Recording…':processing?'Processing video…':reviewing?'Review recorded video · Save when ready':saving?'Saving video to the timeline…':saved?'✓ Video saved to the editor timeline':phase==='upgrade'?'Host upgrade required: run upgrade.php before recording.':opening?'Opening the desktop proof editor…': 'Live camera ready · Consent is controlled on this phone';
+  if(label)label.textContent=countdown?'Recording starts after the desktop countdown…':recording?'● Recording…':processing?'Processing video…':reviewing?'Review recorded video · Save when ready':saving?'Saving video to the timeline…':saved?'✓ Video saved to the editor timeline':phase==='upgrade'?'Host upgrade required: run upgrade.php before recording.':opening?'Opening the desktop proof editor…': 'Live camera ready · Consent is controlled on this phone';
   const context=$('phone-proof-context');if(context)context.textContent=opening?'Opening prize proof editor on the computer…':'Prize proof · Computer camera';
+  const countdownNotice=$('phone-proof-countdown');if(countdownNotice)countdownNotice.hidden=!countdown;
   const record=$('phone-proof-recording');if(record)record.hidden=opening||upgrade||reviewing||processing||saving||saved;
   const review=$('phone-proof-review');if(review)review.hidden=!reviewing;
   const recordButton=document.querySelector('[data-phone="proof-record"]');
-  if(recordButton){recordButton.textContent=recording?'● Recording…':'● Record';recordButton.disabled=opening||upgrade||recording||!proofState.consent;}
-  const stopButton=document.querySelector('[data-phone="proof-stop"]');if(stopButton){stopButton.hidden=!recording;stopButton.disabled=!recording;}
+  if(recordButton){recordButton.textContent=countdown?'Starting soon…':recording?'● Recording…':'● Record';recordButton.disabled=opening||upgrade||countdown||recording||!proofState.consent;}
+  const stopButton=document.querySelector('[data-phone="proof-stop"]');if(stopButton){stopButton.hidden=!(countdown||recording);stopButton.textContent=countdown?'✕ Cancel countdown':'■ Stop recording';stopButton.disabled=!(countdown||recording);}
   const saveButton=document.querySelector('[data-phone="proof-save"]');if(saveButton)saveButton.disabled=!reviewing;
   const approved=showing&&Number(proofState.savedCount)>0;
   if($('phone-proof-saved'))$('phone-proof-saved').hidden=reviewing||recording||processing||saving||!approved;
  }
- async function send(action){if(!active)return;
+ async function send(action,confirmed=false){if(!active)return;
+  if(action==='prize-decline'&&!confirmed){await confirmDecline();return;}
+  // A prize decision is never queued or replayed when another request is outstanding.
+  if((action==='prize-accept'||action==='prize-decline')&&(busy||pendingCommand||commandQueue.length)){message('Complete the previous action before choosing your prize.',true);return;}
   if(busy||pendingCommand){if(commandQueue.length>=16){message('Too many pending controls. Wait for the screen to respond.',true);return;}commandQueue.push(action);message(`Waiting… (${commandQueue.length} queued)`);return;}
   if(action==='end'&&!confirm('End this game? The claimed prizes will be saved.'))return;
-  if(action==='prize-decline'&&!confirm('Decline this prize and end the game?'))return;
-  busy=true;
+  if(action==='prize-decline'&&!confirmed)return;
+  busy=true;if(action==='prize-accept'||action==='prize-decline')lockDecision(true);
   try{const nonce=(crypto.randomUUID?.()||`${Date.now()}_${Math.random().toString(36).slice(2)}`).replaceAll('.','_');
    const result=await request('command',{command:action,nonce,confirm:action==='end'});
    if(result.game)updateGame(result.game);
@@ -249,7 +277,7 @@
    else if(result.commandId){pendingCommand={id:result.commandId,label:action.replaceAll('-',' ')};message(`Waiting for game screen to execute ${pendingCommand.label}…`);appendChat(`Waiting for game screen to execute ${pendingCommand.label}…`);}
    else message('Command was not confirmed by the game screen.',true);
   }catch(e){message(e.message,true);appendChat(e.message);if(/authorization|expired|disconnected/i.test(e.message))forget();}
-  finally{busy=false;}
+  finally{busy=false;if(action==='prize-accept'||action==='prize-decline')lockDecision(false);}
  }
  const appendChat=()=>{};
  const slug=title=>String(title).normalize('NFKD').toLowerCase().replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,80);

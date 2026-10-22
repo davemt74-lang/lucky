@@ -1077,3 +1077,30 @@ body.admin-studio-page .video-gallery-empty{grid-column:1/-1;padding:28px;border
 
 /* Keep in-game header tabs above the fixed-height game canvas at short viewports. */
 body.game-fullwidth .header{position:relative;z-index:60}
+
+/* V5Q.26B — shared controller connection, claim decision, and proof-countdown UX. */
+.phone-controller-page .phone-controller-top{display:grid;gap:6px;padding:13px 15px;border:1px solid #46566e;border-radius:16px;background:#111d30;margin-bottom:13px}
+.phone-controller-page .phone-identity{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px}
+.phone-controller-page .phone-identity .eyebrow{margin:0;font-size:12px;font-weight:900;letter-spacing:.11em}
+.phone-connection-state{display:inline-flex;align-items:center;white-space:nowrap;gap:6px;font-size:11px;font-weight:850;padding:5px 9px;border:1px solid #646b7d;border-radius:99px;color:#dbe2ef;background:#273148}
+.phone-connection-state[data-state="connected"]{border-color:#467e6d;background:#173d36;color:#a6f1d2}
+.phone-connection-state[data-state="waiting"]{border-color:#8b7856;background:#3b3023;color:#ffdb9a}
+.phone-connection-state[data-state="interrupted"]{border-color:#a57455;background:#482b29;color:#ffd0b9}
+.phone-controller-page #phone-status{min-height:0;font-size:12px;margin:0;line-height:1.4}
+.phone-controller-page #phone-join,.phone-controller-page #phone-wait{max-width:540px;margin:12px auto;padding:clamp(22px,5vw,30px);border:1px solid #4a5c75;background:linear-gradient(150deg,#1c2d47,#0d182b);text-align:left}
+.phone-connect-icon{display:grid;place-items:center;width:48px;height:48px;margin-bottom:13px;border-radius:14px;background:#55442c;color:#ffe0a7;font-size:24px}
+.phone-connect-copy,.phone-approval p{font-size:14px;line-height:1.6;color:#b9cce0}
+.phone-approval-footnote{margin-top:14px;border-top:1px solid #405069;padding-top:12px}
+.phone-controller-page #phone-join-form button{min-height:52px}
+.phone-controller-page .phone-prize-tier{display:inline-flex;align-self:center;justify-content:center;margin:0;padding:5px 13px;border:1px solid #ac8852;border-radius:99px;color:#ffe0a0;font-size:11px;font-weight:850;letter-spacing:.08em}
+.phone-controller-page .phone-prize-tier[hidden]{display:none!important}
+.phone-controller-page .phone-prize-value{display:block;font-size:clamp(25px,7vw,38px);color:#f8cf82;letter-spacing:-.03em;font-weight:900;line-height:1.2}
+.phone-controller-page .phone-confirm-dialog{width:min(92vw,480px);max-height:85dvh;border:1px solid #8a795e;border-radius:20px;background:#18263b;color:#f6f8fd;padding:26px;box-shadow:0 25px 80px #000b}
+.phone-confirm-dialog::backdrop{background:#050914ca;backdrop-filter:blur(5px)}
+.phone-confirm-dialog h2{font-size:23px;margin:0 0 12px}.phone-confirm-dialog p{color:#c5d1e2;line-height:1.55;font-size:14px}
+.phone-confirm-dialog .phone-actions{display:grid;grid-template-columns:1fr;gap:10px;margin-top:18px}
+.phone-confirm-dialog button{min-height:52px}
+.phone-proof-countdown{border:1px solid #e1b96e;background:#59442066;color:#ffe1aa;font-weight:850;padding:13px;border-radius:12px;margin:12px 0}
+.phone-proof-countdown[hidden]{display:none!important}
+.phone-controller-page [data-phone^="prize-"]:disabled{opacity:.5;cursor:wait}
+@media(max-width:360px){.phone-controller-page .phone-prize-media{min-height:105px}.phone-controller-page .phone-prize-title{font-size:20px}}
