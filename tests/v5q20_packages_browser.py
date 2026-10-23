@@ -10,6 +10,7 @@ PACKAGE_MOCK="""<script>
 const existingFetch=window.fetch;
 const ORIGINAL='a'.repeat(32),NEW='b'.repeat(32);
 window.packageCalls=[];
+window.packageSaveError='';window.packageSaveDelay=0;
 window.packageItems=[
  {id:ORIGINAL,name:'Original Prizes',enabled:true,playerSelectable:true,publicationStatus:'published',version:1,config:structuredClone(cfg.config)},
  {id:NEW,name:'Family Night',enabled:true,playerSelectable:true,publicationStatus:'published',version:1,config:structuredClone(cfg.config)}
@@ -28,6 +29,8 @@ window.fetch=async(url,opts={})=>{
    return new Response(JSON.stringify({ok:true,package:packageItems.at(-1)}));
   }
   if(action==='package_save'){
+   if(packageSaveDelay)await new Promise(resolve=>setTimeout(resolve,packageSaveDelay));
+   if(packageSaveError){const error=packageSaveError;packageSaveError='';return new Response(JSON.stringify({ok:false,error}),{status:409});}
    const p=packageItems.find(p=>p.id===data.id);
    if(!p||p.version!==data.version)return new Response(JSON.stringify({ok:false,error:'Conflict'}),{status:409});
    Object.assign(p,{name:data.name,config:data.config,budgetCents:data.budgetCents,enabled:data.enabled,playerSelectable:data.playerSelectable,version:p.version+1});
@@ -72,6 +75,19 @@ async def main():
    await page.locator('#save-prizes').click()
    await page.wait_for_function("packageCalls.some(c=>c.action==='package_save')")
    check(f'{width}: budget saved only to selected package',await page.evaluate("packageItems.find(p=>p.id===NEW).config.pools.tier1.budgetCents===6000 && packageItems.find(p=>p.id===ORIGINAL).config.pools.tier1.budgetCents===1500"))
+   await page.wait_for_function("packageItems.find(p=>p.id===NEW).version===2 && !document.querySelector('#save-prizes').disabled")
+   await page.locator('#prize-items .prize-catalog-edit').first.click()
+   await page.locator('#prize-edit-name').fill('First resave')
+   await page.locator('#prize-edit-save').click()
+   await page.wait_for_function("packageItems.find(p=>p.id===NEW).version===3 && !document.querySelector('#prize-editor-modal').open")
+   await page.locator('#prize-items .prize-catalog-edit').first.click()
+   await page.locator('#prize-edit-name').fill('Second resave')
+   await page.evaluate("packageSaveDelay=250")
+   await page.locator('#prize-edit-save').click()
+   check(f'{width}: save button disabled during pending request',await page.locator('#prize-edit-save').is_disabled())
+   await page.wait_for_function("packageItems.find(p=>p.id===NEW).version===4 && !document.querySelector('#prize-editor-modal').open")
+   await page.evaluate("packageSaveDelay=0")
+   check(f'{width}: repeat prize saves advance version once each',await page.evaluate("packageCalls.filter(c=>c.action==='package_save'&&c.data.id===NEW).map(c=>c.data.version).join(',')==='1,2,3'"))
    await page.locator('[data-package-id="'+ORIGINAL+'"]').click()
    check(f'{width}: switching back preserves original',await page.locator('#tier-budget').input_value()=='15.00')
    await page.locator('#add-package').click()
@@ -105,6 +121,12 @@ async def main():
    check(f'{width}: selected tab marked',await page.locator('.package-live-choice').count()==1)
    if width<500:
     check('phone-width prize page has no horizontal body scroll',await page.evaluate("document.documentElement.scrollWidth<=innerWidth+2"))
+   await page.locator('#prize-items .prize-catalog-edit').first.click()
+   await page.locator('#prize-edit-name').fill('Rejected prize update')
+   await page.evaluate("packageSaveError='This package was changed elsewhere. Reload before saving.'")
+   await page.locator('#prize-edit-save').click()
+   await page.wait_for_function("document.querySelector('#prize-edit-status').textContent.includes('This package was changed elsewhere')")
+   check(f'{width}: exact server failure is visible inside the prize dialog',await page.locator('#prize-editor-modal').is_visible() and 'This package was changed elsewhere. Reload before saving.' in await page.locator('#prize-edit-status').inner_text() and 'Changes have not been saved.' in await page.locator('#prize-edit-status').inner_text())
    await page.close()
   await browser.close()
  check('no browser exceptions',not errors)
