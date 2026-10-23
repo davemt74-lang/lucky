@@ -12,9 +12,10 @@
   if(!url){root.append(elem('span',kind==='photo'?'No photo uploaded':'No video uploaded','prize-edit-media-empty'));return;}
   if(kind==='photo'){
    const img=elem('img');img.alt='Uploaded prize photo';img.src=url;img.loading='lazy';img.onerror=()=>{root.replaceChildren(elem('span','Photo could not load','prize-edit-media-empty'));};root.append(img);
-  }else{
-   // No video URL text field: only clips uploaded and attached to this prize are editable.
+  }else if(isUploadedVideo(url) || /\.(mp4|webm|ogg)(?:[?#]|$)/i.test(url)){
    const video=elem('video');video.src=url;video.controls=true;video.preload='metadata';video.playsInline=true;root.append(video);
+  }else{
+   const link=elem('a','View existing video link ↗','btn btn-outline');link.href=url;link.target='_blank';link.rel='noopener noreferrer';root.append(link);
   }
  }
  function isUploadedVideo(raw){
@@ -32,7 +33,7 @@
    const description=elem('p',String(p.description||'No description yet. Add a custom announcement for this prize.').replace(/\s+/g,' ').slice(0,170),'prize-catalog-excerpt');
    const badges=elem('div','','prize-catalog-metadata');
    badges.append(elem('span',p.image?'📷 Photo attached':'📷 No photo','prize-catalog-chip'));
-   badges.append(elem('span',isUploadedVideo(p.videoUrl)?'🎞 Video attached':'🎞 No video','prize-catalog-chip'));
+   badges.append(elem('span',p.videoUrl?'🎞 Video attached':'🎞 No video','prize-catalog-chip'));
    badges.append(elem('span',`${(p.proofAngles||[]).length} proof angles`,'prize-catalog-chip'));
    const edit=elem('button','Edit prize →','btn btn-outline prize-catalog-edit');edit.type='button';edit.setAttribute('aria-label','Edit prize '+p.name);edit.onclick=()=>openPrizeEditor(p);
    info.append(heading,description,badges);card.append(photo,info,edit);list.append(card);
@@ -43,7 +44,7 @@
   const dialog=$('prize-editor-modal'),pool=settings.config.pools[activeTier];
   const creating=!prize;
   const draft=prize?structuredClone(prize):{id:'p'+(crypto.randomUUID?.().replace(/-/g,'')||Math.random().toString(36).slice(2)+Date.now()),name:'',cents:0,url:'',videoUrl:'',image:'',description:'',proofAngles:[]};
-  if(!isUploadedVideo(draft.videoUrl))draft.videoUrl='';
+  // Retain existing external prize videos while editing; uploading a replacement is optional.
   $('prize-editor-heading').textContent=creating?'Create prize':'Edit prize';
   $('prize-edit-name').value=draft.name;$('prize-edit-value').value=cents(draft.cents);
   $('prize-edit-link').value=draft.url||'';$('prize-edit-description').value=draft.description||'';
