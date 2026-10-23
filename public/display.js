@@ -1,6 +1,7 @@
 (() => {
  'use strict';const L=Lucky,$=L.$,wheel=new LuckyWheel($('live-wheel'));
  const body=document.body,id=body.dataset.session,token=body.dataset.token;let lastSpin=0,lastVersion=0,animating=false,initialized=false,wheelOutcome=null;
+ const WINNER_HOLD_MS=3500;
  const render=v=>{
   if($('display-pair-phone'))$('display-pair-phone').hidden=!['active','paused'].includes(v.status);
   $('display-state').textContent=v.status==='active'?`LIVE · ${v.spinCount} SPINS`:v.status==='paused'?'GAME PAUSED':'GAME ENDED';
@@ -12,11 +13,15 @@
  };
  async function tick(){try{const r=await L.api('watch',{query:{id,token}}),v=r.view;
    if(!initialized){initialized=true;lastSpin=v.lastSpin?.spinCount||0;lastVersion=v.version;render(v);return;}
+   const reconciled=!!wheelOutcome&&Number.isFinite(wheelOutcome.expiresAt)&&
+    Date.now()>=wheelOutcome.expiresAt&&!v.spinPending;
+   if(reconciled)wheelOutcome=null;
    if(v.version!==lastVersion){lastVersion=v.version;
-     if(v.lastSpin && v.lastSpin.spinCount!==lastSpin){lastSpin=v.lastSpin.spinCount;animating=true;wheelOutcome={spinCount:lastSpin,slices:v.lastSpin.slices};
+     if(v.lastSpin && v.lastSpin.spinCount!==lastSpin){lastSpin=v.lastSpin.spinCount;animating=true;wheelOutcome={spinCount:lastSpin,slices:v.lastSpin.slices,expiresAt:Infinity};
       await wheel.spinTo(v.lastSpin.index,v.lastSpin.slices,matchMedia('(prefers-reduced-motion: reduce)').matches?250:3800);
-      animating=false;if(v.lastSpin.type==='award')L.beep('win');else L.beep('bonus');}
-     render(v);}
+      animating=false;if(wheelOutcome?.spinCount===lastSpin)wheelOutcome.expiresAt=Date.now()+WINNER_HOLD_MS;
+      if(v.lastSpin.type==='award')L.beep('win');else L.beep('bonus');}
+     render(v);}else if(reconciled)render(v);
   }catch(e){$('display-state').textContent='Connection interrupted: '+e.message;}
  }
  if($('display-pair-qr')&&window.LuckyQR){
