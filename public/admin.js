@@ -4,6 +4,7 @@
  const cents=c=>(Number(c||0)/100).toFixed(2);
  const elem=(tag,txt='',cls='')=>{const e=document.createElement(tag);if(txt)e.textContent=txt;if(cls)e.className=cls;return e;};
  const status=(message,bad=false)=>L.note('admin-status',message,bad);
+ let saveInFlight=null,lastSaveError='';
  function selectTier(tier){activeTier=tier;document.querySelectorAll('[data-tier]').forEach(b=>b.classList.toggle('selected',b.dataset.tier===tier));renderTier();}
  function setBudget(){settings.config.pools[activeTier].budgetCents=amount($('tier-budget').value);}
  function imagePreview(rootId,url,kind){
@@ -82,12 +83,12 @@
    const devices=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='videoinput').slice(0,4);
    const previous=draft.proofAngles||[];draft.proofAngles=devices.map((d,i)=>({label:previous[i]?.label||d.label?.slice(0,80)||`View ${i+1}`,seconds:previous[i]?.seconds||8}));paintAngles();
   }catch(e){$('prize-edit-status').textContent=e.message;}};
-  const close=()=>{if(!working)dialog.close();};$('prize-editor-close').onclick=close;$('prize-edit-cancel').onclick=close;
+  const close=()=>{if(!working&&!saveInFlight)dialog.close();};$('prize-editor-close').onclick=close;$('prize-edit-cancel').onclick=close;
   $('prize-edit-delete').onclick=async()=>{if(working||creating)return;
    if(!(await packageDialog({title:'Delete prize?',message:'Delete “'+draft.name+'” from this tier? Save package changes to finalize.',action:'Delete prize'})))return;
    pool.prizes=pool.prizes.filter(x=>x.id!==prize.id);markPackageDirty();renderTier();dialog.close();
   };
-  $('prize-editor-form').onsubmit=async e=>{e.preventDefault();if(working)return;
+  $('prize-editor-form').onsubmit=async e=>{e.preventDefault();if(working||saveInFlight)return;
    try{
     draft.name=$('prize-edit-name').value.trim();if(!draft.name||draft.name.length>80)throw Error('Enter a prize name (1–80 characters).');
     draft.cents=amount($('prize-edit-value').value);draft.url=$('prize-edit-link').value.trim();draft.description=$('prize-edit-description').value.trim();
@@ -97,7 +98,7 @@
     else Object.assign(prize,draft);
     markPackageDirty();renderTier();
     $('prize-edit-status').textContent='Saving prize in the selected package…';
-    const saved=await save();if(saved)dialog.close();else $('prize-edit-status').textContent='Could not save. Review the status beneath the package editor.';
+    const saved=await save();if(saved)dialog.close();else $('prize-edit-status').textContent=(lastSaveError||'Could not save the prize. Please try again.')+' Changes have not been saved.';
    }catch(err){$('prize-edit-status').textContent=err.message;}
   };
   dialog.showModal();$('prize-edit-name').focus();
@@ -193,7 +194,13 @@
    status('Prize packages need setup. Click + New package to initialize them automatically, or run upgrade.php.',true);
   }
  }
- async function save(){try{
+ // Coalesce repeated save submissions and show the API's exact rejection inside the prize dialog.
+ function save(){
+  if(saveInFlight)return saveInFlight;
+  const buttons=['save-prizes','package-settings-save','prize-edit-save'];
+  for(const id of buttons){const button=$(id);if(button)button.disabled=true;}
+  const operation=(async()=>{lastSaveError='';
+   try{
   setBudget();for(const k of Object.keys(settings.config.odds))settings.config.odds[k]=Number($('odds-'+k).value);
   if(!packagesAvailable){
    const r=await L.api('settings_save',{body:{game:'spin-wheel',...settings}});settings=r.settings;renderTier();
@@ -205,13 +212,21 @@
    const combined=Object.values(settings.config.pools).reduce((sum,pool)=>sum+pool.budgetCents,0);
    if(combined>packageBudget)throw Error('Combined tier budgets exceed the package budget. Increase the limit or reduce the tier budgets.');
   }
+  for(const [tier,pool] of Object.entries(settings.config.pools)){
+   const total=pool.prizes.reduce((sum,prize)=>sum+prize.cents,0);
+   if(total>pool.budgetCents)throw Error(tier+' prize values total $'+cents(total)+' but the tier budget is $'+cents(pool.budgetCents)+'. Increase the tier budget or lower the prize values.');
+  }
   const p=packageFor(packageId);if(!p)throw Error('Select a prize package.');
   const response=await L.api('package_save',{body:{id:p.id,version:p.version,name:$('package-name').value.trim(),
    config:settings.config,enabled:$('package-enabled').checked,playerSelectable:$('package-player-choice').checked,
    budgetCents:packageBudget,image:$('package-image').value.trim()}});
   Object.assign(p,response.package);settings.config=structuredClone(p.config);packageDirty=false;
   drawPackageTabs();renderTier();status('Prize package saved locally. Current sessions remain unchanged.');return true;
- }catch(e){status(e.message,true);return false;}}
+    }catch(e){lastSaveError=e instanceof Error?e.message:String(e);status(lastSaveError,true);return false;}
+  })();
+  saveInFlight=operation;
+  return operation.finally(()=>{saveInFlight=null;for(const id of buttons){const button=$(id);if(button)button.disabled=false;}});
+ }
  let creatingPackage=false;
  $('add-package').onclick=async()=>{
   if(creatingPackage)return;
