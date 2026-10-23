@@ -865,6 +865,13 @@ body.admin-studio-page .prize-package-budget-label small{font-size:10px;color:#b
 .host-package-choice.selected{border-color:#f9d38d;box-shadow:0 0 0 3px #f9d38d22;background:#23334d}
 .host-package-choice img,.host-package-cover-fallback{display:block;object-fit:cover;width:100%;aspect-ratio:1.4;border-radius:10px;background:#273850}
 .host-package-cover-fallback{display:grid;place-items:center;font-size:66px;color:#e4be78}
+/* V5Q.27B: the chooser must scroll even though the live wheel stays viewport-locked. */
+body.game-fullwidth .host-package-choice img,body.game-fullwidth .host-package-cover-fallback{max-height:clamp(180px,42dvh,380px)}
+@media(min-width:1061px) and (min-height:580px){
+ body.game-fullwidth.game-no-live-session .host-workspace-panels.is-wheel-active{overflow-y:auto;overflow-x:hidden;overscroll-behavior-y:contain}
+ body.game-fullwidth.game-no-live-session .host-workspace-panels.is-wheel-active #host-panel-game{height:auto;min-height:100%}
+}
+
 .live-setup-sections{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.host-live-controls{padding:18px;margin-bottom:16px}
 .live-camera-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
 .live-camera-item{padding:10px;background:#0e1a2d;border:1px solid #384c64;border-radius:12px;display:flex;flex-direction:column;gap:8px}
