@@ -168,6 +168,7 @@ jobs:
           python tests/v5q26b_phone_lifecycle_browser.py
           python tests/v5q26d_phone_navigation_browser.py
           python tests/v5q26b_video_gallery_browser.py
+          python tests/v5q27b_host_chooser_scroll_browser.py
       - name: Phone controller regressions
         run: |
           python tests/v5p2_navigation_voice.py
