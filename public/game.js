@@ -5,6 +5,11 @@
  let proofStates={},proofSessionId='',proofPending=false;
  let currentOffer=null,offerBusy=false,offerRouted=new Set();
  let wheelOutcome=null;
+ // Keep the winning sector briefly, then return to the live session's actual prizes.
+ const WINNER_HOLD_MS=3500;
+ function finishWheelAnimation(){
+  if(wheelOutcome&&wheelOutcome.expiresAt===Infinity)wheelOutcome.expiresAt=Date.now()+WINNER_HOLD_MS;
+ }
  // Private saved videos, linked to an authenticated claim, are never sent to the TV.
  let thumbSession='',thumbs=new Map(),thumbLoading=false,thumbFetchedAt=0;
  const validId=id=>typeof id==='string'&&/^[a-f0-9]{32}$/.test(id);
@@ -78,8 +83,17 @@
   }
   if(chosenPackage&&[...input.options].some(o=>o.value===chosenPackage))input.value=chosenPackage;
   input.disabled=busy||live||input.options.length<2;
-  $('host-package-status').textContent=live?
-   'Current game uses '+(data.session?.prizePackage?.name||'its original prizes'):
+  const source=$('host-wheel-source'),snapshot=data?.session?.prizePackage;
+  const stored=prizePackageOptions.find(p=>p.id===snapshot?.id);
+  const different=live&&stored?.config&&data?.session&&(
+   JSON.stringify(stored.config.pools)!==JSON.stringify(data.session.pools)||
+   JSON.stringify(stored.config.odds)!==JSON.stringify(data.session.odds));
+  const sourceName=snapshot?.name||'this session';
+  const sourceMessage=different?
+   sourceName+' was edited after this game started. The wheel uses this game’s saved prizes and prices. Finish or save it and start a new game to use the updated package.':
+   'Wheel prizes and prices are from '+sourceName+' when this game started.';
+  if(source){source.hidden=!live;if(live)source.textContent=sourceMessage;}
+  $('host-package-status').textContent=live?sourceMessage:
    'Choose which enabled package starts the next game.';
  }
  async function refreshGamePackages(){
@@ -210,13 +224,16 @@
    // Only redirect a currently live session, never historical finished sessions.
    if(endedRemotely(data?.view,view)){returnToDashboard();return;}
    const changedId=view.id!==activeId;
-   if(!changedId&&view.version===lastVersion)return;
+   const expiredResult=!!wheelOutcome&&wheelOutcome.session===view.id&&
+    Number.isFinite(wheelOutcome.expiresAt)&&Date.now()>=wheelOutcome.expiresAt&&!view.spinPending;
+   if(expiredResult||changedId)wheelOutcome=null;
+   if(!changedId&&view.version===lastVersion){if(expiredResult){data=fresh;render();}return;}
    const spin=view.lastSpin;
    const age=spin?.at?Date.now()-Date.parse(spin.at):Infinity;
    const shouldAnimate=!!spin&&(spin.spinCount>(changedId?0:syncedSpin))&&age>=-5000&&age<7500;
    activeId=view.id;lastVersion=view.version;data=fresh;updateProofStates();refreshThumbs();
    if(shouldAnimate){
-    syncedSpin=spin.spinCount;busy=true;wheelOutcome={session:view.id,spinCount:spin.spinCount,slices:spin.slices};msg('The wheel is spinning…');render();
+    syncedSpin=spin.spinCount;busy=true;wheelOutcome={session:view.id,spinCount:spin.spinCount,slices:spin.slices,expiresAt:Infinity};msg('The wheel is spinning…');render();
     try{
      L.beep('tick');await wheel.spinTo(spin.index,spin.slices,matchMedia('(prefers-reduced-motion: reduce)').matches?350:3900);
      await revealSpin(view.id,spin.spinCount);
@@ -228,7 +245,7 @@
        pollOffer();
       }
      }else if(spin.type==='bonus_trigger'){L.beep('bonus');msg('✧ BONUS ROUND! Spin again to reveal the prize.');}
-    }finally{busy=false;render();}
+    }finally{finishWheelAnimation();busy=false;render();}
    }else{syncedSpin=spin?.spinCount||0;render();}
   }catch(e){msg('Game sync retrying: '+e.message,true);}finally{syncPending=false;}
  }
@@ -287,12 +304,12 @@
   try{
    const id=data.view.id,r=await L.api('spin',{body:{id,idempotencyKey:L.idempotency()}});
    const event=r.result.event,animation=event.animation;
-   wheelOutcome={session:id,spinCount:animation.spinCount,slices:animation.slices};
+   wheelOutcome={session:id,spinCount:animation.spinCount,slices:animation.slices,expiresAt:Infinity};
    L.beep('tick');await wheel.spinTo(animation.index,animation.slices,matchMedia('(prefers-reduced-motion: reduce)').matches?350:3900);
    await revealSpin(id,animation.spinCount);updateProofStates();syncedSpin=data.view.lastSpin?.spinCount||0;
    if(event.type==='bonus_trigger'){msg('✧ BONUS ROUND! Spin again to reveal the bonus prize.');L.beep('bonus');L.speak('Surprise bonus round!');}
    else {msg(`🎉 ${event.claim.name} · ${L.money(event.claim.cents)}!`);L.beep('win');pollOffer();}
-  }catch(e){msg(e.message,true);}finally{busy=false;render();}
+  }catch(e){msg(e.message,true);}finally{finishWheelAnimation();busy=false;render();}
  }
  async function pause(){if(busy||!data||!['active','paused'].includes(data.view.status))return;busy=true;render();
   try{const action=data.view.status==='paused'?'resume':'pause',id=data.view.id;await L.api(action,{body:{id,idempotencyKey:L.idempotency()}});data=await L.api('session',{query:{id}});lastVersion=data.view.version;msg(action==='pause'?'Game paused.':'Game resumed.');}

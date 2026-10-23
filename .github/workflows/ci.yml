@@ -134,6 +134,7 @@ jobs:
           python tests/v5q14b_live_phone_handoff.py
           python tests/v5q15c_phone_reconnect_browser.py
           python tests/v5q15e_wheel_reveal_browser.py
+          python tests/v5q27c_wheel_parity_browser.py
           python tests/v5q15f_phone_recording_browser.py
           python tests/v5q15h_claim_thumbnails_browser.py
           python tests/v5q15i_editor_tools_browser.py

@@ -31,9 +31,9 @@ jobs:
               exit 1
             fi
           done
-          (cd dist/work && zip -qr ../Lucky_Game_Hub_V5Q27B_Full_Deploy.zip .)
-          unzip -t dist/Lucky_Game_Hub_V5Q27B_Full_Deploy.zip | tail -n 1
-          (cd dist && sha256sum Lucky_Game_Hub_V5Q27B_Full_Deploy.zip > SHA256SUMS.txt)
+          (cd dist/work && zip -qr ../Lucky_Game_Hub_V5Q27C_Full_Deploy.zip .)
+          unzip -t dist/Lucky_Game_Hub_V5Q27C_Full_Deploy.zip | tail -n 1
+          (cd dist && sha256sum Lucky_Game_Hub_V5Q27C_Full_Deploy.zip > SHA256SUMS.txt)
           # Developer toolkit is independently downloadable; it does not
           # include a playable second consumer game or signing secrets.
           zip -q dist/Lucky_Game_SDK_V5Q24.zip \
@@ -42,7 +42,7 @@ jobs:
           unzip -t dist/Lucky_Game_SDK_V5Q24.zip | tail -n 1
           (cd dist && sha256sum Lucky_Game_SDK_V5Q24.zip >> SHA256SUMS.txt)
           {
-            echo "Lucky Game Hub V5Q.27B — Full Deployment"
+            echo "Lucky Game Hub V5Q.27C — Full Deployment"
             echo "Source: davemt74-lang/lucky"
             echo "Branch: main"
             echo "Commit: $GITHUB_SHA"
@@ -55,9 +55,9 @@ jobs:
       - name: Upload verified deployment ZIP and checksum
         uses: actions/upload-artifact@v4
         with:
-          name: lucky-v5q27b-complete-deployment
+          name: lucky-v5q27c-complete-deployment
           path: |
-            dist/Lucky_Game_Hub_V5Q27B_Full_Deploy.zip
+            dist/Lucky_Game_Hub_V5Q27C_Full_Deploy.zip
             dist/Lucky_Game_SDK_V5Q24.zip
             dist/SHA256SUMS.txt
             dist/BUILD_INFO.txt

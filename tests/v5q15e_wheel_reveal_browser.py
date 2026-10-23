@@ -47,6 +47,7 @@ async def main():
   js=(BASE/'public/console.js').read_text()+'\n'+(BASE/'public/game.js').read_text()
   await page.set_content(html_page('game.php',js,MOCK+EXTRA),wait_until='domcontentloaded')
   await page.wait_for_function("window.__wheel&&document.querySelector('#spin-game').disabled===false")
+  ok('host labels its active session prize snapshot',await page.locator('#host-wheel-source').is_visible())
   await page.evaluate("""() => {
    __view.version=2;__view.spinCount=1;
    __view.lastSpin={type:'award',spinCount:1,index:1,slices:__initialSlices,
@@ -69,6 +70,9 @@ async def main():
   ok('completion acknowledges the matching spin',await page.evaluate('__acks[0].spinCount===1'))
   ok('claim exactly matches the stopped wheel',await page.evaluate('__wheel.current[__landing].name===document.querySelector("#claim-list strong").textContent'))
   ok('winner sector is not overwritten by next prize',await page.evaluate('__wheel.current[1].name!=="Go Second Base"'))
+  await page.wait_for_function("__wheel.current[1]?.name==='Go Second Base'",timeout=8000)
+  ok('settled wheel returns to authoritative remaining prize',await page.evaluate("__wheel.current[1].name==='Go Second Base' && __wheel.current[1].cents===1500"))
+  ok('awarded prize no longer shown as available',await page.evaluate("!__wheel.current.some(p=>p.name==='15 Second French Kiss')"))
   await page.evaluate("LuckyHostRemote('back')")
   ok('stale phone Back cannot open game menu',not await page.locator('#console-menu').evaluate('(e)=>e.open'))
   await page.evaluate("LuckyHostRemote('done')")
