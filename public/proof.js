@@ -99,7 +99,11 @@
    $('proof-request').onclick=()=>save('request');
   }catch(e){feedback(e.message,true);$('proof-revision-form').hidden=true;}
  }
- window.LuckyHostRemote=async command=>{
+ window.LuckyHostRemote=async (command,sessionId,claimId)=>{
+  if(command==='proof-edit'){
+   if(!/^[a-f0-9]{32}$/.test(sessionId||'')||!/^[a-f0-9]{32}$/.test(claimId||''))return false;
+   return {navigate:'proof.php?'+new URLSearchParams({session:sessionId,claim:claimId,from:'game'})};
+  }
   if(command==='prize-video-play')return playPrizeVideo();
   if(command.startsWith('proof-'))return await window.LuckyCapture?.phoneAction(command)??false;
   if(command==='back'||command==='done'||command==='menu'){

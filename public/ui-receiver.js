@@ -21,7 +21,14 @@
     if(!pendingAcks.has(event.id)){
      if(typeof receiver()!=='function')break;
      try{
-      const applied=await receiver()(event.command);
+      const applied=await receiver()(event.command,event.sessionId,event.claimId);
+      if(applied&&typeof applied==='object'&&typeof applied.navigate==='string'){
+       const target=new URL(applied.navigate,location.href);
+       if(target.origin!==location.origin||!target.pathname.endsWith('/proof.php'))throw Error('Unsafe proof editor destination.');
+       // Acknowledge before leaving the host page; navigation otherwise cancels the receipt.
+       await post('ui_ack',{commandId:event.id});
+       cursor=Math.max(cursor,event.id);location.assign(target.href);return;
+      }
       if(applied!==false)pendingAcks.add(event.id);
       else await post('ui_ack',{commandId:event.id,success:false,error:'This control is not available on the current screen.'});
      }catch(err){

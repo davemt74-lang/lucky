@@ -84,7 +84,7 @@ async def main():
   ck('phone sees remote acknowledgment','completed on game screen' in await page.locator('#phone-status').inner_text())
   await page.evaluate('mockPhone.status="paused";mockPhone.canSpin=false');await page.wait_for_timeout(3200)
   ck('remote pause blocks Spin',await page.locator('[data-phone=spin]').is_disabled())
-  ck('remote pause displays Resume', 'Resume' in await page.locator('[data-phone=pause]').inner_text())
+  ck('remote pause keeps removed button out of gameplay',await page.locator('#phone-gameplay-shell [data-phone=pause]').count()==0)
   ck('phone browser clean',not err)
   await browser.close()
  for name,yes in checks:print(('PASS' if yes else 'FAIL')+' '+name)
