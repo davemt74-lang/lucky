@@ -7,6 +7,7 @@ require_once __DIR__.'/../lib/SchemaGuard.php';
 require_once __DIR__.'/../lib/ControllerRate.php';
 require_once __DIR__.'/../lib/PhoneGameDashboard.php';
 require_once __DIR__.'/../lib/MoviePreview.php';
+require_once __DIR__.'/../lib/PhoneClaimHistory.php';
 headerSecurity();
 header('Referrer-Policy: no-referrer');
 header('X-Robots-Tag: noindex, nofollow');
@@ -27,7 +28,7 @@ try {
   if(!$originHost||strcasecmp((string)$originHost,$host)!==0)throw new DomainException('Origin not permitted.',403);
  }
  $action=strval($_GET['action']??'');$in=jsonInput();$db=db();
- $phoneActions=['claim','claim_display','status','command','disconnect','package_status','package_command','dashboard_games','dashboard_launch','movie_command'];
+  $phoneActions=['claim','claim_display','status','command','disconnect','package_status','package_command','dashboard_games','dashboard_launch','movie_command'];
  if(in_array($action,$phoneActions,true)){
   if($action==='claim'){
    $id=strval($in['id']??'');$key=strval($in['key']??'');$name=ControllerPairing::label($in['name']??'');
@@ -168,8 +169,10 @@ try {
     $q->execute([$commandId,$id]);if($r=$q->fetch())$delivery=$r['acknowledged_at']?'executed':($r['failure_message']?'failed':(strtotime($r['created_at'].' UTC')<time()-15?'expired':'pending'));
     $reason=$r['failure_message']??null;
    }
-   $proof=null;
+   $proof=null;$claimSource=null;$acceptedClaims=[];
    if($status==='paired'){
+    $claimSource=PhoneClaimHistory::session($db,(int)$p['host_admin_id']);
+    $acceptedClaims=PhoneClaimHistory::accepted($db,$claimSource);
     if(!SchemaGuard::missing($db,['controller_proof_state'])){
     $current=ControllerGame::snapshot($db);$legacyProof=false;
     try{
@@ -189,7 +192,7 @@ try {
     }
     }
    }
-   success(['status'=>$status,'deviceName'=>$p['device_name'],'expiresAt'=>$p['paired_expires_at'],'game'=>$status==='paired'?($current??ControllerGame::snapshot($db)):null,'proof'=>$proof?['active'=>true,'claimId'=>$proof['claim_id'],'reviewCount'=>(int)$proof['review_count'],'consent'=>(bool)($proof['consent_ack']??false),'phase'=>(string)($proof['capture_phase']??'live'),'savedCount'=>(int)($proof['saved_count']??0)]:['active'=>false],'delivery'=>$delivery,'reason'=>$reason??null,
+   success(['status'=>$status,'deviceName'=>$p['device_name'],'expiresAt'=>$p['paired_expires_at'],'game'=>$status==='paired'?($current??ControllerGame::snapshot($db)):null,'claims'=>$acceptedClaims,'claimSession'=>$claimSource['id']??null,'proof'=>$proof?['active'=>true,'claimId'=>$proof['claim_id'],'reviewCount'=>(int)$proof['review_count'],'consent'=>(bool)($proof['consent_ack']??false),'phase'=>(string)($proof['capture_phase']??'live'),'savedCount'=>(int)($proof['saved_count']??0)]:['active'=>false],'delivery'=>$delivery,'reason'=>$reason??null,
     'moviePreview'=>$status==='paired'&&SchemaGuard::missing($db,['movie_preview_state'])===[]?MoviePreview::public(MoviePreview::row($db,(int)$p['host_admin_id'])):null]);
   }
   if($action==='select_package'){
@@ -233,6 +236,13 @@ try {
     // Gameplay is executed and committed on the server, not merely queued for an optional browser tab.
     // UI/audio commands remain queued for the signed-in host display.
     $direct=in_array($command,ControllerGame::DIRECT,true);
+    $editSession=null;
+    if($command==='proof-edit'){
+     // The nonce's first 32 characters bind this command to one persisted claim.
+     // The random suffix retains retry-safe uniqueness; command stays VARCHAR(24).
+     if(!preg_match('/^([a-f0-9]{32})_[A-Za-z0-9_-]{12,47}$/D',$nonce,$matches))throw new DomainException('Invalid proof edit request.',400);
+     $claimId=$matches[1];$editSession=['id'=>PhoneClaimHistory::assertAccepted($db,(int)$locked['host_admin_id'],$claimId)];
+    }
     if($command==='prize-video-play'){
      $snapshot=ControllerGame::snapshot($db);
      if(!in_array(($snapshot['offer']['status']??''),['pending','accepted'],true)||empty($snapshot['offer']['videoUrl']))
@@ -246,7 +256,7 @@ try {
     }
     if($command==='end'&&($in['confirm']??false)!==true)throw new DomainException('Confirm End Game on the phone first.',409);
     $effect=$direct?ControllerGame::apply($db,$command,$id,$nonce,(int)$locked['host_admin_id']):null;
-    $sessionId=$direct?null:(ControllerGame::current($db)['id']??null);
+    $sessionId=$editSession['id']??($direct?null:(ControllerGame::current($db)['id']??null));
     $q=$db->prepare($direct
        ?'INSERT INTO controller_commands(pair_id,client_nonce,command,delivered_at) VALUES (?,?,?,UTC_TIMESTAMP())'
        :'INSERT INTO controller_commands(pair_id,client_nonce,command) VALUES (?,?,?)');
@@ -271,9 +281,9 @@ try {
   $filter=$isDisplay?"u.session_id=? AND c.command NOT LIKE 'proof-%' AND c.command<>'prize-video-play'":'p.host_admin_id=?';$scope=$isDisplay?$session:(int)$_SESSION['admin_id'];
   if($action==='ui_events'){
    $after=max(0,(int)($in['after']??0));
-   $q=$db->prepare("SELECT c.id,c.command,p.device_name, u.acknowledged_at FROM controller_ui_events u JOIN controller_commands c ON c.id=u.command_id JOIN controller_pairs p ON p.id=c.pair_id WHERE $filter AND p.status='paired' AND p.paired_expires_at>UTC_TIMESTAMP() AND c.id>? AND c.created_at>UTC_TIMESTAMP()-INTERVAL 15 SECOND ORDER BY c.id ASC LIMIT 32");
+   $q=$db->prepare("SELECT c.id,c.command,c.client_nonce,p.device_name,u.session_id,u.acknowledged_at FROM controller_ui_events u JOIN controller_commands c ON c.id=u.command_id JOIN controller_pairs p ON p.id=c.pair_id WHERE $filter AND p.status='paired' AND p.paired_expires_at>UTC_TIMESTAMP() AND c.id>? AND c.created_at>UTC_TIMESTAMP()-INTERVAL 15 SECOND ORDER BY c.id ASC LIMIT 32");
    $q->execute([$scope,$after]);$events=$q->fetchAll();
-   success(['events'=>array_map(fn($e)=>['id'=>(int)$e['id'],'command'=>$e['command'],'deviceName'=>$e['device_name'],'acknowledged'=>$e['acknowledged_at']!==null],$events)]);
+   success(['events'=>array_map(fn($e)=>['id'=>(int)$e['id'],'command'=>$e['command'],'deviceName'=>$e['device_name'],'acknowledged'=>$e['acknowledged_at']!==null,'sessionId'=>$e['command']==='proof-edit'?$e['session_id']:null,'claimId'=>$e['command']==='proof-edit'?substr($e['client_nonce'],0,32):null],$events)]);
   }
   $id=(int)($in['commandId']??0);if($id<=0)throw new DomainException('Invalid command receipt.',400);
   $good=($in['success']??true)===true;

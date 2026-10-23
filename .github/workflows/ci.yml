@@ -97,6 +97,7 @@ jobs:
           php tests/v5q23a_real_mariadb.php
           php tests/v5q24_plugin_mariadb.php
           php tests/v5q24_phone_dashboard_db.php
+          php tests/v5q27d_phone_claims_db.php
   browsers:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -168,6 +169,7 @@ jobs:
           python tests/v5q26_movie_preview_browser.py
           python tests/v5q26b_phone_lifecycle_browser.py
           python tests/v5q26d_phone_navigation_browser.py
+          python tests/v5q27d_phone_claims_browser.py
           python tests/v5q26b_video_gallery_browser.py
           python tests/v5q27b_host_chooser_scroll_browser.py
       - name: Phone controller regressions

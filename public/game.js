@@ -376,7 +376,11 @@
  }
  // A phone may request interface actions, but it never calls prize award APIs directly.
  // The logged-in host browser retains control of the session and all confirmations.
- async function remoteCommand(command){
+  async function remoteCommand(command,sessionId,claimId){
+    if(command==='proof-edit'){
+      if(!/^[a-f0-9]{32}$/.test(sessionId||'')||!/^[a-f0-9]{32}$/.test(claimId||''))return false;
+      return {navigate:'proof.php?'+new URLSearchParams({session:sessionId,claim:claimId,from:'game'})};
+    }
    if(command.startsWith('proof-'))return false;
    const chooser=$('host-prize-package-chooser');
    if(chooser&&!chooser.hidden&&['up','down','left','right','select'].includes(command)){

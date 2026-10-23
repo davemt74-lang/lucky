@@ -1,7 +1,7 @@
 (() => {
  'use strict';const $=id=>document.getElementById(id),storageKey='lucky-phone-controller-v5p';
  const params=new URLSearchParams(location.search||(location.protocol==='about:'?new URL(document.baseURI).search:''));let state=null,busy=false,active=false,game=null,gameVersion=-1,pendingCommand=null,feedback=null;let speech=null,listening=false,statusBusy=false,commandQueue=[];
- let currentMovie=null,movieBusy=false;
+ let currentMovie=null,movieBusy=false,claimedPrizes=[],claimHistorySession='';
  let noticeTimer=null,failures=0,proofState={active:false},hadUpgradeWarning=false,lastConnectionError='';
  const message=(m,warning=false)=>{const e=$('phone-status');if(!e)return;clearTimeout(noticeTimer);e.textContent=m;e.classList.toggle('platform-error',warning);
   if(active)noticeTimer=setTimeout(()=>{e.textContent='';e.classList.remove('platform-error');},warning?6500:2300);
@@ -14,10 +14,10 @@
  const mayGoCamera=()=>active&&!!proofState?.active;
  const mayGoGame=()=>active&&!currentMovie&&!!game&&(liveGame()||!!game.upgradeRequired||mayGoPrize()||mayGoCamera());
  function syncNav(){
-  const paired=active&&!!state,navbar=$('phone-bottom-nav'),toggle=$('phone-menu-toggle'),arrows=$('phone-arrows-toggle');
-  if(navbar)navbar.hidden=!paired;if(toggle)toggle.hidden=!paired;
+  const paired=active&&!!state,navbar=$('phone-bottom-nav'),arrows=$('phone-arrows-toggle');
+  if(navbar)navbar.hidden=!paired;
   if(arrows){arrows.disabled=!paired||!!currentMovie||!!proofState?.active||mayGoPrize();if(arrows.disabled&&$('phone-arrows-dialog')?.open)$('phone-arrows-dialog').close();}
-  const availability={home:mayGoHome(),game:mayGoGame(),prize:mayGoPrize(),camera:mayGoCamera(),more:paired};
+  const availability={home:mayGoHome(),game:mayGoGame(),prize:mayGoPrize()||claimedPrizes.length>0,camera:mayGoCamera(),more:paired};
   const current=visibleScreen==='phone-dashboard'?'home':visibleScreen==='phone-movie'?'more':mayGoCamera()?'camera':mayGoPrize()?'prize':'game';
   document.querySelectorAll('[data-phone-view]').forEach(button=>{
    const name=button.dataset.phoneView;button.disabled=!availability[name];
@@ -29,6 +29,8 @@
    mayGoCamera()?'Finish the recording or proof review before returning to the game library.':
    mayGoPrize()?'Accept or decline your pending prize to continue.':
    liveGame()?'End or save the current game before selecting another.':'Your private home arcade.';
+  const claimsTab=$('phone-menu-tab-claims');if(claimsTab)claimsTab.disabled=!paired||!claimedPrizes.length;
+  const count=$('phone-menu-claims-count');if(count)count.textContent=claimedPrizes.length?`(${claimedPrizes.length})`:'';
  }
  const show=(name)=>{visibleScreen=name;
   for(const id of ['phone-join','phone-wait','phone-controls','phone-dashboard','phone-movie'])$(id).hidden=id!==name;
@@ -37,7 +39,7 @@
   syncNav();
  };
  const safeName=()=>String($('phone-name').value||'').trim().slice(0,48);
- function forget(){const menu=$('phone-quick-menu');if(menu?.open)menu.close();const arrows=$('phone-arrows-dialog');if(arrows?.open)arrows.close();currentMovie=null;lastPrizeOffer='';clearPrizeVideo();try{window.speechSynthesis?.cancel();}catch(_){}toggleListening(false);commandQueue=[];feedback=null;pendingCommand=null;game=null;gameVersion=-1;updateProof(null);state=null;try{sessionStorage.removeItem(storageKey);}catch(_){}active=false;show('phone-join');message('Connection expired. Scan a new QR code on the host screen.',true);}
+ function forget(){const menu=$('phone-quick-menu');if(menu?.open)menu.close();const arrows=$('phone-arrows-dialog');if(arrows?.open)arrows.close();currentMovie=null;claimedPrizes=[];claimHistorySession='';renderClaimHistory();lastPrizeOffer='';clearPrizeVideo();try{window.speechSynthesis?.cancel();}catch(_){}toggleListening(false);commandQueue=[];feedback=null;pendingCommand=null;game=null;gameVersion=-1;updateProof(null);state=null;try{sessionStorage.removeItem(storageKey);}catch(_){}active=false;show('phone-join');message('Connection expired. Scan a new QR code on the host screen.',true);}
  async function request(action,body={},authenticated=true){const headers={'Content-Type':'application/json'};
   if(authenticated){if(!state)throw Error('Phone not paired.');headers['X-Controller-Token']=state.token;body={id:state.id,...body};}
   const response=await fetch('api/controller.php?action='+encodeURIComponent(action),{method:'POST',headers,credentials:'omit',cache:'no-store',body:JSON.stringify(body)});
@@ -113,7 +115,8 @@
   finally{launchingGame=false;button.disabled=false;}
  }
  async function status(){if(!state||busy||statusBusy)return;statusBusy=true;
-  try{const data=await request('status',pendingCommand?{commandId:pendingCommand.id}:{});if(data.status==='paired'){const wasActive=active,wasFailing=failures>=3;failures=0;active=true;
+   try{const data=await request('status',pendingCommand?{commandId:pendingCommand.id}:{});if(data.status==='paired'){const wasActive=active,wasFailing=failures>=3;failures=0;active=true;
+     claimedPrizes=Array.isArray(data.claims)?data.claims:[];claimHistorySession=typeof data.claimSession==='string'?data.claimSession:'';renderClaimHistory();
     const movie=data.moviePreview;
     if(movie&&movie.session&&['playing','paused'].includes(movie.state)){
      currentMovie=movie;show('phone-movie');
@@ -304,13 +307,16 @@
   if(action==='end'&&!confirm('End this game? The claimed prizes will be saved.'))return;
   if(action==='prize-decline'&&!confirmed)return;
   busy=true;if(action==='prize-accept'||action==='prize-decline')lockDecision(true);
-  try{const nonce=(crypto.randomUUID?.()||`${Date.now()}_${Math.random().toString(36).slice(2)}`).replaceAll('.','_');
-   const result=await request('command',{command:action,nonce,confirm:action==='end'});
+   try{const proofClaim=action.match(/^proof-edit-([a-f0-9]{32})$/);
+    const randomNonce=(crypto.randomUUID?.()||`${Date.now()}_${Math.random().toString(36).slice(2)}`).replaceAll('.','_');
+    // Bind the exact claim to the idempotent request without expanding the 24-char command column.
+    const nonce=proofClaim?`${proofClaim[1]}_${randomNonce}`:randomNonce;
+    const result=await request('command',{command:proofClaim?'proof-edit':action,nonce,confirm:action==='end'});
    if(result.game)updateGame(result.game);
     if(result.applied&&result.effect==='prize_accepted')updateProof({active:true,phase:'opening',claimId:result.game?.offer?.claimId||''});
    if(navigator.vibrate)navigator.vibrate(20);
    if(result.applied){pendingCommand=null;feedback=null;const notice=result.effect==='started'?'Game started — press Spin to play.':result.effect==='award'?'Wheel spinning… Watch the desktop for the result.':result.effect==='bonus_trigger'?'Bonus round activated on screen.':`Game ${result.effect||'updated'}.`;message(notice);appendChat(notice);}
-   else if(result.commandId){pendingCommand={id:result.commandId,label:action.replaceAll('-',' ')};message(`Waiting for game screen to execute ${pendingCommand.label}…`);appendChat(`Waiting for game screen to execute ${pendingCommand.label}…`);}
+    else if(result.commandId){pendingCommand={id:result.commandId,label:proofClaim?'edit claimed prize video':action.replaceAll('-',' ')};message(`Waiting for game screen to execute ${pendingCommand.label}…`);appendChat(`Waiting for game screen to execute ${pendingCommand.label}…`);}
    else message('Command was not confirmed by the game screen.',true);
   }catch(e){message(e.message,true);appendChat(e.message);if(/authorization|expired|disconnected/i.test(e.message))forget();}
   finally{busy=false;if(action==='prize-accept'||action==='prize-decline')lockDecision(false);}
@@ -363,6 +369,29 @@
   }catch(e){message(e.message,true);}finally{movieBusy=false;document.querySelectorAll('.phone-movie-buttons button').forEach(b=>b.disabled=false);}
  }
 
+  function renderClaimHistory(){
+   const list=$('phone-claimed-prizes'),empty=$('phone-claims-empty'),context=$('phone-claims-context');
+   if(!list)return;
+   const signature=JSON.stringify([claimHistorySession,claimedPrizes]);
+   if(list.dataset.signature===signature)return;
+   list.dataset.signature=signature;list.replaceChildren();
+   if(empty)empty.hidden=claimedPrizes.length>0;
+   if(context)context.textContent=claimedPrizes.length?'Accepted prizes in the selected game, oldest first. Edit or re-record on the host computer.':'No accepted prizes for this game yet.';
+   const money=new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'});
+   for(const claim of claimedPrizes){
+    if(!/^[a-f0-9]{32}$/.test(claim.id))continue;
+    const row=document.createElement('li');row.className='phone-claim-item';
+    const info=document.createElement('div');info.className='phone-claim-info';
+    const name=document.createElement('strong');name.textContent=String(claim.name||'Claimed prize');
+    const details=document.createElement('span');details.textContent=`${String(claim.tier||'').toUpperCase()} · ${money.format(Number(claim.cents||0)/100)}${claim.hasVideo?' · Video saved':' · No video yet'}`;
+    info.append(name,details);
+    const button=document.createElement('button');button.type='button';button.className='btn btn-outline';button.textContent='🎥 Edit / Re-record video';
+    button.setAttribute('aria-label',`Edit or re-record video for ${name.textContent}`);
+    button.onclick=()=>{closeMenu();void send('proof-edit-'+claim.id);};
+    row.append(info,button);list.append(row);
+   }
+  }
+
  function setMenuTab(tab){
   for(const button of document.querySelectorAll('[data-phone-menu-tab]')){
    const selected=button.dataset.phoneMenuTab===tab;
@@ -372,18 +401,18 @@
  }
  const closeArrows=()=>{const dialog=$('phone-arrows-dialog');if(dialog?.open)dialog.close();};
  const closeMenu=()=>{const dialog=$('phone-quick-menu');if(dialog?.open)dialog.close();};
- const openMenu=()=>{const dialog=$('phone-quick-menu');if(active&&state&&dialog&&!dialog.open){closeArrows();syncNav();setMenuTab('controls');dialog.showModal();}};
+  const openMenu=(tab='controls')=>{const dialog=$('phone-quick-menu');if(active&&state&&dialog){closeArrows();syncNav();if(tab==='claims'&&!claimedPrizes.length)tab='controls';setMenuTab(tab);if(!dialog.open)dialog.showModal();}};
  const openArrows=()=>{const dialog=$('phone-arrows-dialog'),button=$('phone-arrows-toggle');if(!active||!state||button.disabled||!dialog||dialog.open)return;
   closeMenu();dialog.showModal();button.setAttribute('aria-expanded','true');button.classList.add('is-active');};
- $('phone-menu-toggle').onclick=openMenu;
  $('phone-menu-close').onclick=closeMenu;
  $('phone-arrows-toggle').onclick=openArrows;
  $('phone-arrows-close').onclick=closeArrows;
  $('phone-arrows-dialog').addEventListener('close',()=>{$('phone-arrows-toggle').setAttribute('aria-expanded','false');$('phone-arrows-toggle').classList.remove('is-active');});
- document.querySelectorAll('[data-phone-menu-tab]').forEach(button=>button.addEventListener('click',()=>setMenuTab(button.dataset.phoneMenuTab)));
+  document.querySelectorAll('[data-phone-menu-tab]').forEach(button=>button.addEventListener('click',()=>{if(!button.disabled)setMenuTab(button.dataset.phoneMenuTab);}));
  document.querySelectorAll('[data-phone-view]').forEach(button=>button.addEventListener('click',()=>{
   const target=button.dataset.phoneView;
-  if(target==='more'){openMenu();return;}
+   if(target==='more'){openMenu();return;}
+   if(target==='prize'&&!mayGoPrize()&&claimedPrizes.length){openMenu('claims');return;}
   closeMenu();if(button.disabled)return;
   if(target==='home'){if(!mayGoHome()){message('Finish the active game or proof before returning home.',true);return;}
    dashboardRequested=true;show('phone-dashboard');void loadDashboard();return;}

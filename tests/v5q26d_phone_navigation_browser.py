@@ -52,10 +52,11 @@ async def main():
   verify('Game selected, Dashboard access guarded in More',await page.locator('#phone-bottom-nav [data-phone-view=game]').get_attribute('aria-current')=='page' and await page.locator('#phone-quick-menu [data-phone-view=home]').is_disabled())
   verify('Wheel rendering is decorative',await page.locator('.phone-wheel-visual[aria-hidden=true]').count()==1)
   verify('Six sticky controls include Mic and center Arrows, not Home',await page.locator('#phone-bottom-nav > button').count()==6 and await page.locator('#phone-bottom-nav #phone-mic-toggle').count()==1 and await page.locator('#phone-bottom-nav > button:nth-child(3)').get_attribute('id')=='phone-arrows-toggle' and await page.locator('#phone-bottom-nav [data-phone-view=home]').count()==0)
-  verify('Stats follow Spin near bottom, arrow pad removed from gameplay',await page.evaluate("""() => {
-   const spin=document.querySelector('#phone-gameplay-shell [data-phone=spin]'),stats=document.querySelector('#phone-game-state');
-   return !!(spin.compareDocumentPosition(stats)&Node.DOCUMENT_POSITION_FOLLOWING)&&document.querySelectorAll('#phone-gameplay-shell .phone-direction').length===0;
+  verify('Stats follow Spin; Start, Menu and End sit below stats',await page.evaluate("""() => {
+   const spin=document.querySelector('#phone-gameplay-shell [data-phone=spin]'),stats=document.querySelector('#phone-game-state'),buttons=document.querySelector('.phone-game-actions');
+   return !!(spin.compareDocumentPosition(stats)&Node.DOCUMENT_POSITION_FOLLOWING)&&!!(stats.compareDocumentPosition(buttons)&Node.DOCUMENT_POSITION_FOLLOWING)&&document.querySelectorAll('#phone-gameplay-shell .phone-direction').length===0;
   }"""))
+  verify('Gameplay removes Back, Select and Pause buttons',await page.locator('#phone-gameplay-shell [data-phone=back],#phone-gameplay-shell [data-phone=select],#phone-gameplay-shell [data-phone=pause]').count()==0)
   verify('Music moved out of gameplay into More',await page.locator('#phone-controls #phone-game-audio').count()==0 and await page.locator('#phone-menu-panel-music #phone-game-audio').count()==1)
   await page.locator('#phone-arrows-toggle').click()
   verify('Arrows opens a real modal with four arrows and central Select',await page.locator('#phone-arrows-dialog').is_visible() and await page.locator('#phone-arrows-dialog [data-phone]').count()==5 and await page.locator('#phone-arrows-dialog [data-phone=select]').is_visible())
@@ -68,6 +69,8 @@ async def main():
   await page.keyboard.press('Escape')
   verify('Escape closes directional dialog',await page.locator('#phone-arrows-dialog').is_hidden())
   await page.locator('#phone-bottom-nav [data-phone-view=more]').click()
+  verify('Header is removed and green connection status is in More',await page.locator('.phone-controller-top,#phone-menu-toggle').count()==0 and await page.locator('#phone-quick-menu #phone-connection-state[data-state=connected]').is_visible())
+  verify('Claims tab disabled until there are claimed prizes',await page.locator('#phone-menu-tab-claims').is_disabled())
   verify('More is full-screen with Controls as initial tab',await page.locator('#phone-menu-tab-controls').get_attribute('aria-selected')=='true' and await page.evaluate("""() => {
    const box=document.querySelector('#phone-quick-menu').getBoundingClientRect();
    return Math.abs(box.width-innerWidth)<3&&Math.abs(box.height-innerHeight)<3;
@@ -79,8 +82,8 @@ async def main():
   await page.locator('#phone-menu-tab-controls').click()
   verify('Controls tab returns, music hidden',await page.locator('#phone-menu-panel-controls').is_visible() and await page.locator('#phone-menu-panel-music').is_hidden())
   await page.locator('#phone-menu-close').click()
-  await page.locator('#phone-menu-toggle').click()
-  verify('Accessible local menu opens',await page.locator('#phone-quick-menu').is_visible())
+  await page.locator('#phone-bottom-nav [data-phone-view=more]').click()
+  verify('More bottom control reopens the menu',await page.locator('#phone-quick-menu').is_visible())
   verify('Cannot bypass active game via menu',await page.locator('#phone-quick-menu [data-phone-view=home]').is_disabled())
   await page.locator('#phone-menu-close').click()
   await page.evaluate("__pending=true")
