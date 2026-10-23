@@ -52,7 +52,7 @@ async def main():
   await page.evaluate("""() => {__claims=[
    {id:'b'.repeat(32),name:'First Prize',tier:'tier1',cents:1250,hasVideo:true},
    {id:'d'.repeat(32),name:'<img src=x onerror=alert(1)>',tier:'tier2',cents:2599,hasVideo:false}];} """)
-  await page.locator('#phone-menu-tab-claims').wait_for(state='enabled',timeout=4500)
+  await page.wait_for_function("!document.getElementById('phone-menu-tab-claims').disabled",timeout=4500)
   await page.locator('#phone-menu-tab-claims').click()
   check('Claims tab enabled and ordered',await page.locator('#phone-claimed-prizes > li').count()==2 and await page.locator('.phone-claim-info strong').all_inner_texts()==['First Prize','<img src=x onerror=alert(1)>'])
   check('Actual cent values and proof status', '$12.50' in await page.locator('#phone-claimed-prizes > li').nth(0).inner_text() and '$25.99' in await page.locator('#phone-claimed-prizes > li').nth(1).inner_text() and 'No video yet' in await page.locator('#phone-claimed-prizes > li').nth(1).inner_text())
@@ -69,7 +69,7 @@ async def main():
   await page.locator('#phone-bottom-nav [data-phone-view=more]').click()
   check('Accepted claims remain available after game ends',await page.locator('#phone-menu-tab-claims').is_enabled())
   await page.evaluate('__claims=[]')
-  await page.locator('#phone-menu-tab-claims').wait_for(state='disabled',timeout=4500)
+  await page.wait_for_function("document.getElementById('phone-menu-tab-claims').disabled",timeout=4500)
   check('No stale claims after server clears history',await page.locator('#phone-claimed-prizes > li').count()==0)
   for width in (320,375,430):
    await page.set_viewport_size({'width':width,'height':780})
