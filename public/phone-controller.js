@@ -271,6 +271,11 @@
  function updateProof(proof){
   const accordion=$('phone-proof-controls');if(!accordion)return;
   proofState=proof||{active:false};const showing=!!proofState?.active;applyMode();
+  const allowed=showing&&!!proofState.phoneCameraAllowed&&!!proofState.consent&&!!proofState.sessionId&&!!proofState.claimId;
+  const captureEntry=$('phone-capture-entry');if(captureEntry)captureEntry.hidden=!showing;
+  const captureButton=$('phone-capture-open');if(captureButton)captureButton.disabled=!allowed;
+  const captureNote=$('phone-capture-entry-note');if(captureNote)captureNote.textContent=!proofState.phoneCameraAllowed?'Ask the host to check “Use phone camera” in desktop proof permissions.':!proofState.consent?'Check recording consent below to enable the phone camera.':'Phone capture permitted · Your files go to this prize.';
+  window.dispatchEvent(new CustomEvent('lucky:phone-proof-status',{detail:{active:showing,phoneCameraAllowed:allowed,sessionId:proofState.sessionId||'',claimId:proofState.claimId||''}}));
 
   // The proof controls are the only primary controls while the desktop proof page is active.
   // Keep the accordion closed on first entry; preserve its user-selected state while active.
@@ -416,6 +421,7 @@
   closeMenu();if(button.disabled)return;
   if(target==='home'){if(!mayGoHome()){message('Finish the active game or proof before returning home.',true);return;}
    dashboardRequested=true;show('phone-dashboard');void loadDashboard();return;}
+  if(target==='camera'&&mayGoCamera()&&proofState.phoneCameraAllowed){window.LuckyPhoneCapture?.open();return;}
   if(target==='game'&&mayGoGame()||target==='prize'&&mayGoPrize()||target==='camera'&&mayGoCamera()){
    show('phone-controls');if(game)updateGame(game);updateProof(proofState);
   }
@@ -448,6 +454,7 @@
  });
  document.querySelectorAll('[data-phone]').forEach(button=>button.addEventListener('click',()=>send(button.dataset.phone)));
  $('phone-proof-consent')?.addEventListener('change',e=>send(e.target.checked?'proof-consent-on':'proof-consent-off'));
+ $('phone-capture-open')?.addEventListener('click',()=>window.LuckyPhoneCapture?.open());
  $('phone-disconnect').addEventListener('click',async()=>{closeMenu();try{await request('disconnect');}catch(_){}forget();});
  try{const existing=JSON.parse(sessionStorage.getItem(storageKey)||'null');if(existing&&/^[a-f0-9]{32}$/.test(existing.id)&&/^[a-f0-9]{64}$/.test(existing.token))state=existing;}catch(_){}
  if(state){if(location.protocol!=='about:')history.replaceState(null,'','controller.php');show('phone-wait');status();}

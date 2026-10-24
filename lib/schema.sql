@@ -55,6 +55,7 @@ CREATE TABLE IF NOT EXISTS controller_proof_state (
  is_open TINYINT(1) NOT NULL DEFAULT 0,
  review_count TINYINT UNSIGNED NOT NULL DEFAULT 0,
  consent_ack TINYINT(1) NOT NULL DEFAULT 0,
+ phone_camera_enabled TINYINT(1) NOT NULL DEFAULT 0,
  capture_phase VARCHAR(12) NOT NULL DEFAULT 'live',
  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
  INDEX idx_proof_host (host_admin_id,is_open,updated_at),

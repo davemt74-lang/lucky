@@ -67,6 +67,7 @@ jobs:
           php tests/v5q26_movie_preview_contract.php
           php tests/v5q26c_splash_contract.php
           php tests/v5q28a_video_ai_contract.php
+          php tests/v5q28b_phone_capture_contract.php
           node tests/v5q25d_shared_camera_profiles.js
           python tests/v5q25_game_entrypoint_contract.py
           python tests/v5q25_recording_countdown_contract.py
@@ -99,6 +100,7 @@ jobs:
           php tests/v5q24_plugin_mariadb.php
           php tests/v5q24_phone_dashboard_db.php
           php tests/v5q27d_phone_claims_db.php
+          php tests/v5q28b_phone_capture_db.php
   browsers:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -172,6 +174,7 @@ jobs:
           python tests/v5q26d_phone_navigation_browser.py
           python tests/v5q27d_phone_claims_browser.py
           python tests/v5q28a_video_ai_browser.py
+          python tests/v5q28b_phone_capture_browser.py
           python tests/v5q26b_video_gallery_browser.py
           python tests/v5q27b_host_chooser_scroll_browser.py
       - name: Phone controller regressions

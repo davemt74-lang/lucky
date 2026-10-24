@@ -176,14 +176,21 @@ try {
     if(!SchemaGuard::missing($db,['controller_proof_state'])){
     $current=ControllerGame::snapshot($db);$legacyProof=false;
     try{
-     $q=$db->prepare("SELECT s.session_id,s.claim_id,s.is_open,s.review_count,s.consent_ack,s.capture_phase FROM controller_proof_state s WHERE s.host_admin_id=? AND s.is_open=1 AND (s.updated_at>UTC_TIMESTAMP()-INTERVAL 12 SECOND OR (s.capture_phase='opening' AND s.updated_at>UTC_TIMESTAMP()-INTERVAL 45 SECOND)) ORDER BY s.updated_at DESC LIMIT 1");
+     $q=$db->prepare("SELECT s.session_id,s.claim_id,s.is_open,s.review_count,s.consent_ack,s.capture_phase,s.phone_camera_enabled FROM controller_proof_state s WHERE s.host_admin_id=? AND s.is_open=1 AND (s.updated_at>UTC_TIMESTAMP()-INTERVAL 12 SECOND OR (s.capture_phase='opening' AND s.updated_at>UTC_TIMESTAMP()-INTERVAL 45 SECOND)) ORDER BY s.updated_at DESC LIMIT 1");
      $q->execute([(int)$p['host_admin_id']]);$proof=$q->fetch()?:null;
     }catch(PDOException $e){
      if($e->getCode()!=='42S22')throw $e;
-     // Old installed schema: keep pairing status healthy until upgrade.php runs.
-     $legacyProof=true;
-     $q=$db->prepare("SELECT s.session_id,s.claim_id,s.is_open,s.review_count FROM controller_proof_state s WHERE s.host_admin_id=? AND s.is_open=1 AND s.updated_at>UTC_TIMESTAMP()-INTERVAL 12 SECOND ORDER BY s.updated_at DESC LIMIT 1");
-     $q->execute([(int)$p['host_admin_id']]);$proof=$q->fetch()?:null;
+     try {
+      // Existing installations without the new permission keep desktop remote controls.
+      $q=$db->prepare("SELECT s.session_id,s.claim_id,s.is_open,s.review_count,s.consent_ack,s.capture_phase FROM controller_proof_state s WHERE s.host_admin_id=? AND s.is_open=1 AND s.updated_at>UTC_TIMESTAMP()-INTERVAL 12 SECOND ORDER BY s.updated_at DESC LIMIT 1");
+      $q->execute([(int)$p['host_admin_id']]);$proof=$q->fetch()?:null;
+      if($proof)$proof['phone_camera_enabled']=0;
+     }catch(PDOException $older){
+      if($older->getCode()!=='42S22')throw $older;
+      $legacyProof=true;
+      $q=$db->prepare("SELECT s.session_id,s.claim_id,s.is_open,s.review_count FROM controller_proof_state s WHERE s.host_admin_id=? AND s.is_open=1 AND s.updated_at>UTC_TIMESTAMP()-INTERVAL 12 SECOND ORDER BY s.updated_at DESC LIMIT 1");
+      $q->execute([(int)$p['host_admin_id']]);$proof=$q->fetch()?:null;
+     }
     }
     if($legacyProof&&$proof){$proof['capture_phase']='upgrade';$proof['consent_ack']=0;}
     if($proof && !SchemaGuard::missing($db,['claim_media'])){
@@ -192,7 +199,7 @@ try {
     }
     }
    }
-   success(['status'=>$status,'deviceName'=>$p['device_name'],'expiresAt'=>$p['paired_expires_at'],'game'=>$status==='paired'?($current??ControllerGame::snapshot($db)):null,'claims'=>$acceptedClaims,'claimSession'=>$claimSource['id']??null,'proof'=>$proof?['active'=>true,'claimId'=>$proof['claim_id'],'reviewCount'=>(int)$proof['review_count'],'consent'=>(bool)($proof['consent_ack']??false),'phase'=>(string)($proof['capture_phase']??'live'),'savedCount'=>(int)($proof['saved_count']??0)]:['active'=>false],'delivery'=>$delivery,'reason'=>$reason??null,
+   success(['status'=>$status,'deviceName'=>$p['device_name'],'expiresAt'=>$p['paired_expires_at'],'game'=>$status==='paired'?($current??ControllerGame::snapshot($db)):null,'claims'=>$acceptedClaims,'claimSession'=>$claimSource['id']??null,'proof'=>$proof?['active'=>true,'sessionId'=>$proof['session_id'],'claimId'=>$proof['claim_id'],'phoneCameraAllowed'=>(bool)($proof['phone_camera_enabled']??false),'reviewCount'=>(int)$proof['review_count'],'consent'=>(bool)($proof['consent_ack']??false),'phase'=>(string)($proof['capture_phase']??'live'),'savedCount'=>(int)($proof['saved_count']??0)]:['active'=>false],'delivery'=>$delivery,'reason'=>$reason??null,
     'moviePreview'=>$status==='paired'&&SchemaGuard::missing($db,['movie_preview_state'])===[]?MoviePreview::public(MoviePreview::row($db,(int)$p['host_admin_id'])):null]);
   }
   if($action==='select_package'){
@@ -308,12 +315,16 @@ try {
  if($action==='proof_state'){
   SchemaGuard::require($db,['controller_proof_state'],'Live prize proof controls');
   if(!$db->query("SHOW COLUMNS FROM controller_proof_state LIKE 'consent_ack'")->fetch())throw new DomainException('Run upgrade.php to activate V5Q.15F phone recording consent.',409);
-  $session=(string)($in['session']??'');$claim=(string)($in['claim']??'');$open=($in['open']??false)===true;$reviewCount=max(0,min(4,(int)($in['reviewCount']??0)));$consent=$open&&($in['consent']??false)===true;$phase=$open?(string)($in['phase']??'live'):'live';if(!in_array($phase,['live','opening','countdown','recording','processing','review','saving','saved'],true))throw new DomainException('Invalid recording phase.',422); 
+  $session=(string)($in['session']??'');$claim=(string)($in['claim']??'');$open=($in['open']??false)===true;$reviewCount=max(0,min(4,(int)($in['reviewCount']??0)));$consent=$open&&($in['consent']??false)===true;$phone=$open&&($in['phoneCamera']??false)===true;$phase=$open?(string)($in['phase']??'live'):'live';if(!in_array($phase,['live','opening','countdown','recording','processing','review','saving','saved'],true))throw new DomainException('Invalid recording phase.',422);
+  $phoneColumn=(bool)$db->query("SHOW COLUMNS FROM controller_proof_state LIKE 'phone_camera_enabled'")->fetch();
+  if($phone&&!$phoneColumn)throw new DomainException('Run upgrade.php to enable paired phone camera uploads.',409);
   ControllerPairing::checkId($session);
   sessionRow($db,$session);
   if($open){ControllerPairing::checkId($claim);$q=$db->prepare('SELECT id FROM game_claims WHERE id=? AND session_id=?');$q->execute([$claim,$session]);if(!$q->fetch())throw new DomainException('Claim does not belong to this session.',403);}
-  $q=$db->prepare('INSERT INTO controller_proof_state(session_id,host_admin_id,claim_id,is_open,review_count,consent_ack,capture_phase,updated_at) VALUES (?,?,?,?,?,?,?,UTC_TIMESTAMP()) ON DUPLICATE KEY UPDATE host_admin_id=VALUES(host_admin_id),claim_id=VALUES(claim_id),is_open=VALUES(is_open),review_count=VALUES(review_count),consent_ack=VALUES(consent_ack),capture_phase=VALUES(capture_phase),updated_at=UTC_TIMESTAMP()');
-  $q->execute([$session,$adminId,$open?$claim:null,$open?1:0,$open?$reviewCount:0,$consent?1:0,$phase]);success(['active'=>$open]);
+  $extra=$phoneColumn?',phone_camera_enabled':'';$placeholder=$phoneColumn?',?':'';$update=$phoneColumn?',phone_camera_enabled=VALUES(phone_camera_enabled)':'';
+  $q=$db->prepare('INSERT INTO controller_proof_state(session_id,host_admin_id,claim_id,is_open,review_count,consent_ack,capture_phase'.$extra.',updated_at) VALUES (?,?,?,?,?,?,?'.$placeholder.',UTC_TIMESTAMP()) ON DUPLICATE KEY UPDATE host_admin_id=VALUES(host_admin_id),claim_id=VALUES(claim_id),is_open=VALUES(is_open),review_count=VALUES(review_count),consent_ack=VALUES(consent_ack),capture_phase=VALUES(capture_phase)'.$update.',updated_at=UTC_TIMESTAMP()');
+  $values=[$session,$adminId,$open?$claim:null,$open?1:0,$open?$reviewCount:0,$consent?1:0,$phase];if($phoneColumn)$values[]=$phone?1:0;
+  $q->execute($values);success(['active'=>$open,'phoneCamera'=>$phone]);
  }
  if($action==='invite'){
   $db->beginTransaction();try{
