@@ -28,6 +28,9 @@ async def main():
        skills:[{id:'highlight',name:'Highlight reel',description:'Pacing',tools:['timeline.reorder']}]}));
     };window.confirm=()=>true;
    </script><script>'''+admin_script+'''</script></body></html>''',wait_until='domcontentloaded')
+  # Admin pages intentionally render inactive tabs hidden. Open the AI tab for this isolated fixture.
+  check('AI settings are hidden until the Admin tab opens',await page.locator('#tab-ai').is_hidden())
+  await page.locator('#tab-ai').evaluate('(el)=>{el.hidden=false}')
   await page.locator('#video-ai-key').fill('sk-ant-example12345678901234567890')
   await page.locator('#video-ai-settings-form button[type=submit]').click()
   await page.locator('#video-ai-state').wait_for(state='visible')
@@ -64,6 +67,9 @@ async def main():
       return new Response(JSON.stringify({ok:true,proposal:{summary:'Tighten the first clip',operations:[{tool:'clip.trim',args:{instanceId:'seg-a',startMs:1000,endMs:3000}}]}}));
     };
     </script><script>'''+script+'''</script></body></html>''',wait_until='domcontentloaded')
+  # The editor keeps every toolbox panel hidden until its navigation button is selected.
+  check('AI editor panel is initially closed',await e.locator('#studio-pane-ai').is_hidden())
+  await e.locator('#studio-pane-ai').evaluate('(el)=>{el.hidden=false}')
   await e.wait_for_function("!document.getElementById('editor-ai-generate').disabled")
   await e.locator('#editor-ai-instruction').fill('Shorten this game highlight')
   await e.locator('#editor-ai-generate').click()
