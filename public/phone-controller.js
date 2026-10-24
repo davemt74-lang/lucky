@@ -138,7 +138,7 @@
    }}
    else if(data.status==='pending'){active=false;show('phone-wait');message('Waiting for host approval…');}
    else {forget();}}
-  catch(e){if(/invalid|disconnected|expired|authorization/i.test(e.message))forget();else {failures++;setConnection('interrupted','! Reconnecting');if(failures>=3&&(failures===3||e.message!==lastConnectionError)){lastConnectionError=e.message;message('Connection interrupted: '+e.message+' Retrying…',true);}}}
+  catch(e){if(/invalid|disconnected|expired|authorization/i.test(e.message))forget();else {failures++;setConnection('interrupted','! Reconnecting');if(failures>=3){window.dispatchEvent(new CustomEvent('lucky:phone-proof-status',{detail:{active:false,phoneCameraAllowed:false,sessionId:'',claimId:''}}));}if(failures>=3&&(failures===3||e.message!==lastConnectionError)){lastConnectionError=e.message;message('Connection interrupted: '+e.message+' Retrying…',true);}}}
   finally{statusBusy=false;if(!pendingCommand&&commandQueue.length&&active&&!busy){const next=commandQueue.shift();setTimeout(()=>send(next),0);}}
  }
  async function join(ev){ev.preventDefault();const name=safeName();if(!name){message('Please enter a phone name.',true);return;}
@@ -421,7 +421,7 @@
   closeMenu();if(button.disabled)return;
   if(target==='home'){if(!mayGoHome()){message('Finish the active game or proof before returning home.',true);return;}
    dashboardRequested=true;show('phone-dashboard');void loadDashboard();return;}
-  if(target==='camera'&&mayGoCamera()&&proofState.phoneCameraAllowed){window.LuckyPhoneCapture?.open();return;}
+  if(target==='camera'&&mayGoCamera()&&proofState.phoneCameraAllowed&&proofState.consent){window.LuckyPhoneCapture?.open();return;}
   if(target==='game'&&mayGoGame()||target==='prize'&&mayGoPrize()||target==='camera'&&mayGoCamera()){
    show('phone-controls');if(game)updateGame(game);updateProof(proofState);
   }

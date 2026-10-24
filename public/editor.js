@@ -915,7 +915,7 @@ function renderBin(){const bin=$('editor-media-bin');if(!bin)return;bin.replaceC
   window.addEventListener('lucky:media-uploaded',receiveCapturedClip);
   // Approved phone uploads happen in another browser; check for new claim media
   // without resetting a draft timeline or interrupting the video preview.
-  setInterval(()=>{if(session&&document.visibilityState==='visible'&&!syncingPhoneMedia)void receiveCapturedClip({detail:{session}});},5000);
+  setInterval(()=>{if(session&&document.visibilityState==='visible'&&!movieMode&&!syncingPhoneMedia)void receiveCapturedClip({detail:{session}});},5000);
   $('render-volume').oninput=()=>{$('render-volume-text').textContent=$('render-volume').value+'%';if(layers.background){layers.background.volume=Number($('render-volume').value);$('timeline-music-volume').value=layers.background.volume;$('timeline-music-volume-value').textContent=layers.background.volume+'%';dirty=true;render();}};
   setupToolbox();
    document.querySelectorAll('[data-media-filter]').forEach(b=>b.onclick=()=>{mediaFilter=b.dataset.mediaFilter;document.querySelectorAll('[data-media-filter]').forEach(x=>{x.setAttribute('aria-pressed',String(x===b));x.classList.toggle('is-active',x===b);});renderBin();});

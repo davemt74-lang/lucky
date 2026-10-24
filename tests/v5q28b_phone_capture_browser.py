@@ -44,6 +44,7 @@ async def main():
    check(f'{mode} gallery file ready',await page.locator('#phone-capture-send').is_visible())
    await page.locator('#phone-capture-send').click()
    await page.wait_for_function(f"window.__uploads.length=={1+['photo','video','audio'].index(mode)}")
+   await page.wait_for_function("document.getElementById('phone-capture-status').textContent.startsWith('✓') && document.getElementById('phone-capture-send').hidden",timeout=4000)
   captured=await page.evaluate('window.__uploads')
   for idx,(mime,name,mode) in enumerate([('image/png','snapshot.png','photo'),('video/mp4','recording.mp4','video'),('audio/mpeg','commentary.mp3','audio')]):
    values=dict(captured[idx]['entries'])

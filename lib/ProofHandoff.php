@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__.'/SchemaGuard.php';
 /** A confirmed prize opens its paired-phone proof screen before page navigation. */
 final class ProofHandoff {
  public static function activate(PDO $db,string $session,string $claim,int $hostAdminId):void {
