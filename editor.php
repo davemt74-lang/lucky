@@ -5,7 +5,7 @@ if(!installed()){header('Location: install.php');exit;}
 if(!isAdmin()){header('Location: login.php');exit;}
 shellStart('Video Studio','editor','editor-workspace');
 ?>
-<link rel="stylesheet" href="public/editor-workspace.css?v=5q26-movie">
+<link rel="stylesheet" href="public/editor-workspace.css?v=5q28a">
 <section class="media-editor-studio" aria-label="Video Studio workspace">
  <div class="studio-topbar">
   <a id="editor-back-game" class="btn btn-outline studio-back" href="game.php">← Back to game</a>
