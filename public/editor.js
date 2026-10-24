@@ -932,4 +932,54 @@ function renderBin(){const bin=$('editor-media-bin');if(!bin)return;bin.replaceC
    return false;
  };
  window.LuckyEditor={preview,stop};
+ // AI plans cannot save, delete or render. The owner reviews a validated proposal
+ // and applies it to the same unsaved timeline snapshot it was generated for.
+ const aiSnapshot=()=>{
+  if(!session||!clips.length)throw Error('Choose a game with timeline clips before using AI Editor.');
+  const edits=clips.map(fields);
+  return {session,edits,signature:JSON.stringify({session,edits,layers})};
+ };
+ function aiApply(proposal,signature){
+  if(aiSnapshot().signature!==signature)throw Error('The timeline changed. Generate a new AI proposal before applying.');
+  if(!proposal||!Array.isArray(proposal.operations)||proposal.operations.length>12)throw Error('Invalid AI edit plan.');
+  let next=clips.map(c=>({...c})),extra=structuredClone(layers);
+  for(const operation of proposal.operations){
+   const tool=operation.tool,a=operation.args||{},clip=next.find(c=>c.instanceId===a.instanceId);
+   if(tool==='timeline.reorder'){
+    const ids=a.order;if(!Array.isArray(ids)||ids.length!==next.length||new Set(ids).size!==next.length)throw Error('AI reorder must preserve all clips.');
+    const map=new Map(next.map(c=>[c.instanceId,c]));if(ids.some(id=>!map.has(id)))throw Error('AI referenced an unknown clip.');
+    next=ids.map(id=>map.get(id));
+   }else if(tool==='timeline.title'){
+    if(extra.titles.length>=24||typeof a.text!=='string'||a.text.length>120||a.startMs<0||a.durationMs<500||a.startMs+a.durationMs>timelineMs())throw Error('AI title exceeds timeline limits.');
+    extra.titles.push({id:fresh(),text:a.text,startMs:a.startMs,durationMs:a.durationMs,position:a.position,size:a.size});
+   }else if(tool==='audio.background'){
+    if(!availableSongs.some(s=>s.id===a.trackId)||!Number.isInteger(a.volume)||a.volume<0||a.volume>100)throw Error('AI selected unavailable background audio.');
+    extra.background={trackId:a.trackId,startMs:0,endMs:timelineMs(),offsetMs:0,volume:a.volume};
+   }else{
+    if(!clip)throw Error('AI referenced an unknown clip.');
+    if(tool==='clip.look'){
+     if(!Object.hasOwn(looks,a.preset))throw Error('Unsupported AI filter.');clip.lookPreset=a.preset;
+    }else if(tool==='clip.transition'){
+     if(!['cut','fade'].includes(a.transition))throw Error('Unsupported AI transition.');clip.transition=a.transition;
+    }else if(tool==='clip.overlay'){
+     if(typeof a.text!=='string'||a.text.length>120||!['top','center','bottom'].includes(a.position)||!['small','medium','large'].includes(a.size))throw Error('Invalid AI overlay.');
+     Object.assign(clip,{overlayText:a.text,overlayPosition:a.position,overlaySize:a.size});
+    }else if(tool==='clip.mute'){
+     if(clip.kind==='photo'||typeof a.muted!=='boolean')throw Error('Invalid AI audio operation.');clip.audioMode=a.muted?'muted':'normal';
+    }else if(tool==='clip.trim'){
+     if(clip.kind==='photo'||!Number.isInteger(a.startMs)||!Number.isInteger(a.endMs)||a.startMs<0||a.endMs-a.startMs<500||a.endMs-a.startMs>120000||(clip.durationMs>0&&a.endMs>clip.durationMs))throw Error('AI trim exceeds source bounds.');
+     clip.trimStartMs=a.startMs;clip.trimEndMs=a.endMs;
+    }else throw Error('Unsupported AI edit tool.');
+   }
+  }
+  const finalMs=next.reduce((total,c)=>total+lengthMs(c),0);
+  if(finalMs>20*60*1000||extra.titles.some(title=>title.startMs+title.durationMs>finalMs))throw Error('AI suggestions exceed the final movie duration.');
+  if(extra.background)extra.background.endMs=finalMs;
+  // No original media, server project or active render is mutated here.
+  clips=next;layers=extra;dirty=true;render();
+  if(layers.background){$('timeline-music-select').value=layers.background.trackId;$('render-track').value=layers.background.trackId;}
+  inform('AI suggestions applied locally. Review the timeline, then click Save edit to keep them.');
+  return proposal.operations.length;
+ }
+ window.LuckyEditorAgent={snapshot:aiSnapshot,apply:aiApply};
 })();
