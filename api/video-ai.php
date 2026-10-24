@@ -13,7 +13,9 @@ try {
  if($method!=='POST')throw new DomainException('Unknown editor AI endpoint.',404);
  assertCsrf();$input=jsonInput();$db=db();
  if($action==='settings_save'){
-  $result=ClaudeVault::store((string)($input['apiKey']??''),(string)($input['model']??ClaudeVault::MODELS[0]));
+  $key=(string)($input['apiKey']??'');
+  if(trim($key)===''&&ClaudeVault::status()['configured'])$key=ClaudeVault::apiKey();
+  $result=ClaudeVault::store($key,(string)($input['model']??ClaudeVault::MODELS[0]));
   audit($db,'video_ai.claude_configured',null,['model'=>$result['model']]);success(['claude'=>$result]);
  }
  if($action==='settings_remove'){

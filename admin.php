@@ -199,7 +199,7 @@ shellStart('Admin Studio','admin','admin-studio-page');
 <section id="tab-ai" class="surface platform-admin-panel" hidden aria-label="AI Studio and Claude settings">
  <div class="card-title-row"><div><p class="mini-label">OPTIONAL · ADMIN ONLY</p><h2>AI Studio · Claude</h2><p>Connect Claude to Video Studio's non-destructive editing assistant. Keys stay on this server and are never sent to the browser after saving.</p></div><span id="video-ai-state" class="mini-label">Not configured</span></div>
  <form id="video-ai-settings-form" class="platform-form video-ai-settings">
-  <label>Claude API key<input id="video-ai-key" type="password" autocomplete="new-password" maxlength="400" placeholder="Paste a new API key to configure or replace" required></label>
+  <label>Claude API key<input id="video-ai-key" type="password" autocomplete="new-password" maxlength="400" placeholder="New key, or leave blank to keep the saved key"></label>
   <label>Model<select id="video-ai-model"><option value="claude-haiku-5-5">Claude Haiku 5.5 · fast</option><option value="claude-sonnet-5-5">Claude Sonnet 5.5 · detailed</option><option value="claude-opus-5-5">Claude Opus 5.5 · advanced</option></select></label>
   <div class="platform-control-row"><button class="btn btn-primary" type="submit">Save encrypted key</button><button class="btn btn-outline" type="button" id="video-ai-test">Test connection</button><button class="btn btn-outline" type="button" id="video-ai-disconnect">Remove key</button></div>
  </form>

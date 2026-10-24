@@ -19,10 +19,10 @@
  async function run(task){if(busy)return;busy=true;
   for(const el of $('video-ai-settings-form').querySelectorAll('button'))el.disabled=true;
   try{await task();}catch(error){note(error.message,true);}
-  finally{busy=false;update({configured,model:$('video-ai-model').value});}
+  finally{busy=false;update({configured,model:$('video-ai-model').value});$('video-ai-settings-form').querySelector('button[type=submit]').disabled=false;}
  }
  $('video-ai-settings-form').onsubmit=e=>{e.preventDefault();void run(async()=>{
-  const key=$('video-ai-key').value.trim();if(!key)throw Error('Enter a new API key. Existing keys cannot be revealed.');
+  const key=$('video-ai-key').value.trim();if(!key&&!configured)throw Error('Enter an API key to configure Claude.');
   const data=await request('settings_save',{apiKey:key,model:$('video-ai-model').value});
   $('video-ai-key').value='';update(data.claude);note('Claude key encrypted and saved on this server. You can now test the connection.');
  });};

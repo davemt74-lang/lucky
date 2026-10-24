@@ -41,6 +41,7 @@ try {
  rejectAi(fn()=>VideoEditorSkills::normalize('highlight',['operations'=>[['tool'=>'clip.trim','args'=>['instanceId'=>'seg-a','startMs'=>0,'endMs'=>25000]]]],$ctx),'Trim cannot exceed actual source duration');
  rejectAi(fn()=>VideoEditorSkills::normalize('sound',['operations'=>[['tool'=>'audio.background','args'=>['trackId'=>str_repeat('f',32),'volume'=>50]]]],$ctx),'Unowned/unavailable soundtrack rejected');
  rejectAi(fn()=>VideoEditorSkills::normalize('cinematic',['operations'=>[['tool'=>'clip.look','args'=>['instanceId'=>'unknown','preset'=>'mono']]]],$ctx),'Unknown clip rejected');
+ rejectAi(fn()=>VideoEditorSkills::normalize('cinematic',['operations'=>[['tool'=>'clip.overlay','args'=>['instanceId'=>'seg-a','text'=>"Injected\nnewline",'position'=>'bottom','size'=>'small']]]],$ctx),'Control characters cannot enter render overlays');
  checkAi(ClaudeVault::disconnect()['configured']===false,'Key removal disconnects provider');
  echo "V5Q.28A VIDEO AI SECURITY AND TOOL CONTRACTS PASSED\n";
 }finally{

@@ -44,7 +44,7 @@ final class VideoEditorSkills {
   return ['clips'=>$rows,'tracks'=>$songs,'totalMs'=>$total];
  }
  private static function validText(mixed $v,int $max=120):string {
-  if(!is_string($v)||strlen($v)>$max||preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F]/',$v))throw new DomainException('Claude suggested invalid text.',422);
+  if(!is_string($v)||strlen($v)>$max||preg_match('//u',$v)!==1||preg_match('/[\x00-\x1F\x7F]/u',$v))throw new DomainException('Claude suggested invalid text.',422);
   return trim($v);
  }
  public static function normalize(string $skillId,array $proposal,array $context):array {
