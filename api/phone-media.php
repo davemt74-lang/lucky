@@ -25,7 +25,7 @@ try {
  ControllerPairing::checkId($session);ControllerPairing::checkId($claim);
  $form=$_POST;
  $form['sourceLabel']='Paired phone · '.substr((string)$pair['device_name'],0,46);
- $form['angleLabel']='Phone camera';$form['angleIndex']=0;
+ $form['angleLabel']=substr('Phone · '.preg_replace('/[\x00-\x1f\x7f]/','',(string)$pair['device_name']),0,80);$form['angleIndex']=0;
  $form['replaceClipId']=''; // A phone upload cannot overwrite an existing proof recording.
  $authorize=static function(PDO $db,string $sessionId,string $claimId)use($pairId,$token):void{
   $q=$db->prepare('SELECT * FROM controller_pairs WHERE id=? FOR UPDATE');$q->execute([$pairId]);$locked=$q->fetch(PDO::FETCH_ASSOC);

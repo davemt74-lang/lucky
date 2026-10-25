@@ -275,7 +275,7 @@
   const captureEntry=$('phone-capture-entry');if(captureEntry)captureEntry.hidden=!showing;
   const captureButton=$('phone-capture-open');if(captureButton)captureButton.disabled=!allowed;
   const captureNote=$('phone-capture-entry-note');if(captureNote)captureNote.textContent=!proofState.phoneCameraAllowed?'Ask the host to check “Use phone camera” in desktop proof permissions.':!proofState.consent?'Check recording consent below to enable the phone camera.':'Phone capture permitted · Your files go to this prize.';
-  window.dispatchEvent(new CustomEvent('lucky:phone-proof-status',{detail:{active:showing,phoneCameraAllowed:allowed,sessionId:proofState.sessionId||'',claimId:proofState.claimId||''}}));
+  window.dispatchEvent(new CustomEvent('lucky:phone-proof-status',{detail:{active:showing,phoneCameraAllowed:allowed,sessionId:proofState.sessionId||'',claimId:proofState.claimId||'',phase:proofState.phase||'live'}}));
 
   // The proof controls are the only primary controls while the desktop proof page is active.
   // Keep the accordion closed on first entry; preserve its user-selected state while active.
