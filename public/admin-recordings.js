@@ -21,6 +21,9 @@
   selected=id;const [detail,permission,media]=await Promise.all([api('detail',null,{id}),api('permission_status',null,{id}),api('media_list',null,{id})]);
   if(selected!==id)return;details=detail;$('recording-workspace').hidden=false;
   const s=detail.session;$('recording-selected-title').textContent=s.title;
+  let link=$('recording-open-editor');if(!link){link=el('a','✂ Edit multicamera timeline','btn btn-primary');link.id='recording-open-editor';
+   link.style.display='inline-flex';link.style.marginBottom='12px';$('recording-selected-details').after(link);}
+  link.href='recording-editor.php?session='+encodeURIComponent(s.id);
   $('recording-selected-details').textContent=`${s.type.replace('_',' ')} · ${s.status} · ${s.gameSessionId?'Game '+s.gameSessionId.slice(0,8):'Independent recording'}`;
   $('recording-activate').hidden=s.status!=='draft';$('recording-finish').hidden=s.status!=='active';
   $('recording-phone-enabled').checked=permission.phoneEnabled;
