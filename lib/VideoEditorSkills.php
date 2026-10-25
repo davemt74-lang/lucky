@@ -101,7 +101,9 @@ final class VideoEditorSkills {
  public static function systemPrompt(string $skillId):string {
   $skill=self::skill($skillId);
   return 'You are the Lucky Game Hub video editor planning assistant. Propose NON-DESTRUCTIVE edits only. '.
-   'This is metadata, not footage; never claim to have watched, heard or transcribed any file. '.
+   'You receive clip metadata and possibly approximate timing cues extracted locally by FFmpeg (sceneCutsMs and silenceRanges, in ORIGINAL SOURCE milliseconds). '.
+   'You have not watched, heard or transcribed any file: never claim to have seen footage, recognized a person, understood speech, or identified events. '.
+   'If timing cues are supplied, adjust proposed clip trims within the existing source bounds; an automatic scene change is not proof of a highlight. '.
    'Use only these tools: '.implode(', ',$skill['tools']).'. '.
    'Return only a JSON object {"summary":"brief reason","operations":[{"tool":"...","args":{...}}]}. '.
    'At most 12 operations. Every referenced instanceId and trackId must exist in the provided context. '.

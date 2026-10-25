@@ -1046,7 +1046,7 @@ function renderBin(){const bin=$('editor-media-bin');if(!bin)return;bin.replaceC
  const aiSnapshot=()=>{
   if(!session||!clips.length)throw Error('Choose a game with timeline clips before using AI Editor.');
   const edits=clips.map(fields);
-  return {session,edits,signature:JSON.stringify({session,edits,layers})};
+  return {session,edits,analyzable:clips.filter(c=>c.kind==='video'||c.kind==='audio').map(c=>({id:c.id,kind:c.kind,title:c.title})),signature:JSON.stringify({session,edits,layers})};
  };
  function aiApply(proposal,signature){
   if(aiSnapshot().signature!==signature)throw Error('The timeline changed. Generate a new AI proposal before applying.');

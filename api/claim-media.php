@@ -69,7 +69,10 @@ try {
    $q=$db->prepare('SELECT 1 FROM claim_proof_revision_clips WHERE clip_id=? LIMIT 1');$q->execute([$r['id']]);
    if($q->fetchColumn())throw new DomainException('This original recording belongs to a saved proof revision and cannot be deleted.',409);
    $q=$db->prepare('DELETE FROM claim_media WHERE session_id=? AND id=?');$q->execute([$session,$r['id']]);
-   audit($db,'claim.media-delete',$session,['clip'=>$r['id']]);@unlink(LUCKY_ROOT.'/storage/claim-media/'.$r['id'].'.bin');success();
+   audit($db,'claim.media-delete',$session,['clip'=>$r['id']]);
+   @unlink(LUCKY_ROOT.'/storage/claim-media/'.$r['id'].'.bin');
+   @unlink(LUCKY_ROOT.'/storage/media-analysis/'.$r['id'].'.json');
+   success();
  }
  throw new DomainException('Unknown media operation.',404);
 } catch(Throwable $e){error_log('Lucky claim media: '.get_class($e).' '.$e->getMessage());errorOut($e);}
