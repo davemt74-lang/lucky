@@ -5,7 +5,7 @@ from playwright.sync_api import sync_playwright, expect
 
 root=Path(__file__).resolve().parents[1]
 fragment=(root/'recording-editor.php').read_text().split('?>',1)[1].split('<?php shellEnd(); ?>',1)[0]
-html='<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>'+fragment+'</body></html>'
+html='<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>'+fragment+'</body></html>'
 script=(root/'public/recording-editor.js').read_text()
 css=(root/'public/recording-editor.css').read_text()
 session_id='a'*32
