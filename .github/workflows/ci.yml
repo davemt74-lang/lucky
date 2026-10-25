@@ -75,8 +75,10 @@ jobs:
           php tests/v5q29e1_recording_sessions_contract.php
           php tests/v5q29e2_phone_camera_contract.php
           php tests/v5q29e3_multicamera_contract.php
+          php tests/v5q29e4a_timeline_contract.php
           node --check public/recording-camera.js
           node --check public/admin-recordings.js
+          node --check public/recording-editor.js
           node tests/v5q25d_shared_camera_profiles.js
           python tests/v5q25_game_entrypoint_contract.py
           python tests/v5q25_recording_countdown_contract.py
@@ -113,6 +115,7 @@ jobs:
           php tests/v5q29e1_recording_sessions_db.php
           php tests/v5q29e2_phone_camera_db.php
           php tests/v5q29e3_multicamera_db.php
+          php tests/v5q29e4a_timeline_db.php
   browsers:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -134,6 +137,7 @@ jobs:
         run: |
           python tests/v5q29e2_camera_browser.py
           python tests/v5q29e3_multicamera_browser.py
+          python tests/v5q29e4a_timeline_browser.py
           python tests/proof_admin_browser.py
           python tests/proof_browser.py
           python tests/v5q3_editor_browser.py
