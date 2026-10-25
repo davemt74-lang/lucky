@@ -24,7 +24,8 @@ if(($_SERVER['REQUEST_METHOD']??'')==='POST'){
    'lib/migrations/v5q15m_layers.sql',
    'lib/migrations/v5q15n_templates.sql',
    'lib/migrations/v5q20_prize_packages.sql',
-   'lib/migrations/v5q26_movie_preview.sql'
+   'lib/migrations/v5q26_movie_preview.sql',
+   'lib/migrations/v5q29e1_recording_sessions.sql'
   ];
   foreach($migrationFiles as $migrationFile){
    foreach(MigrationSql::statements(sql($migrationFile)) as $statement)$db->exec($statement);
@@ -50,7 +51,7 @@ if(($_SERVER['REQUEST_METHOD']??'')==='POST'){
   if(!$db->query("SHOW COLUMNS FROM controller_proof_state LIKE 'phone_camera_enabled'")->fetch())
     $db->exec("ALTER TABLE controller_proof_state ADD COLUMN phone_camera_enabled TINYINT(1) NOT NULL DEFAULT 0 AFTER consent_ack");
   audit($db,'platform.upgrade-v5q3');
-  $message='Database upgrade complete. Paired phone cameras can now be enabled per prize proof. Refresh the editor and phone.';
+  $message='Database upgrade complete. Universal recording sessions are available for games, live events, productions, and general capture. Existing proof media was preserved.';
  }catch(Throwable $e){$failed=true;$message='Upgrade did not complete: '.$e->getMessage();error_log('Lucky migration: '.$e->getMessage());}
 }
 shellStart('Upgrade Platform');

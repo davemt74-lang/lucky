@@ -72,6 +72,7 @@ jobs:
           php tests/v5q29c_ai_skills.php
           php tests/v5q29b_media_intelligence.php
           php tests/v5q28b_phone_capture_contract.php
+          php tests/v5q29e1_recording_sessions_contract.php
           node tests/v5q25d_shared_camera_profiles.js
           python tests/v5q25_game_entrypoint_contract.py
           python tests/v5q25_recording_countdown_contract.py
@@ -105,6 +106,7 @@ jobs:
           php tests/v5q24_phone_dashboard_db.php
           php tests/v5q27d_phone_claims_db.php
           php tests/v5q28b_phone_capture_db.php
+          php tests/v5q29e1_recording_sessions_db.php
   browsers:
     runs-on: ubuntu-latest
     timeout-minutes: 20
