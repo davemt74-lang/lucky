@@ -3,6 +3,7 @@
  'use strict';
  const $=id=>document.getElementById(id), params=new URLSearchParams(location.search),sessionId=params.get('session')||'';
  let assets=[],revision=0,timeline={offsets:[],switches:[]},session=null,selected='',timeMs=0,playing=false,lastFrame=0,mediaId='',busy=false,dirty=false,initialized=false;
+ let exportBusy=false,exportTimer=null,exportClosed=false;
  const MAX_MS=86400000, clamp=(n,a,b)=>Math.max(a,Math.min(b,n)),seconds=ms=>(ms/1000).toFixed(2);
  const clock=ms=>{const n=Math.max(0,Math.floor(ms/1000));return `${String(Math.floor(n/60)).padStart(2,'0')}:${String(n%60).padStart(2,'0')}.${Math.floor(ms%1000/100)}`;};
  const el=(tag,text='',className='')=>{const item=document.createElement(tag);item.textContent=text;item.className=className;return item;};
@@ -14,7 +15,7 @@
  const total=()=>clamp(Math.max(10000,...assets.map(a=>end(a)+2000)),10000,MAX_MS);
  const activeAt=(a,t)=>t>=offset(a)&&t<end(a);
  const canSwitch=a=>a&&['video','photo'].includes(a.kind);
- function markDirty(){dirty=true;$('mc-save').textContent='● Save alignment';$('mc-save').disabled=false;}
+ function markDirty(){dirty=true;$('mc-save').textContent='● Save alignment';$('mc-save').disabled=false;$('mc-export-start').disabled=true;}
  async function api(action,body=null){const headers={};if(body!==null){headers['Content-Type']='application/json';headers['X-CSRF-Token']=(await window.Lucky.getMe()).csrf||'';}
   const url='api/recording-timeline.php?'+new URLSearchParams({action,...(body===null?{id:sessionId}:{})});
   const response=await fetch(url,{method:body===null?'GET':'POST',credentials:'same-origin',headers,body:body===null?undefined:JSON.stringify(body),cache:'no-store'});
@@ -100,8 +101,67 @@
  }
  async function save(){if(busy)return;busy=true;$('mc-save').disabled=true;
   try{const result=await api('save',{id:sessionId,revision,timeline});revision=result.edit.revision;timeline=result.edit.timeline;dirty=false;
-   $('mc-save').textContent='✓ Saved';notice(`Timeline saved · revision ${revision}. Original footage remains private and unchanged.`);
+   $('mc-save').textContent='✓ Saved';$('mc-export-start').disabled=!assets.length;notice(`Timeline saved · revision ${revision}. Original footage remains private and unchanged.`);
   }catch(e){notice(e.message,true);$('mc-save').disabled=false;}finally{busy=false;}
+ }
+ async function exportApi(action,body=null){
+  const headers={};if(body!==null){headers['Content-Type']='application/json';headers['X-CSRF-Token']=(await window.Lucky.getMe()).csrf||'';}
+  const url='api/recording-export.php?'+new URLSearchParams({action,...(body===null?{session:sessionId}:{})});
+  const response=await fetch(url,{method:body===null?'GET':'POST',credentials:'same-origin',headers,cache:'no-store',body:body===null?undefined:JSON.stringify(body)});
+  const data=await response.json().catch(()=>({}));if(!response.ok||!data.ok)throw Error(data.error||`Export request failed (${response.status})`);
+  return data;
+ }
+ function exportNotice(message){$('mc-export-status').textContent=message;}
+ function exportAudioOptions(){
+  const select=$('mc-export-audio');
+  for(const a of assets.filter(a=>a.kind==='audio')){
+   const item=document.createElement('option');item.value=a.id;item.textContent=`Master: ${a.source_name||a.title} · ${a.title}`;select.append(item);
+  }
+ }
+ function exportNonce(){
+  if(!window.crypto?.getRandomValues)throw Error('A secure browser connection is required for video export.');
+  const bytes=new Uint8Array(16);window.crypto.getRandomValues(bytes);return Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
+ }
+ function renderExports(items){
+  const root=$('mc-export-list');root.replaceChildren();
+  for(const job of items){
+   const row=el('div','','mc-export-row');row.append(el('span',`${job.status.toUpperCase()} · rev ${job.revision} · ${clock(job.durationMs)} · ${new Date(job.createdAt).toLocaleString()}`));
+   if(job.status==='ready'&&/^[a-f0-9]{32}$/.test(job.id)){
+    const link=el('a','Download MP4');link.href='api/recording-export.php?action=download&id='+job.id;link.setAttribute('download','');row.append(link);
+    const play=el('a','Play');play.href='api/recording-export.php?action=play&id='+job.id;play.target='_blank';play.rel='noopener';row.append(play);
+   }
+   if(job.status==='queued'){
+    const cancel=el('button','Cancel queued export','btn btn-outline');cancel.type='button';cancel.onclick=async()=>{
+     cancel.disabled=true;try{await exportApi('cancel',{id:job.id});await loadExports();}catch(e){exportNotice(e.message);}
+    };row.append(cancel);
+   }
+   if(job.status==='failed'&&job.error)row.append(el('span',job.error,'platform-error'));
+   root.append(row);
+  }
+  if(!items.length)root.append(el('p','No MP4 exports yet.'));
+ }
+ async function loadExports(){
+  if(!initialized||exportClosed)return;
+  try{
+   const data=await exportApi('list');renderExports(data.exports||[]);
+   const active=(data.exports||[]).some(job=>['queued','running'].includes(job.status));
+   if(active)exportNotice('Export queued or processing. Your sources and saved timeline remain available.');
+   else if(!exportBusy)exportNotice('Ready to render a private MP4 from your current saved edits.');
+   if(exportTimer)clearTimeout(exportTimer);
+   if(active&&!exportClosed)exportTimer=setTimeout(loadExports,3500);
+  }catch(e){exportNotice(e.message);}
+ }
+ async function startExport(){
+  if(exportBusy||dirty||!assets.length)return;
+  exportBusy=true;$('mc-export-start').disabled=true;
+  try{
+   const selection=$('mc-export-audio').value;
+   const audio=selection==='follow'?null:selection==='silent'?'':selection;
+   const result=await exportApi('queue',{session:sessionId,revision,masterAudio:audio,nonce:exportNonce()});
+   exportNotice(`Export ${result.export.status} · ${result.export.id.slice(0,8)}. The server will render without changing original recordings.`);
+   await loadExports();
+  }catch(e){exportNotice(e.message);}
+  finally{exportBusy=false;$('mc-export-start').disabled=dirty||!assets.length;}
  }
  function download(){const report={type:'lucky-multicamera-edl-v1',sessionId,sessionType:session?.type,revision,timeline,media:assets.map(a=>({id:a.id,source:a.source_name,takeId:a.take_id,originalOffsetMs:a.initial_global_offset_ms,alignedOffsetMs:offset(a),durationMs:length(a)}))};
   const url=URL.createObjectURL(new Blob([JSON.stringify(report,null,2)],{type:'application/json'}));const link=document.createElement('a');link.href=url;link.download='multicamera-'+sessionId.slice(0,8)+'.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1500);
@@ -110,7 +170,9 @@
   try{const r=await api('get');session=r.project.session;revision=r.project.revision;timeline=r.project.timeline||{offsets:[],switches:[]};assets=r.media||[];initialized=true;
    $('mc-session-name').textContent=session.title;$('mc-session-meta').textContent=`${session.type.replaceAll('_',' ')} · ${assets.length} sources · ${session.status}`;
    $('mc-play').disabled=!assets.length;$('mc-edl').disabled=!assets.length;$('mc-scrubber').disabled=!assets.length;
-   $('mc-save').disabled=true;renderTimeline();notice(assets.length?'Ready. Select a clip, nudge alignment and cut between camera angles.':'No direct phone media found in this recording.');
+   $('mc-save').disabled=true;$('mc-export-start').disabled=!assets.length;exportAudioOptions();renderTimeline();
+   notice(assets.length?'Ready. Select a clip, nudge alignment and cut between camera angles.':'No direct phone media found in this recording.');
+   void loadExports();
   }catch(e){notice(e.message,true);}
  }
  $('mc-offset').onchange=e=>setOffset(Number(e.target.value)*1000);
@@ -119,7 +181,7 @@
  $('mc-select-angle').onclick=()=>switchTo(selected);
  $('mc-scrubber').oninput=e=>{scrub(Number(e.target.value));inspect();};
  $('mc-play').onclick=()=>{playing=!playing;$('mc-play').textContent=playing?'❚❚ Pause':'▶ Play';if(playing){lastFrame=performance.now();requestAnimationFrame(frame);}else syncPreview();};
- $('mc-save').onclick=save;$('mc-edl').onclick=download;
- window.addEventListener('pagehide',()=>{playing=false;for(const n of [$('mc-video'),$('mc-audio')])n.pause();});
+ $('mc-save').onclick=save;$('mc-edl').onclick=download;$('mc-export-start').onclick=startExport;
+ window.addEventListener('pagehide',()=>{playing=false;exportClosed=true;if(exportTimer)clearTimeout(exportTimer);for(const n of [$('mc-video'),$('mc-audio')])n.pause();});
  void initialize();
 })();

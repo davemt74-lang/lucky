@@ -119,6 +119,16 @@ jobs:
           & $php -c $ini $test
           if($LASTEXITCODE -ne 0){throw 'Installed game recovery certification failed'}
           Write-Host 'WINDOWS_GAME_RECOVERY_CERTIFIED'
+          # The same multicamera FFmpeg graph must run against the bundled
+          # Windows PHP and FFmpeg binaries, not only Linux CI.
+          $exportSource=Join-Path (Get-Location).Path 'tests\v5q29e4b_export_ffmpeg.php'
+          $exportTest=Join-Path $installation 'app\tests\v5q29e4b_export_ffmpeg.php'
+          if(!(Test-Path $exportSource)){throw 'Multicamera encoder test missing'}
+          Copy-Item -LiteralPath $exportSource -Destination $exportTest -Force
+          $env:PATH=(Join-Path $installation 'runtime\ffmpeg\bin')+';'+$env:PATH
+          & $php -c $ini $exportTest
+          if($LASTEXITCODE -ne 0){throw 'Bundled Windows multicamera FFmpeg render failed'}
+          Write-Host 'WINDOWS_MULTICAMERA_MP4_CERTIFIED'
       - name: Upload Windows installer and verification manifest
         uses: actions/upload-artifact@v4
         with:
