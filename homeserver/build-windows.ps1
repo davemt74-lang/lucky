@@ -89,10 +89,10 @@ if(!$compiler){
 if(!$compiler){throw 'Inno Setup compiler unavailable'}
 & $compiler "/DStageDir=$stage" "/DOutputDir=$release" (Join-Path $repo 'homeserver\installer.iss')
 if($LASTEXITCODE -ne 0){throw "Installer compile failed: $LASTEXITCODE"}
-$exe=Join-Path $release 'Lucky_Game_Hub_HomeServer_V5Q29E1_Setup.exe'
+$exe=Join-Path $release 'Lucky_Game_Hub_HomeServer_V5Q29E2_Setup.exe'
 if(!(Test-Path $exe)){throw 'Installer output missing'}
 $hash=(Get-FileHash $exe -Algorithm SHA256).Hash.ToLowerInvariant()
-"$hash  Lucky_Game_Hub_HomeServer_V5Q29E1_Setup.exe" |Set-Content -LiteralPath (Join-Path $release 'SHA256SUMS.txt') -Encoding ASCII
+"$hash  Lucky_Game_Hub_HomeServer_V5Q29E2_Setup.exe" |Set-Content -LiteralPath (Join-Path $release 'SHA256SUMS.txt') -Encoding ASCII
 Copy-Item (Join-Path $stage 'RUNTIME_MANIFEST.json') $release
 Write-Host "EXE_READY=$exe"
 Write-Host "EXE_SHA256=$hash"
