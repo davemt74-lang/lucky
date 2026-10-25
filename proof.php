@@ -11,6 +11,10 @@ shellStart('Edit Prize Proof','claims');
    <section id="capture-review" class="capture-review" hidden aria-label="Review recorded video"><h3>Review recording</h3><div id="capture-review-list" class="capture-review-list"></div></section>
   <input type="checkbox" id="capture-consent" hidden aria-hidden="true" tabindex="-1">
   <details id="proof-camera-settings" class="proof-camera-settings"><summary>⚙ Camera settings</summary>
+  <fieldset class="proof-camera-permissions" aria-label="Camera permissions"><legend>Permissions</legend>
+   <label class="proof-phone-camera-toggle"><input id="capture-phone-camera" type="checkbox"> <strong>Use phone camera</strong></label>
+   <p class="console-footnote">Allow approved, paired phones to record or upload video, photos, and audio to this prize's Video Studio media bin. The phone must separately confirm recording consent. Turning this off revokes new uploads.</p>
+  </fieldset>
   
   <div id="capture-recording-tools" class="capture-recording-tools">
   <div class="camera-toolbar"><button class="btn btn-outline" id="camera-enable" type="button" disabled>Enable cameras</button><button class="btn btn-outline" id="camera-refresh" type="button">Refresh sources</button><button class="btn btn-outline" id="camera-off" type="button">Cameras off</button><span class="mini-label" id="capture-live-status">Cameras off</span></div>
@@ -31,5 +35,5 @@ shellStart('Edit Prize Proof','claims');
 <p id="proof-errors" class="platform-error" role="alert" hidden></p>
 <h3 id="proof-prize-title" class="sr-only">Loading prize…</h3><p id="proof-prize-context" class="sr-only"></p>
 </aside></div></div></dialog>
-<script src="public/client.js" defer></script><script src="public/proof-sequence.js?v=5q25-precount" defer></script><script src="public/camera-profiles.js?v=5q25d" defer></script><script src="public/claim-capture.js?v=5q25d" defer></script><script src="public/proof.js?v=5q27d-phone-claims" defer></script><script src="public/ui-receiver.js?v=5q27d" defer></script>
+<script src="public/client.js" defer></script><script src="public/proof-sequence.js?v=5q25-precount" defer></script><script src="public/camera-profiles.js?v=5q25d" defer></script><script src="public/claim-capture.js?v=5q28b" defer></script><script src="public/proof.js?v=5q28b" defer></script><script src="public/ui-receiver.js?v=5q27d" defer></script>
 <?php shellEnd(); ?>

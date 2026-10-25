@@ -47,10 +47,12 @@
  }
 
  async function publishProof(){if(leaving||proofBusy||!/^[a-f0-9]{32}$/.test(session)||!/^[a-f0-9]{32}$/.test(claim))return;
-  proofBusy=true;try{const me=await L.getMe();const r=await fetch('api/controller.php?action=proof_state',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF-Token':me.csrf},body:JSON.stringify({session,claim,open:true,reviewCount:window.LuckyCapture?.reviewCount?.()||0,phase:window.LuckyCapture?.phase?.()||'live',consent:window.LuckyCapture?.consent?.()||false})});if(!r.ok){const data=await r.json().catch(()=>({}));throw Error(data.error||'The phone proof controls could not synchronize.');}}catch(e){feedback('Phone controller: '+e.message,true);}finally{proofBusy=false;}}
+  proofBusy=true;try{const me=await L.getMe();const r=await fetch('api/controller.php?action=proof_state',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF-Token':me.csrf},body:JSON.stringify({session,claim,open:true,reviewCount:window.LuckyCapture?.reviewCount?.()||0,phase:window.LuckyCapture?.phase?.()||'live',consent:window.LuckyCapture?.consent?.()||false,phoneCamera:!!$('capture-phone-camera')?.checked})});if(!r.ok){const data=await r.json().catch(()=>({}));throw Error(data.error||'The phone proof controls could not synchronize.');}}catch(e){feedback('Phone controller: '+e.message,true);}finally{proofBusy=false;}}
  window.addEventListener('lucky:proof-review',publishProof);
  window.addEventListener('lucky:proof-phase',publishProof);
+ $('capture-phone-camera')?.addEventListener('change',publishProof);
  setInterval(()=>{if(!leaving&&document.visibilityState==='visible'&&window.LuckyCapture?.hasClaim?.())publishProof();},950);
+ setInterval(()=>{if(!leaving&&document.visibilityState==='visible'&&$('capture-phone-camera')?.checked&&window.LuckyCapture?.hasClaim?.())void window.LuckyCapture?.refreshClips?.();},4000);
  window.addEventListener('pagehide',()=>{const data=JSON.stringify({session,claim,open:false});L.getMe().then(me=>fetch('api/controller.php?action=proof_state',{method:'POST',credentials:'same-origin',keepalive:true,headers:{'Content-Type':'application/json','X-CSRF-Token':me.csrf},body:data})).catch(()=>{});});
 
  function feedback(message,bad=false){const e=$('proof-errors');e.hidden=!bad;e.textContent=bad?message:'';$('proof-state').textContent=message;}
@@ -86,6 +88,7 @@
    $('proof-return').href=returnUrl();
    const profile=r.session?.pools?.[p.tier]?.prizes?.find(x=>x.id===p.prizeId);
    // Initialize the verified claim first so camera discovery never loses its context.
+   if($('capture-phone-camera'))$('capture-phone-camera').checked=false;
    window.LuckyCapture?.show(session,claim,p.name,profile?.proofAngles||[],r.session?.game||'spin-wheel');
    $('camera-enable').disabled=false;
    // Announce active proof NOW; a slow/failed revision-history request must not

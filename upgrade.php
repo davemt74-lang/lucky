@@ -47,8 +47,10 @@ if(($_SERVER['REQUEST_METHOD']??'')==='POST'){
     $db->exec("ALTER TABLE controller_proof_state ADD COLUMN consent_ack TINYINT(1) NOT NULL DEFAULT 0 AFTER review_count");
   if(!$db->query("SHOW COLUMNS FROM controller_proof_state LIKE 'capture_phase'")->fetch())
     $db->exec("ALTER TABLE controller_proof_state ADD COLUMN capture_phase VARCHAR(12) NOT NULL DEFAULT 'live' AFTER consent_ack");
+  if(!$db->query("SHOW COLUMNS FROM controller_proof_state LIKE 'phone_camera_enabled'")->fetch())
+    $db->exec("ALTER TABLE controller_proof_state ADD COLUMN phone_camera_enabled TINYINT(1) NOT NULL DEFAULT 0 AFTER consent_ack");
   audit($db,'platform.upgrade-v5q3');
-  $message='Database upgrade complete. Prize packages support Draft and Published on both Cloud and HomeServer. Refresh the editor and phone.';
+  $message='Database upgrade complete. Paired phone cameras can now be enabled per prize proof. Refresh the editor and phone.';
  }catch(Throwable $e){$failed=true;$message='Upgrade did not complete: '.$e->getMessage();error_log('Lucky migration: '.$e->getMessage());}
 }
 shellStart('Upgrade Platform');

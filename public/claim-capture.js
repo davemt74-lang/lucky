@@ -332,5 +332,5 @@
   navigator.mediaDevices?.addEventListener?.('devicechange',()=>{if((dialog.open||dialog.dataset.inlineCapture==='true')&&!recordings.size&&!sequencePromise&&!precountAbort)refresh().catch(()=>{});});
  }
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',setup);else setup();
- window.LuckyCapture={show,prime,phoneAction,previewSavedClip,reviewCount:()=>drafts.size,approvedCount:()=>approvedCount,phase:()=>capturePhase,consent:()=>!!$('capture-consent')?.checked,hasClaim:()=>!!claim&&!closing,release:stopAll,isBusy:()=>!!sequencePromise||!!precountAbort||recordings.size>0||!!audioRecorder||uploading>0};
+ window.LuckyCapture={show,prime,phoneAction,previewSavedClip,refreshClips,reviewCount:()=>drafts.size,approvedCount:()=>approvedCount,phase:()=>capturePhase,consent:()=>!!$('capture-consent')?.checked,hasClaim:()=>!!claim&&!closing,release:stopAll,isBusy:()=>!!sequencePromise||!!precountAbort||recordings.size>0||!!audioRecorder||uploading>0};
 })();

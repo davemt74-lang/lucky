@@ -1245,3 +1245,36 @@ body.game-fullwidth .header{position:relative;z-index:60}
 .video-ai-skill-card p{margin:7px 0;color:#c2d2df}
 .video-ai-skill-card small{color:#a7c3d9;overflow-wrap:anywhere}
 .video-ai-connected{color:#a9ffd5!important}
+
+/* V5Q.28B: QR-approved phone media capture under host-controlled proof permission. */
+.proof-phone-camera-toggle{display:flex;align-items:center;gap:10px;padding:12px;border:1px solid #4a7695;border-radius:10px;background:#193349;color:#def4ff}
+.proof-phone-camera-toggle input{width:21px;height:21px;flex:none}
+.proof-camera-permissions{margin:12px 0;border:1px solid #425f78;border-radius:12px;padding:12px;min-width:0}
+.proof-camera-permissions legend{padding:0 7px;color:#d5e9ff;font-weight:800}
+.phone-capture-entry{margin:12px 0;padding:15px;display:grid;gap:10px}
+.phone-capture-entry[hidden]{display:none!important}
+.phone-capture-entry p{margin:0;color:#b9d6ea;font-size:13px}
+.phone-capture-entry button{min-height:49px}
+.phone-capture-entry small{color:#c9d8e6;line-height:1.5}
+.phone-capture-dialog{box-sizing:border-box;inset:0;width:100%;max-width:none;height:100dvh;max-height:none;margin:0;padding:calc(env(safe-area-inset-top) + 12px) 16px calc(env(safe-area-inset-bottom) + 22px);overflow-y:auto;border:0;border-radius:0;background:#101f33;color:#f3f9ff}
+.phone-capture-dialog::backdrop{background:#030a16e8}
+.phone-capture-dialog header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.phone-capture-dialog header h2{margin:0;font-size:20px}
+.phone-capture-dialog header button{width:44px;height:44px;flex:none;color:#fff;background:#243d59;border:1px solid #526c87;border-radius:11px}
+.phone-capture-dialog #phone-capture-prize{font-size:13px;color:#bcd3e9}
+.phone-capture-modes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:15px 0}
+.phone-capture-modes button{min-height:49px;min-width:0;padding:8px;border:1px solid #486682;border-radius:12px;color:#dbefff;background:#1a314d;font-size:13px}
+.phone-capture-modes button[aria-pressed=true]{border-color:#f1b86f;background:#3e3854;color:#ffedc9}
+.phone-capture-preview{height:min(47dvh,420px);min-height:210px;border:1px solid #466888;border-radius:14px;background:#070d19;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.phone-capture-preview video,.phone-capture-preview img{width:100%;height:100%;object-fit:contain}
+.phone-capture-preview audio{width:calc(100% - 24px)}
+.phone-capture-preview [hidden]{display:none!important}
+.phone-capture-placeholder{text-align:center;padding:20px;color:#adbed3;line-height:1.5}
+.phone-capture-dialog #phone-capture-status{min-height:26px;margin:11px 0;color:#b4f1cc;font-size:13px}
+.phone-capture-dialog #phone-capture-status.platform-error{color:#ffb4bb}
+.phone-capture-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.phone-capture-actions button{min-height:48px;white-space:normal}
+.phone-capture-actions #phone-capture-send{grid-column:1/-1}
+.phone-capture-gallery{display:grid;gap:8px;margin:18px 0 7px;padding:13px;border:1px dashed #7896b4;border-radius:12px;font-size:13px;font-weight:700}
+.phone-capture-gallery input{display:block;width:100%;max-width:100%;font-size:13px}
+.phone-capture-dialog>small{display:block;color:#acc3d8;padding-bottom:20px}

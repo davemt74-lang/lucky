@@ -794,10 +794,14 @@ function renderBin(){const bin=$('editor-media-bin');if(!bin)return;bin.replaceC
    $('camera-ready-message').textContent=claims.length?'Select a claimed prize to capture footage.':'This game has no claims yet; prize proof is attached to existing claims.';
   }catch(e){inform('Cannot load claimed prizes for camera capture: '+e.message,true);}
  }
+ let syncingPhoneMedia=false;
  async function receiveCapturedClip(e){
   const detail=e.detail;if(!detail||detail.session!==session)return;
+  if(syncingPhoneMedia)return;syncingPhoneMedia=true;
   try{const response=await media('list');const current=response.clips||[],known=new Set(source.map(c=>c.id));
-   const additions=current.filter(c=>!known.has(c.id));source=current;renderBin();
+   const additions=current.filter(c=>!known.has(c.id));
+   const changed=additions.length||current.length!==source.length;
+   if(changed){source=current;renderBin();}
    // The server already committed a claim-aware timeline update atomically with the upload.
    // Load the persisted positions and replacements; never duplicate a clip on the client.
    if(additions.length){
@@ -808,7 +812,7 @@ function renderBin(){const bin=$('editor-media-bin');if(!bin)return;bin.replaceC
      render();inform(`${additions.length} proof clip${additions.length===1?'':'s'} synchronized in its claimed-prize timeline position.`);
     }
    }
-  }catch(err){inform('Clip saved; refresh media bin to import it: '+err.message,true);}
+  }catch(err){inform('Media refresh failed: '+err.message,true);}finally{syncingPhoneMedia=false;}
  }
  async function init(){
   $('timeline-add-title').onclick=()=>{
@@ -909,6 +913,9 @@ function renderBin(){const bin=$('editor-media-bin');if(!bin)return;bin.replaceC
   $('editor-form').onsubmit=updateSelected;$('editor-split').onclick=split;$('editor-remove').onclick=remove;$('editor-delete').onclick=permanentDelete;
   $('render-queue').onclick=queue;$('render-refresh').onclick=loadRenders;
   window.addEventListener('lucky:media-uploaded',receiveCapturedClip);
+  // Approved phone uploads happen in another browser; check for new claim media
+  // without resetting a draft timeline or interrupting the video preview.
+  setInterval(()=>{if(session&&document.visibilityState==='visible'&&!movieMode&&!syncingPhoneMedia)void receiveCapturedClip({detail:{session}});},5000);
   $('render-volume').oninput=()=>{$('render-volume-text').textContent=$('render-volume').value+'%';if(layers.background){layers.background.volume=Number($('render-volume').value);$('timeline-music-volume').value=layers.background.volume;$('timeline-music-volume-value').textContent=layers.background.volume+'%';dirty=true;render();}};
   setupToolbox();
    document.querySelectorAll('[data-media-filter]').forEach(b=>b.onclick=()=>{mediaFilter=b.dataset.mediaFilter;document.querySelectorAll('[data-media-filter]').forEach(x=>{x.setAttribute('aria-pressed',String(x===b));x.classList.toggle('is-active',x===b);});renderBin();});
