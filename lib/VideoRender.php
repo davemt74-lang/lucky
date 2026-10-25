@@ -14,7 +14,8 @@ final class VideoRender {
  public function runProcess(array $argv,string $log,int $timeout=180):string {
   if(!function_exists('proc_open'))throw new RuntimeException('Server cannot start the FFmpeg worker (proc_open is disabled).');
   if($timeout<1||$timeout>900)throw new InvalidArgumentException('Invalid process timeout');
-  $proc=@proc_open($argv,[0=>['file','/dev/null','r'],1=>['file',$log,'w'],2=>['file',$log,'a']],$pipes,null,null,['bypass_shell'=>true]);
+  $nullDevice=PHP_OS_FAMILY==='Windows'?'NUL':'/dev/null';
+  $proc=@proc_open($argv,[0=>['file',$nullDevice,'r'],1=>['file',$log,'w'],2=>['file',$log,'a']],$pipes,null,null,['bypass_shell'=>true]);
   if(!is_resource($proc))throw new RuntimeException('FFmpeg process could not start.');
   $at=microtime(true);$status=proc_get_status($proc);$lastExit=-1;
   while($status['running']){

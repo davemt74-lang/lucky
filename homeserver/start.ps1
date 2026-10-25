@@ -157,9 +157,19 @@ date.timezone=UTC
  Record ("Local HomeServer ready: "+$startupAddress+ $(if($ip){" LAN https://$($ip):8843"}else{''}))
  if($Smoke){Write-Output 'HOMESERVER_SMOKE_OK';exit 0}
  if(!$NoBrowser){Start-Process $startupAddress}
+ # Process one queued video job per pass without blocking the local web server.
+ # The CLI worker is self-locking and also handles multicamera exports.
+ $renderWorker=Join-Path $app 'bin\render-worker.php'
+ $renderProc=$null
+ $nextRender=[DateTime]::UtcNow.AddSeconds(5)
  while($true){
   Start-Sleep -Seconds 3
   if($dbProc.HasExited -or $phpProc.HasExited -or $caddyProc.HasExited){throw 'A HomeServer process stopped; restart from the desktop shortcut.'}
+  if([DateTime]::UtcNow -ge $nextRender -and ($null -eq $renderProc -or $renderProc.HasExited)){
+   $processes=@($processes | Where-Object {-not $_.HasExited})
+   $renderProc=Launch $php @('-c',$phpIni,$renderWorker) 'Render Worker'
+   $nextRender=[DateTime]::UtcNow.AddSeconds(15)
+  }
  }
 }catch{
  Record ("HomeServer error: "+$_.Exception.Message)

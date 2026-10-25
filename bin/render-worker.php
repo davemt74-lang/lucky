@@ -13,7 +13,15 @@ try{
  $db->exec("UPDATE montage_renders SET status='failed',error_message='Render worker interrupted; queue a new export.',finished_at=UTC_TIMESTAMP() WHERE status='running' AND started_at < UTC_TIMESTAMP() - INTERVAL 60 MINUTE");
  $db->beginTransaction();
  $q=$db->query("SELECT * FROM montage_renders WHERE status='queued' ORDER BY created_at,id LIMIT 1 FOR UPDATE");$job=$q->fetch();
- if(!$job){$db->commit();echo "No pending videos.\n";exit(0);}
+ if(!$job){
+  $db->commit();
+  // Reuse the existing render scheduler for multicamera exports, when installed.
+  if($db->query("SHOW TABLES LIKE 'recording_exports'")->fetch()){
+   require_once __DIR__.'/../lib/RecordingExportWorker.php';
+   RecordingExportWorker::run($db);
+  }else echo "No pending videos.\n";
+  exit(0);
+ }
  $id=$job['id'];$q=$db->prepare("UPDATE montage_renders SET status='running',started_at=UTC_TIMESTAMP() WHERE id=? AND status='queued'");$q->execute([$id]);$db->commit();
  $clips=json_decode($job['snapshot_json'],true,512,JSON_THROW_ON_ERROR);MontagePlan::validate($clips);
  $music=null;if($job['soundtrack_id']){

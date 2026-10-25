@@ -76,6 +76,12 @@ jobs:
           php tests/v5q29e2_phone_camera_contract.php
           php tests/v5q29e3_multicamera_contract.php
           php tests/v5q29e4a_timeline_contract.php
+          php tests/v5q29e4b_export_plan.php
+          php -l api/recording-export.php
+          php -l bin/recording-export-worker.php
+          php -l lib/RecordingExports.php
+          php -l lib/RecordingExportWorker.php
+          php -l lib/MulticameraEncoder.php
           node --check public/recording-camera.js
           node --check public/admin-recordings.js
           node --check public/recording-editor.js
@@ -116,6 +122,7 @@ jobs:
           php tests/v5q29e2_phone_camera_db.php
           php tests/v5q29e3_multicamera_db.php
           php tests/v5q29e4a_timeline_db.php
+          php tests/v5q29e4b_export_db.php
   browsers:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -138,6 +145,7 @@ jobs:
           python tests/v5q29e2_camera_browser.py
           python tests/v5q29e3_multicamera_browser.py
           python tests/v5q29e4a_timeline_browser.py
+          python tests/v5q29e4b_export_browser.py
           python tests/proof_admin_browser.py
           python tests/proof_browser.py
           python tests/v5q3_editor_browser.py
@@ -206,15 +214,22 @@ jobs:
           python tests/v5p_sync.py
           timeout 90s python tests/v5p_button_sync.py
   video-encode:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Pinned LTS runner avoids slow-moving rolling-image multimedia mirrors.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
       - name: Install FFmpeg
-        run: sudo apt-get update -qq && sudo apt-get install -y ffmpeg
+        run: |
+          if command -v ffmpeg >/dev/null && command -v ffprobe >/dev/null; then
+            ffmpeg -hide_banner -version | head -1
+          else
+            sudo apt-get update -qq
+            sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ffmpeg
+          fi
       - name: FFmpeg smoke encode
         run: |
           ffmpeg -hide_banner -v error -y -f lavfi -i color=c=blue:s=320x180:r=30 -f lavfi -i anullsrc -t 1 -c:v libx264 -c:a aac -shortest /tmp/lucky-smoke.mp4
@@ -225,3 +240,4 @@ jobs:
           php tests/montage.php
           php tests/auto_draft.php
           php tests/v5q29b_media_ffmpeg.php
+          php tests/v5q29e4b_export_ffmpeg.php
