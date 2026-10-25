@@ -16,7 +16,7 @@ async def main():
   await page.evaluate('''(() => {
    window.__starts=0;window.__stops=0;window.__tracksStopped=0;
    Object.defineProperty(navigator,'mediaDevices',{configurable:true,value:{
-    getUserMedia:async()=>({getTracks:()=>[{stop:()=>__tracksStopped++}],active:true})
+    getUserMedia:async()=>{const stream=new MediaStream();stream.getTracks=()=>[{stop:()=>__tracksStopped++}];return stream;}
    }});
    HTMLMediaElement.prototype.play=async()=>{};
    class FakeRecorder {
