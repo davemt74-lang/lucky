@@ -10,6 +10,8 @@ final class VideoEditorSkills {
   'cinematic'=>['name'=>'Cinematic finish','description'=>'Polish color, tone, transitions and restrained overlays.','tools'=>['clip.look','clip.transition','clip.overlay']],
   'story'=>['name'=>'Story & titles','description'=>'Build a readable recap using titles and clip labels.','tools'=>['timeline.title','clip.overlay','timeline.reorder']],
   'sound'=>['name'=>'Music & sound','description'=>'Balance clip audio with an already uploaded soundtrack.','tools'=>['audio.background','clip.mute','clip.transition']],
+  'scene'=>['name'=>'Scene-aware cuts','description'=>'Use locally detected source-time scene markers to suggest precise, reversible trims.','tools'=>['clip.trim','clip.transition','timeline.reorder']],
+  'quiet'=>['name'=>'Silence-aware pacing','description'=>'Tighten dead air using local quiet intervals, while preserving reactions and dialogue.','tools'=>['clip.trim','clip.mute','clip.transition']],
  ];
  public static function catalog():array {
   $out=[];foreach(self::SKILLS as $id=>$skill)$out[]=['id'=>$id]+$skill;
@@ -104,6 +106,7 @@ final class VideoEditorSkills {
    'You receive clip metadata and possibly approximate timing cues extracted locally by FFmpeg (sceneCutsMs and silenceRanges, in ORIGINAL SOURCE milliseconds). '.
    'You have not watched, heard or transcribed any file: never claim to have seen footage, recognized a person, understood speech, or identified events. '.
    'If timing cues are supplied, adjust proposed clip trims within the existing source bounds; an automatic scene change is not proof of a highlight. '.
+   'For scene or quiet specialties, prefer timing cues when available; without cues be conservative and avoid claiming any observed content. '.
    'Use only these tools: '.implode(', ',$skill['tools']).'. '.
    'Return only a JSON object {"summary":"brief reason","operations":[{"tool":"...","args":{...}}]}. '.
    'At most 12 operations. Every referenced instanceId and trackId must exist in the provided context. '.

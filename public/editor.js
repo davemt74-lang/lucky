@@ -1046,8 +1046,21 @@ function renderBin(){const bin=$('editor-media-bin');if(!bin)return;bin.replaceC
  const aiSnapshot=()=>{
   if(!session||!clips.length)throw Error('Choose a game with timeline clips before using AI Editor.');
   const edits=clips.map(fields);
-  return {session,edits,analyzable:clips.filter(c=>c.kind==='video'||c.kind==='audio').map(c=>({id:c.id,kind:c.kind,title:c.title})),signature:JSON.stringify({session,edits,layers})};
+  return {session,edits,analyzable:clips.filter(c=>c.kind==='video'||c.kind==='audio').map(c=>({id:c.id,instanceId:c.instanceId,kind:c.kind,title:c.title})),signature:JSON.stringify({session,edits,layers})};
  };
+ function aiApplyCue(instanceId,atMs,action){
+  const clip=clips.find(c=>c.instanceId===instanceId);
+  if(!clip)throw Error('That clip is no longer on the timeline. Analyze again.');
+  const p=window.LuckyEditorCues.plan(clip,atMs,action);
+  if(p.split&&clips.length>=80)throw Error('Maximum of 80 timeline segments.');
+  // The cue is a proposed source-time boundary, never a destructive media edit.
+  const second=p.split?{...clip,instanceId:fresh(),trimStartMs:p.secondStartMs,trimEndMs:p.secondEndMs,title:clip.title+' · Part 2'}:null;
+  clip.trimStartMs=p.trimStartMs;clip.trimEndMs=p.trimEndMs;
+  if(second)clips.splice(clips.findIndex(c=>c.instanceId===instanceId)+1,0,second);
+  dirty=true;chosen=clip;render();
+  inform(`Applied ${action==='split'?'Split':action==='in'?'Set In':'Set Out'} at ${(atMs/1000).toFixed(1)}s for ${clip.title}. Undo is available. Save edit to keep it.`);
+  return p.split?2:1;
+ }
  function aiApply(proposal,signature){
   if(aiSnapshot().signature!==signature)throw Error('The timeline changed. Generate a new AI proposal before applying.');
   if(!proposal||!Array.isArray(proposal.operations)||proposal.operations.length>12)throw Error('Invalid AI edit plan.');
@@ -1090,5 +1103,5 @@ function renderBin(){const bin=$('editor-media-bin');if(!bin)return;bin.replaceC
   inform('AI suggestions applied locally. Review the timeline, then click Save edit to keep them.');
   return proposal.operations.length;
  }
- window.LuckyEditorAgent={snapshot:aiSnapshot,apply:aiApply};
+ window.LuckyEditorAgent={snapshot:aiSnapshot,apply:aiApply,applyCue:aiApplyCue};
 })();

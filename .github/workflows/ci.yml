@@ -42,6 +42,7 @@ jobs:
           node tests/v5q24_sdk_contract.js
           node tests/v5q23b_sdk.js
           node tests/v5q29a_timeline.js
+          node tests/v5q29c_cue_tools.js
           python3 tests/v5q23b_game_sdk.py
           php tests/v5q16_session_lifecycle.php
           php tests/v5q18_foundation.php
@@ -68,6 +69,7 @@ jobs:
           php tests/v5q26_movie_preview_contract.php
           php tests/v5q26c_splash_contract.php
           php tests/v5q28a_video_ai_contract.php
+          php tests/v5q29c_ai_skills.php
           php tests/v5q29b_media_intelligence.php
           php tests/v5q28b_phone_capture_contract.php
           node tests/v5q25d_shared_camera_profiles.js
@@ -177,6 +179,8 @@ jobs:
           python tests/v5q27d_phone_claims_browser.py
           python tests/v5q28a_video_ai_browser.py
           python tests/v5q29b_media_ai_browser.py
+          python tests/v5q29c_cue_actions_browser.py
+          python tests/v5q29c_cue_integration_browser.py
           python tests/v5q28b_phone_capture_browser.py
           python tests/v5q29a_timeline_browser.py
           python tests/v5q26b_video_gallery_browser.py

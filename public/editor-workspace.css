@@ -439,6 +439,12 @@ body.editor-workspace .studio-sequence-lane.studio-titles-lane{border-top:1px so
 .video-ai-cue-box .video-ai-cues-consent{display:flex;gap:9px;align-items:flex-start;font-weight:600;line-height:1.35;cursor:pointer}
 .video-ai-cues-consent input{width:18px;height:18px;flex:none;margin:1px 0 0;accent-color:#35c989}
 .video-ai-analysis-results{margin:0;padding:0 0 0 20px;display:grid;gap:5px;max-height:150px;overflow:auto;font-size:12px;color:#bdd2e7}
+.video-ai-analysis-results:has(.video-ai-marker-list){max-height:310px}
+.video-ai-marker-target{display:block;font-weight:700;color:#e5f1ff;margin:7px 0 4px}
+.video-ai-marker-list{display:grid;gap:6px;margin:5px 0 10px}
+.video-ai-marker{display:flex;align-items:center;gap:5px;flex-wrap:wrap;background:#0d1b2c;border-radius:8px;padding:5px}
+.video-ai-marker>span{flex:1 1 85px;color:#dceafe;font-weight:600}
+.video-ai-marker .btn{padding:5px 8px;min-width:0;font-size:11px}
 
 /* V5Q.29A — precise time ruler, waveform overlays and reversible edit controls. */
 body.editor-workspace .studio-sequence-left{flex-wrap:wrap}

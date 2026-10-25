@@ -30,7 +30,7 @@ try {
  ],[['id'=>str_repeat('d',32),'title'=>'Demo soundtrack','kind'=>'upload']]);
  checkAi($ctx['totalMs']===9000&&count($ctx['clips'])===2,'Metadata-only context has exact timeline timing');
  checkAi(!str_contains(json_encode($ctx,JSON_THROW_ON_ERROR),'src'),'No private media URL in model context');
- checkAi(count(VideoEditorSkills::catalog())===4,'Four safe video editing skills registered');
+ checkAi(count(VideoEditorSkills::catalog())>=4,'Foundational safe video editing skills registered');
  $plan=VideoEditorSkills::normalize('highlight',['summary'=>'Tighten pacing','operations'=>[
   ['tool'=>'timeline.reorder','args'=>['order'=>['seg-b','seg-a']]],
   ['tool'=>'clip.trim','args'=>['instanceId'=>'seg-a','startMs'=>500,'endMs'=>4500]],

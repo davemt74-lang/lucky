@@ -14,6 +14,30 @@
  function explain(tool){return ({'timeline.reorder':'Reorder existing clips','clip.trim':'Adjust clip trim','clip.look':'Apply a visual filter',
   'clip.transition':'Change transition','clip.overlay':'Add clip text','clip.mute':'Adjust source audio',
   'timeline.title':'Add a timed title','audio.background':'Set an uploaded soundtrack'})[tool]||tool;}
+ function markersFor(row,source,signals){
+  if(!source.instanceId||!window.LuckyEditorAgent?.applyCue)return;
+  const markerList=document.createElement('div');markerList.className='video-ai-marker-list';
+  const make=(at,label,actions)=>{
+   if(!Number.isInteger(at)||at<0)return;
+   const line=document.createElement('div');line.className='video-ai-marker';
+   const caption=document.createElement('span');caption.textContent=label+' · '+(at/1000).toFixed(1)+'s';line.append(caption);
+   for(const [action,title] of actions){
+    const button=document.createElement('button');button.type='button';button.className='btn btn-outline';button.textContent=title;
+    button.setAttribute('aria-label',`${title} at ${(at/1000).toFixed(1)} seconds of ${source.title}`);
+    button.onclick=()=>{try{window.LuckyEditorAgent.applyCue(source.instanceId,at,action);clear();note(`${title} applied to the unsaved timeline. Undo or Save edit as needed.`);}
+     catch(error){note(error.message,true);}};
+    line.append(button);
+   }
+   markerList.append(line);
+  };
+  for(const at of (signals.sceneCutsMs||[]).slice(0,5))make(at,'Scene cut',[['in','Set In'],['out','Set Out'],['split','Split']]);
+  for(const range of (signals.silenceRanges||[]).slice(0,4)){
+   if(!range||!Number.isInteger(range.startMs)||!Number.isInteger(range.endMs))continue;
+   make(range.startMs,'Quiet starts',[['out','Set Out']]);
+   make(range.endMs,'Quiet ends',[['in','Set In']]);
+  }
+  if(markerList.childElementCount){const title=document.createElement('small');title.className='video-ai-marker-target';title.textContent='Timeline clip: '+source.title;row.append(title,markerList);}
+ }
  function showProposal(proposal,signature){clear();draft={proposal,signature};
   $('editor-ai-summary').textContent=proposal.summary||'Suggested timeline changes';
   for(const step of proposal.operations){const li=document.createElement('li');li.className='video-ai-operation';
@@ -46,6 +70,7 @@
     const label=(source.title||source.kind||'Recording').slice(0,70);
     const row=document.createElement('li');
     row.textContent=`${label}: ${cuts.length} scene changes, ${quiet.length} quiet sections`;
+    for(const target of (snapshot.analyzable||[]).filter(x=>x.id===source.id))markersFor(row,target,cues);
     row.dataset.sourceId=source.id;
     const existing=[...$('editor-ai-analysis-results').children].find(x=>x.dataset.sourceId===source.id);
     if(existing)existing.replaceWith(row);else $('editor-ai-analysis-results').append(row);
