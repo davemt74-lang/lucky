@@ -3,7 +3,7 @@ declare(strict_types=1);
 require __DIR__.'/lib/Bootstrap.php';
 if(!installed()){http_response_code(503);exit('The game platform is not installed.');}
 headerSecurity();header('Referrer-Policy: no-referrer');header('X-Robots-Tag: noindex, nofollow');
-?><!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="referrer" content="no-referrer"><meta name="theme-color" content="#0d1423"><title>Phone Controller · Lucky Games</title><link rel="stylesheet" href="public/style.css"><link rel="stylesheet" href="public/platform.css?v=5q29d"></head>
+?><!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="referrer" content="no-referrer"><meta name="theme-color" content="#0d1423"><title>Phone Controller · Lucky Games</title><link rel="stylesheet" href="public/style.css"><link rel="stylesheet" href="public/platform.css?v=5q29e2"></head>
 <body class="phone-controller-page"><main class="phone-controller" aria-label="Lucky Games phone controller"><p id="phone-status" role="status" aria-live="polite" class="phone-inline-status">Connecting…</p>
 <section id="phone-dashboard" class="phone-game-dashboard" hidden aria-labelledby="phone-dashboard-title">
  <div class="surface phone-dashboard-heading"><p class="mini-label">YOUR HOME ARCADE</p><h1 id="phone-dashboard-title">Choose a game</h1>

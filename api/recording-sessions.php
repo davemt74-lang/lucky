@@ -2,19 +2,37 @@
 declare(strict_types=1);
 require __DIR__.'/../lib/Bootstrap.php';
 require_once __DIR__.'/../lib/RecordingSessions.php';
+require_once __DIR__.'/../lib/RecordingPhone.php';
 headerSecurity();header('X-Robots-Tag: noindex, nofollow');
 try {
  if(!installed())throw new DomainException('Install Lucky Game Hub first.',503);
  requireAdmin();$owner=(int)$_SESSION['admin_id'];$db=db();
  if(!$db->query("SHOW TABLES LIKE 'recording_sessions'")->fetch())throw new DomainException('Run upgrade.php to enable recording sessions.',409);
+ if(in_array((string)($_GET['action']??''),['phone_permission','permission_status','media_list'],true)&&!$db->query("SHOW TABLES LIKE 'recording_phone_permissions'")->fetch())
+  throw new DomainException('Run upgrade.php to enable phone recording.',409);
  $action=(string)($_GET['action']??'');$method=$_SERVER['REQUEST_METHOD']??'GET';
  if($method==='GET'){
   if($action==='list')success(['sessions'=>RecordingSessions::list($db,$owner)]);
   if($action==='detail')success(RecordingSessions::detail($db,$owner,(string)($_GET['id']??'')));
+  if($action==='permission_status'){
+   $id=RecordingSessions::id((string)($_GET['id']??''));RecordingSessions::get($db,$owner,$id);
+   $q=$db->prepare('SELECT phone_enabled FROM recording_phone_permissions WHERE recording_session_id=?');$q->execute([$id]);
+   success(['phoneEnabled'=>(bool)$q->fetchColumn()]);
+  }
+  if($action==='media_list'){
+   $id=RecordingSessions::id((string)($_GET['id']??''));RecordingSessions::get($db,$owner,$id);
+   $q=$db->prepare('SELECT a.id,a.kind,a.take_id,a.source_id,m.mime,m.title,m.bytes,m.duration_ms,m.created_at FROM recording_assets a JOIN recording_media_files m ON m.asset_id=a.id WHERE a.recording_session_id=? ORDER BY m.created_at,a.id LIMIT 160');
+   $q->execute([$id]);success(['media'=>$q->fetchAll(PDO::FETCH_ASSOC)]);
+  }
   throw new DomainException('Unknown recording operation.',404);
  }
  if($method!=='POST')throw new DomainException('Unsupported recording method.',405);
  assertCsrf();$input=jsonInput();$id=(string)($input['id']??'');
+ if($action==='phone_permission'){
+  if(!is_bool($input['enabled']??null))throw new DomainException('Choose whether the phone camera is enabled.',422);
+  $grant=RecordingPhone::grant($db,$owner,$id,$input['enabled']);
+  audit($db,'recording.phone-permission',null,['id'=>$id,'enabled'=>$grant['phoneEnabled']]);success(['permission'=>$grant]);
+ }
  if($action==='create'){
   $row=RecordingSessions::create($db,$owner,$input);audit($db,'recording.session-created',$row['gameSessionId'],['id'=>$row['id'],'type'=>$row['type']]);success(['session'=>$row],201);
  }

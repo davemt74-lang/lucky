@@ -17,7 +17,9 @@
   const paired=active&&!!state,navbar=$('phone-bottom-nav'),arrows=$('phone-arrows-toggle');
   if(navbar)navbar.hidden=!paired;
   if(arrows){arrows.disabled=!paired||!!currentMovie||!!proofState?.active||mayGoPrize();if(arrows.disabled&&$('phone-arrows-dialog')?.open)$('phone-arrows-dialog').close();}
-  const availability={home:mayGoHome(),game:mayGoGame(),prize:mayGoPrize()||claimedPrizes.length>0,camera:mayGoCamera(),more:paired};
+  // A prize decision or active movie must retain its navigation lock. The
+  // independent Camera Studio is otherwise available to any approved phone.
+  const availability={home:mayGoHome(),game:mayGoGame(),prize:mayGoPrize()||claimedPrizes.length>0,camera:paired&&!currentMovie&&!mayGoPrize(),more:paired};
   const current=visibleScreen==='phone-dashboard'?'home':visibleScreen==='phone-movie'?'more':mayGoCamera()?'camera':mayGoPrize()?'prize':'game';
   document.querySelectorAll('[data-phone-view]').forEach(button=>{
    const name=button.dataset.phoneView;button.disabled=!availability[name];
@@ -421,6 +423,7 @@
   closeMenu();if(button.disabled)return;
   if(target==='home'){if(!mayGoHome()){message('Finish the active game or proof before returning home.',true);return;}
    dashboardRequested=true;show('phone-dashboard');void loadDashboard();return;}
+  if(target==='camera'&&!mayGoCamera()){location.assign('camera.php');return;}
   if(target==='camera'&&mayGoCamera()&&proofState.phoneCameraAllowed&&proofState.consent){window.LuckyPhoneCapture?.open();return;}
   if(target==='game'&&mayGoGame()||target==='prize'&&mayGoPrize()||target==='camera'&&mayGoCamera()){
    show('phone-controls');if(game)updateGame(game);updateProof(proofState);
