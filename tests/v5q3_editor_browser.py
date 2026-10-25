@@ -6,7 +6,7 @@ BASE=Path(__file__).resolve().parents[1]
 section=(BASE/'editor.php').read_text().split('?>',1)[1].split('<?php shellEnd()',1)[0]
 section=section.replace('<?php accountMenu(); ?>','<details class="account-menu"><summary><span class="profile-avatar">★</span> Host ▾</summary><div class="account-dropdown"><a href="account.php">Account settings</a></div></details>')
 CSS=(BASE/'public/style.css').read_text()+(BASE/'public/platform.css').read_text()+(BASE/'public/editor-workspace.css').read_text()
-SCRIPT=(BASE/'public/editor.js').read_text()
+SCRIPT=(BASE/'public/editor-timeline.js').read_text()+'\n'+(BASE/'public/editor.js').read_text()
 ID1='a'*32;ID2='b'*32
 mock=f'''<script>
 window.demo={{saved:null,queued:null,auto:0,deleted:[],calls:[]}};

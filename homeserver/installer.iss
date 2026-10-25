@@ -1,4 +1,4 @@
-#define AppVersion "5.21.0"
+#define AppVersion "5.29.1"
 #ifndef StageDir
   #error StageDir must be passed with /DStageDir
 #endif
@@ -10,7 +10,7 @@
 AppId={{E0F67E44-96F8-4058-B408-7CE0FD36A651}
 AppName=Lucky Game Hub HomeServer
 AppVersion={#AppVersion}
-AppVerName=Lucky Game Hub HomeServer V5Q.21
+AppVerName=Lucky Game Hub HomeServer V5Q.29A
 AppPublisher=Lucky Game Hub
 DefaultDirName={localappdata}\Programs\LuckyGameHub
 DefaultGroupName=Lucky Game Hub
@@ -19,7 +19,7 @@ PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 OutputDir={#OutputDir}
-OutputBaseFilename=Lucky_Game_Hub_HomeServer_V5Q21_Setup
+OutputBaseFilename=Lucky_Game_Hub_HomeServer_V5Q29A_Setup
 Compression=lzma2/normal
 SolidCompression=yes
 WizardStyle=modern
