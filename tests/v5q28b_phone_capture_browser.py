@@ -10,11 +10,11 @@ for name in ('public/voice-commands.js','public/phone-controller.js','public/pho
  html=re.sub(r'<script src="'+re.escape(name)+r'[^>]+></script>',lambda _: '<script>'+js.replace('</script','<\\/script')+'</script>',html)
 html=html.replace('</head>','<base href="https://lucky.test/"><style>'+(ROOT/'public/platform.css').read_text()+'</style></head>',1)
 stub='''<script>
-window.__allow=false;window.__consent=true;window.__proofActive=true;window.__uploads=[];
+window.__allow=false;window.__consent=true;window.__proofActive=true;window.__phase='live';window.__uploads=[];
 window.fetch=async(url,opts={})=>{
  const u=String(url),action=new URL(u,'https://lucky.test/').searchParams.get('action');
  if(u.includes('phone-media.php')){__uploads.push({entries:[...opts.body.entries()].map(([k,v])=>[k,v instanceof File?v.name:v]),headers:opts.headers,credentials:opts.credentials});return new Response(JSON.stringify({ok:true,clip:{id:'d'.repeat(32)}}));}
- if(action==='status')return new Response(JSON.stringify({ok:true,status:'paired',claims:[],game:{id:'a'.repeat(32),status:'active',canSpin:true,spinCount:0,claimedCount:1,remaining:5},proof:__proofActive?{active:true,sessionId:'a'.repeat(32),claimId:'b'.repeat(32),phoneCameraAllowed:__allow,consent:__consent,phase:'live',savedCount:0}:{active:false}}));
+ if(action==='status')return new Response(JSON.stringify({ok:true,status:'paired',claims:[],game:{id:'a'.repeat(32),status:'active',canSpin:true,spinCount:0,claimedCount:1,remaining:5},proof:__proofActive?{active:true,sessionId:'a'.repeat(32),claimId:'b'.repeat(32),phoneCameraAllowed:__allow,consent:__consent,phase:__phase,savedCount:0}:{active:false}}));
  if(action==='command')return new Response(JSON.stringify({ok:true,applied:true,effect:'proof-consent'}));
  return new Response(JSON.stringify({ok:true}));
 };</script>'''

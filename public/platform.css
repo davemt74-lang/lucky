@@ -1275,6 +1275,7 @@ body.game-fullwidth .header{position:relative;z-index:60}
 .phone-capture-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .phone-capture-actions button{min-height:48px;white-space:normal}
 .phone-capture-actions #phone-capture-send{grid-column:1/-1}
+.phone-capture-multicam-note{color:#b9d6ea;font-size:12px;line-height:1.45;border-left:3px solid #46bb83;padding:9px 10px;background:#162b3b}
 .phone-capture-gallery{display:grid;gap:8px;margin:18px 0 7px;padding:13px;border:1px dashed #7896b4;border-radius:12px;font-size:13px;font-weight:700}
 .phone-capture-gallery input{display:block;width:100%;max-width:100%;font-size:13px}
 .phone-capture-dialog>small{display:block;color:#acc3d8;padding-bottom:20px}

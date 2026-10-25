@@ -3,12 +3,12 @@
  const $=id=>document.getElementById(id),dialog=$('phone-capture-dialog');if(!dialog)return;
  const MAX_BYTES=80*1024*1024,MAX_SECONDS=60;
  const allowedTypes={photo:new Set(['image/jpeg','image/png','image/webp']),video:new Set(['video/mp4','video/webm','video/quicktime']),audio:new Set(['audio/mpeg','audio/mp4','audio/ogg','audio/wav','audio/x-wav','audio/webm'])};
- let permission=null,mode='photo',stream=null,recorder=null,recorderTimer=null,selectedFile=null,selectedDurationMs=0,nonce='',previewUrl='',saving=false,generation=0;
+ let permission=null,mode='photo',stream=null,recorder=null,recorderTimer=null,selectedFile=null,selectedDurationMs=0,nonce='',previewUrl='',saving=false,generation=0,armed=false,multicamRecording=false;
  const fail=(message)=>{const el=$('phone-capture-status');if(el){el.textContent=message;el.classList.add('platform-error');}};
  const note=(message)=>{const el=$('phone-capture-status');if(el){el.textContent=message;el.classList.remove('platform-error');}};
  const authorized=()=>permission?.active===true&&permission.phoneCameraAllowed===true&&/^[a-f0-9]{32}$/.test(permission.sessionId)&&/^[a-f0-9]{32}$/.test(permission.claimId);
  const randomNonce=()=>crypto.randomUUID?.().replaceAll('-','')||Array.from(crypto.getRandomValues(new Uint8Array(16)),b=>b.toString(16).padStart(2,'0')).join('');
- function cleanupStream(){if(recorder&&recorder.state!=='inactive'){recorder.onstop=null;recorder.ondataavailable=null;try{recorder.stop();}catch(_){}}
+ function cleanupStream(){armed=false;multicamRecording=false;if(recorder&&recorder.state!=='inactive'){recorder.onstop=null;recorder.ondataavailable=null;try{recorder.stop();}catch(_){}}
   recorder=null;clearTimeout(recorderTimer);recorderTimer=null;stream?.getTracks().forEach(track=>track.stop());stream=null;
   const live=$('phone-capture-live');if(live){live.pause();live.srcObject=null;live.hidden=true;}
  }
@@ -16,6 +16,9 @@
  function buttons(){const recording=recorder?.state==='recording',hasStream=!!stream;
   $('phone-capture-start').hidden=!!selectedFile||hasStream;$('phone-capture-start').disabled=!authorized()||saving;
   $('phone-capture-start').textContent=mode==='photo'?'Start photo camera':mode==='video'?'Record video':'Record audio';
+  $('phone-capture-arm').hidden=mode!=='video'||!!selectedFile||hasStream;
+  $('phone-capture-arm').disabled=!authorized()||saving||permission?.phase!=='live';
+  $('phone-capture-disarm').hidden=!armed;$('phone-capture-disarm').disabled=saving;
   $('phone-capture-snapshot').hidden=mode!=='photo'||!hasStream;
   $('phone-capture-stop').hidden=!recording;$('phone-capture-stop').disabled=saving;
   $('phone-capture-retake').hidden=!selectedFile;$('phone-capture-retake').disabled=saving;
@@ -27,13 +30,34 @@
  }
  function release(){generation++;cleanupStream();clearPreview();buttons();}
  function close(){release();if(dialog.open)dialog.close();}
- function selectMode(value){if(!allowedTypes[value]||saving)return;release();mode=value;buttons();note(value==='photo'?'Tap Start photo camera, then Take photo.':value==='video'?'Tap Record video to capture up to 60 seconds.':'Tap Record audio to capture up to 60 seconds.');}
+ function selectMode(value){if(!allowedTypes[value]||saving)return;release();mode=value;buttons();note(value==='photo'?'Tap Start photo camera, then Take photo.':value==='video'?'Tap Record for a single video, or Arm for multicamera before the host starts recording.':'Tap Record audio to capture up to 60 seconds.');}
  function mediaType(){if(mode==='photo')return'image/jpeg';const choices=mode==='video'?['video/webm;codecs=vp8,opus','video/webm','video/mp4']:['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg'];return choices.find(v=>window.MediaRecorder?.isTypeSupported?.(v))||'';}
  function showPreview(file,durationMs=0){cleanupStream();clearPreview();selectedFile=file;selectedDurationMs=durationMs;nonce=randomNonce();previewUrl=URL.createObjectURL(file);
   const el=$(mode==='photo'?'phone-capture-photo':mode==='video'?'phone-capture-video':'phone-capture-audio');el.src=previewUrl;el.hidden=false;
   if(mode!=='photo')el.onloadedmetadata=()=>{if(selectedFile===file&&Number.isFinite(el.duration))selectedDurationMs=Math.min(3600000,Math.max(selectedDurationMs,Math.round(el.duration*1000)));};
   note(`${mode} ready (${(file.size/1048576).toFixed(1)} MB). Send it to the current prize.`);buttons();}
- async function start(){if(!authorized()||saving)return;const stamp=++generation;cleanupStream();clearPreview();buttons();
+ function beginMediaRecorder(stamp,coordinated=false){
+  if(!authorized()||stamp!==generation||!stream)return;
+  if(!window.MediaRecorder)throw Error('Recording is unavailable in this browser. Use the file picker instead.');
+  const preferred=mediaType();recorder=new MediaRecorder(stream,preferred?{mimeType:preferred}:undefined);
+  const parts=[];let bytes=0;const capturedMode=mode;let startedAt=0;
+  recorder.ondataavailable=e=>{if(e.data?.size){parts.push(e.data);bytes+=e.data.size;if(bytes>=MAX_BYTES&&recorder?.state==='recording')stop();}};
+  recorder.onerror=()=>{cleanupStream();buttons();fail('Recording failed. You can try again or choose an existing file.');};
+  recorder.onstop=()=>{clearTimeout(recorderTimer);if(stamp!==generation||!authorized())return;
+   const blob=new Blob(parts,{type:recorder?.mimeType||preferred||(capturedMode==='video'?'video/webm':'audio/webm')});
+   if(!blob.size||blob.size>MAX_BYTES){cleanupStream();buttons();fail('Recording was empty or exceeded 80 MB. Please retry.');return;}
+   const actual=blob.type.split(';')[0]||(capturedMode==='video'?'video/webm':'audio/webm');
+   if(!allowedTypes[capturedMode].has(actual)){cleanupStream();buttons();fail('Unsupported recording type; please use the file picker.');return;}
+   showPreview(new File([blob],`${capturedMode}-${Date.now()}.${actual.includes('mp4')?'mp4':'webm'}`,{type:actual}),Math.max(250,Math.round(performance.now()-startedAt)));
+  };
+  startedAt=performance.now();armed=false;multicamRecording=coordinated;
+  recorder.start(700);recorderTimer=setTimeout(stop,MAX_SECONDS*1000);
+  note(coordinated?'● Multicamera recording in progress with the desktop. The host will stop this take.':`● Recording ${mode} (60-second limit). Tap Stop when done.`);
+  buttons();
+ }
+ async function start(arm=false){if(!authorized()||saving)return;
+  if(arm&&(mode!=='video'||permission?.phase!=='live'))return fail('Arm a video camera before the desktop starts its next recording.');
+  const stamp=++generation;cleanupStream();clearPreview();buttons();
   if(!navigator.mediaDevices?.getUserMedia){fail('Camera or microphone needs HTTPS and a compatible browser. Use the file picker below instead.');return;}
   try{
    const requested=mode==='audio'?{audio:true}:mode==='photo'?{video:{facingMode:'environment'}}:{video:{facingMode:'environment'},audio:true};
@@ -41,20 +65,9 @@
    if(stamp!==generation||!authorized()||!dialog.open){cleanupStream();return;}
    if(mode==='photo'){$('phone-capture-live').srcObject=stream;$('phone-capture-live').hidden=false;await $('phone-capture-live').play();note('Frame your prize, then tap Take photo.');}
    else{
-    if(!window.MediaRecorder)throw Error('Recording is unavailable in this browser. Use the file picker instead.');
-    const preferred=mediaType();recorder=new MediaRecorder(stream,preferred?{mimeType:preferred}:undefined);
-    const parts=[];let bytes=0;const capturedMode=mode;let startedAt=0;
-    recorder.ondataavailable=e=>{if(e.data?.size){parts.push(e.data);bytes+=e.data.size;if(bytes>=MAX_BYTES&&recorder?.state==='recording')stop();}};
-    recorder.onerror=()=>{cleanupStream();buttons();fail('Recording failed. You can try again or choose an existing file.');};
-    recorder.onstop=()=>{clearTimeout(recorderTimer);if(stamp!==generation||!authorized())return;
-     const blob=new Blob(parts,{type:recorder?.mimeType||preferred|| (capturedMode==='video'?'video/webm':'audio/webm')});
-     if(!blob.size||blob.size>MAX_BYTES){cleanupStream();buttons();fail('Recording was empty or exceeded 80 MB. Please retry.');return;}
-     const actual=blob.type.split(';')[0]|| (capturedMode==='video'?'video/webm':'audio/webm');
-     if(!allowedTypes[capturedMode].has(actual)){cleanupStream();buttons();fail('Unsupported recording type; please use the file picker.');return;}
-     showPreview(new File([blob],`${capturedMode}-${Date.now()}.${actual.includes('mp4')?'mp4':'webm'}`,{type:actual}),Math.max(250,Math.round(performance.now()-startedAt)));
-    };
     if(mode==='video'){$('phone-capture-live').srcObject=stream;$('phone-capture-live').hidden=false;await $('phone-capture-live').play();}
-    startedAt=performance.now();recorder.start(700);recorderTimer=setTimeout(stop,MAX_SECONDS*1000);note(`● Recording ${mode} (60-second limit). Tap Stop when done.`);
+    if(arm){armed=true;note('Camera armed. Waiting for the host countdown; recording starts when the desktop cameras start.');}
+    else beginMediaRecorder(stamp);
    }
   }catch(e){cleanupStream();fail(`Could not start ${mode}: ${e?.message||'Camera permission denied'}. Check site permissions or use the file picker.`);}
   finally{buttons();}
@@ -79,11 +92,20 @@
   if(!dialog.open)dialog.showModal();$('phone-capture-prize').textContent='Current prize proof · Photos, video and audio go to the host Video Studio.';note('Choose a mode, or upload an existing file.');buttons();}
  window.addEventListener('lucky:phone-proof-status',event=>{const old=permission;permission=event.detail;
   if(!authorized()||old&&old.sessionId&&old.claimId&&(old.sessionId!==permission.sessionId||old.claimId!==permission.claimId)){if(dialog.open)close();else release();}
-  else if(dialog.open)buttons();
+  else if(dialog.open){
+   if(armed&&permission.phase==='recording'){
+    try{beginMediaRecorder(generation,true);}catch(e){cleanupStream();fail('Coordinated recording could not start: '+e.message);}
+   }else if(multicamRecording&&recorder?.state==='recording'&&permission.phase!=='recording'){
+    stop();
+   }else if(armed&&permission.phase==='countdown')note('Host countdown started. Stay on this screen; recording will start with the desktop.');
+   buttons();
+  }
  });
  document.querySelectorAll('[data-phone-capture-mode]').forEach(button=>button.addEventListener('click',()=>selectMode(button.dataset.phoneCaptureMode)));
  $('phone-capture-close').addEventListener('click',close);dialog.addEventListener('close',release);
- $('phone-capture-start').addEventListener('click',start);$('phone-capture-snapshot').addEventListener('click',snapshot);$('phone-capture-stop').addEventListener('click',stop);
+ $('phone-capture-start').addEventListener('click',()=>start());$('phone-capture-arm').addEventListener('click',()=>start(true));
+ $('phone-capture-disarm').addEventListener('click',()=>{release();note('Camera disarmed. No recording captured.');});
+ $('phone-capture-snapshot').addEventListener('click',snapshot);$('phone-capture-stop').addEventListener('click',stop);
  $('phone-capture-retake').addEventListener('click',()=>{release();note('Ready to try again.');});$('phone-capture-send').addEventListener('click',upload);
  $('phone-capture-file').addEventListener('change',event=>{const file=event.target.files?.[0];event.target.value='';if(!file||!authorized())return;
   const kind=Object.keys(allowedTypes).find(k=>allowedTypes[k].has(file.type));if(!kind){fail('Unsupported media type. Choose JPEG, PNG, WebP, MP4, WebM, MOV, MP3, WAV, OGG or M4A.');return;}

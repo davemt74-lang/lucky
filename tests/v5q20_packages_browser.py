@@ -61,6 +61,9 @@ async def main():
    page=await browser.new_page(viewport={'width':width,'height':850},reduced_motion='reduce')
    page.set_default_timeout(10000)
    page.on('pageerror',lambda e:errors.append(str(e)))
+   # Keep external prize-media fixtures deterministic; a failed remote image
+   # request intentionally replaces the preview in the production UI.
+   await page.route('https://media.example.test/prize.jpg',lambda route:route.fulfill(status=200,content_type='image/svg+xml',body='<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"><rect width="1" height="1"/></svg>'))
    html=make_html('admin').replace('</head>',MOCK+PACKAGE_MOCK+'</head>',1)
    await page.set_content(html,wait_until='domcontentloaded')
    await page.wait_for_function("document.querySelectorAll('#prize-package-tabs button').length===2")
@@ -79,6 +82,7 @@ async def main():
    check(f'{width}: budget saved only to selected package',await page.evaluate("packageItems.find(p=>p.id===NEW).config.pools.tier1.budgetCents===6000 && packageItems.find(p=>p.id===ORIGINAL).config.pools.tier1.budgetCents===1500"))
    await page.wait_for_function("packageItems.find(p=>p.id===NEW).version===2 && !document.querySelector('#save-prizes').disabled")
    await page.locator('#prize-items .prize-catalog-edit').first.click()
+   await page.wait_for_function("document.querySelectorAll('#prize-edit-photo-preview img').length===1 && document.querySelectorAll('#prize-edit-video-preview video').length===1")
    check(f'{width}: existing prize media appears when editing',await page.locator('#prize-edit-photo-preview img').count()==1 and await page.locator('#prize-edit-video-preview video').count()==1)
    await page.locator('#prize-edit-name').fill('First resave')
    await page.locator('#prize-edit-value').fill('12.34')

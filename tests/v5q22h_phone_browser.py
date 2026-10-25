@@ -56,6 +56,8 @@ async def main():
   ck('Pairing URL secrets are removed after join',page.url.endswith('/package-controller.php'))
   await page.evaluate('window.__approved=true')
   await page.wait_for_function("document.getElementById('package-phone-play').hidden===false",timeout=5000)
+  # The container becomes visible before its sandboxed game document finishes loading.
+  await page.frame_locator('#package-phone-frame').locator('#buzz').wait_for(state='visible',timeout=5000)
   ck('Approved phone loads its own custom game UI',await page.frame_locator('#package-phone-frame').locator('#buzz').count()==1)
   ck('Phone iframe sandbox denies same-origin access',await page.locator('#package-phone-frame').get_attribute('sandbox')=='allow-scripts')
   await page.frame_locator('#package-phone-frame').locator('#buzz').click()
