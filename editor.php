@@ -21,12 +21,21 @@ shellStart('Video Studio','editor','editor-workspace');
      <label>Editor skill<select id="editor-ai-skill" aria-label="Video editing skill"><option value="">Loading skills…</option></select></label>
      <p id="editor-ai-skill-help" class="studio-tool-hint">Choose a specialty for the editing proposal.</p>
      <label>What should the editor do?<textarea id="editor-ai-instruction" maxlength="500" rows="4" placeholder="Make the prize reveal shorter and give it a cinematic feel."></textarea></label>
+     <section class="video-ai-cue-box" aria-label="Private local recording analysis">
+      <strong>Scene &amp; silence detection</strong>
+      <p class="studio-tool-hint">Inspect source video and audio locally to find scene changes and quiet sections. Nothing is uploaded during analysis.</p>
+      <button type="button" class="btn btn-outline" id="editor-ai-analyze">◉ Analyze timeline locally</button>
+      <p id="editor-ai-analysis-state" class="studio-tool-hint" role="status" aria-live="polite">No analysis run for this timeline.</p>
+      <ol id="editor-ai-analysis-results" class="video-ai-analysis-results" aria-label="Detected editing cues"></ol>
+      <label class="video-ai-cues-consent"><input type="checkbox" id="editor-ai-share-cues"><span>Include numerical scene and silence timings in my next Claude proposal</span></label>
+      <p class="studio-tool-hint">Off by default. Only detected times are shared when you press Generate; never the recording, audio, frames or a transcript.</p>
+     </section>
      <button type="button" class="btn btn-primary" id="editor-ai-generate">✧ Generate proposal</button>
      <p id="editor-ai-feedback" class="studio-tool-hint" role="status" aria-live="polite">No proposal yet.</p>
      <section id="editor-ai-review" class="video-ai-review" hidden aria-label="Review AI editing proposal"><strong id="editor-ai-summary"></strong><ol id="editor-ai-operations"></ol>
       <div class="platform-control-row"><button type="button" class="btn btn-primary" id="editor-ai-apply">Apply to unsaved edit</button><button type="button" class="btn btn-outline" id="editor-ai-discard">Discard</button></div>
      </section>
-     <p class="studio-tool-hint">When you press Generate, only clip metadata and your instruction go to Anthropic. No video or audio files leave this installation. Review the result, then choose Save edit to persist it.</p>
+     <p class="studio-tool-hint">When you press Generate, clip metadata and your instructions go to Anthropic. Optional timing cues are shared only if you tick the box. No video, photo, audio or transcript leaves this installation. Review the result, then choose Save edit to persist it.</p>
      <a class="btn btn-outline" href="admin.php?tab=ai">Configure Claude in Admin</a>
     </div>
    </section><section class="studio-pane" id="studio-pane-filters" data-studio-panel="filters" aria-label="Video filters" hidden><div class="studio-tool-library"><div class="studio-tool-heading">Video filters <small>Selected clip</small></div><p class="studio-tool-target" data-editor-target>Choose a clip in V1</p><div class="studio-choice-grid" role="group" aria-label="Video filter styles"><button type="button" class="studio-choice-card studio-filter-card" data-look-preset="none" aria-pressed="false"><span class="studio-filter-swatch is-none" aria-hidden="true"></span><strong>Original</strong><small>Natural colors</small></button><button type="button" class="studio-choice-card studio-filter-card" data-look-preset="vivid" aria-pressed="false"><span class="studio-filter-swatch is-vivid" aria-hidden="true"></span><strong>Vivid</strong><small>Bright color</small></button><button type="button" class="studio-choice-card studio-filter-card" data-look-preset="warm" aria-pressed="false"><span class="studio-filter-swatch is-warm" aria-hidden="true"></span><strong>Warm</strong><small>Golden tone</small></button><button type="button" class="studio-choice-card studio-filter-card" data-look-preset="mono" aria-pressed="false"><span class="studio-filter-swatch is-mono" aria-hidden="true"></span><strong>Mono</strong><small>Black and white</small></button><button type="button" class="studio-choice-card studio-filter-card" data-look-preset="cinematic" aria-pressed="false"><span class="studio-filter-swatch is-cinematic" aria-hidden="true"></span><strong>Cinematic</strong><small>Movie contrast</small></button><button type="button" class="studio-choice-card studio-filter-card" data-look-preset="vintage" aria-pressed="false"><span class="studio-filter-swatch is-vintage" aria-hidden="true"></span><strong>Vintage</strong><small>Retro film</small></button></div>
@@ -98,5 +107,5 @@ shellStart('Video Studio','editor','editor-workspace');
  </dialog>
  <p id="editor-feedback" role="status" class="studio-feedback studio-feedback-overlay" aria-live="polite"></p><span id="editor-caption" class="sr-only" role="status">No clip playing.</span>
 </section>
-<script src="public/client.js" defer></script><script src="public/proof-sequence.js?v=5q8b" defer></script><script src="public/editor-timeline.js?v=5q29a" defer></script><script src="public/editor.js?v=5q29a" defer></script><script src="public/editor-video-ai.js?v=5q28a" defer></script><script src="public/ui-receiver.js?v=5q8" defer></script>
+<script src="public/client.js" defer></script><script src="public/proof-sequence.js?v=5q8b" defer></script><script src="public/editor-timeline.js?v=5q29a" defer></script><script src="public/editor.js?v=5q29b" defer></script><script src="public/editor-video-ai.js?v=5q29b" defer></script><script src="public/ui-receiver.js?v=5q8" defer></script>
 <?php shellEnd(); ?>

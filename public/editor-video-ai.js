@@ -2,8 +2,9 @@
 (() => {
  'use strict';const $=id=>document.getElementById(id),L=window.Lucky;
  if(!$('editor-ai-skill')||!L)return;
- let skills=[],draft=null,configured=false,busy=false;
+ let skills=[],draft=null,configured=false,busy=false,analyzing=false,analyzedSession='';
  const note=(message,error=false)=>{const el=$('editor-ai-feedback');el.textContent=message;el.classList.toggle('platform-error',error);};
+ const analysisNote=(message,error=false)=>{const el=$('editor-ai-analysis-state');el.textContent=message;el.classList.toggle('platform-error',error);};
  async function request(action,body){const opts={credentials:'same-origin',cache:'no-store'};
   if(body!==undefined){const me=await L.getMe();opts.method='POST';opts.headers={'Content-Type':'application/json','X-CSRF-Token':me.csrf};opts.body=JSON.stringify(body);}
   const response=await fetch('api/video-ai.php?action='+encodeURIComponent(action),opts);
@@ -24,13 +25,45 @@
  }
  $('editor-ai-skill').onchange=()=>{$('editor-ai-skill-help').textContent=skills.find(s=>s.id===$('editor-ai-skill').value)?.description||'';clear();};
  $('editor-ai-instruction').oninput=clear;
+ $('editor-ai-share-cues').onchange=clear;
+ $('editor-ai-analyze').onclick=async()=>{
+  if(analyzing||busy)return;if(!window.LuckyEditorAgent)return analysisNote('Editor is still loading.',true);
+  let snapshot;try{snapshot=window.LuckyEditorAgent.snapshot();}catch(error){return analysisNote(error.message,true);}
+  const unique=new Map();for(const source of snapshot.analyzable||[]){if(source.id&&!unique.has(source.id))unique.set(source.id,source);}
+  const sources=[...unique.values()].slice(0,12);
+  if(!sources.length)return analysisNote('No video or audio in the selected timeline. Still photos do not have timing cues.');
+  if(analyzedSession!==snapshot.session){$('editor-ai-analysis-results').replaceChildren();analyzedSession=snapshot.session;}
+  analyzing=true;$('editor-ai-analyze').disabled=true;clear();
+  let done=0;
+  try{
+   for(const source of sources){
+    analysisNote(`Analyzing ${done+1} of ${sources.length} recordings locally…`);
+    const result=await request('analyze',{session:snapshot.session,id:source.id});
+    // The response contains only source timings; never display or upload source bytes.
+    const cues=result.signals||{};
+    const cuts=Array.isArray(cues.sceneCutsMs)?cues.sceneCutsMs:[];
+    const quiet=Array.isArray(cues.silenceRanges)?cues.silenceRanges:[];
+    const label=(source.title||source.kind||'Recording').slice(0,70);
+    const row=document.createElement('li');
+    row.textContent=`${label}: ${cuts.length} scene changes, ${quiet.length} quiet sections`;
+    row.dataset.sourceId=source.id;
+    const existing=[...$('editor-ai-analysis-results').children].find(x=>x.dataset.sourceId===source.id);
+    if(existing)existing.replaceWith(row);else $('editor-ai-analysis-results').append(row);
+    done++;
+   }
+   analysisNote(`Local analysis ready for ${done} recording(s). Tick the timing-cues box if you want Claude to use these markers.`);
+  }catch(error){analysisNote(`Analyzed ${done} recording(s). ${error.message}`,true);}
+  finally{analyzing=false;$('editor-ai-analyze').disabled=false;}
+ };
  $('editor-ai-generate').onclick=async()=>{
-  if(busy||!configured)return;if(!window.LuckyEditorAgent)return note('Editor is still loading.',true);
+  if(busy||analyzing||!configured)return;if(!window.LuckyEditorAgent)return note('Editor is still loading.',true);
   clear();busy=true;$('editor-ai-generate').disabled=true;
   try{const snapshot=window.LuckyEditorAgent.snapshot();
-   note('Requesting a metadata-only editing proposal from Claude…');
-   const result=await request('plan',{session:snapshot.session,edits:snapshot.edits,skill:$('editor-ai-skill').value,instruction:$('editor-ai-instruction').value.trim()});
+   const includeTimingCues=$('editor-ai-share-cues').checked===true;
+   note(includeTimingCues?'Requesting an editing proposal with approved numerical timing cues…':'Requesting a metadata-only editing proposal from Claude…');
+   const result=await request('plan',{session:snapshot.session,edits:snapshot.edits,skill:$('editor-ai-skill').value,instruction:$('editor-ai-instruction').value.trim(),includeTimingCues});
    showProposal(result.proposal,snapshot.signature);
+   if(includeTimingCues)analysisNote(`${Number(result.timingCuesShared||0)} recording(s) with cached timing cues included in this Claude proposal.`);
   }catch(error){note(error.message,true);}finally{busy=false;$('editor-ai-generate').disabled=!configured;}
  };
  $('editor-ai-apply').onclick=()=>{if(!draft)return;
