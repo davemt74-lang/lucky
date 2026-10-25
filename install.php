@@ -28,7 +28,8 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
    'lib/migrations/v5q6_proof_revisions.sql',
    'lib/migrations/v5q15b_prize_decisions.sql',
    'lib/migrations/v5q29e1_recording_sessions.sql',
-   'lib/migrations/v5q29e2_phone_camera.sql'
+   'lib/migrations/v5q29e2_phone_camera.sql',
+   'lib/migrations/v5q29e3_multicamera_coordination.sql'
   ] as $migrationFile){
    $migration=file_get_contents(__DIR__.'/'.$migrationFile);
    if($migration===false)throw new RuntimeException('Bundled migration is missing: '.$migrationFile);

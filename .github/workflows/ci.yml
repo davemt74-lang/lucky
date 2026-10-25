@@ -74,6 +74,7 @@ jobs:
           php tests/v5q28b_phone_capture_contract.php
           php tests/v5q29e1_recording_sessions_contract.php
           php tests/v5q29e2_phone_camera_contract.php
+          php tests/v5q29e3_multicamera_contract.php
           node --check public/recording-camera.js
           node --check public/admin-recordings.js
           node tests/v5q25d_shared_camera_profiles.js
@@ -111,6 +112,7 @@ jobs:
           php tests/v5q28b_phone_capture_db.php
           php tests/v5q29e1_recording_sessions_db.php
           php tests/v5q29e2_phone_camera_db.php
+          php tests/v5q29e3_multicamera_db.php
   browsers:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -131,6 +133,7 @@ jobs:
       - name: Proof capture and timeline regressions
         run: |
           python tests/v5q29e2_camera_browser.py
+          python tests/v5q29e3_multicamera_browser.py
           python tests/proof_admin_browser.py
           python tests/proof_browser.py
           python tests/v5q3_editor_browser.py

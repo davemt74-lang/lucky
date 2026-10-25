@@ -26,7 +26,8 @@ if(($_SERVER['REQUEST_METHOD']??'')==='POST'){
    'lib/migrations/v5q20_prize_packages.sql',
    'lib/migrations/v5q26_movie_preview.sql',
    'lib/migrations/v5q29e1_recording_sessions.sql',
-   'lib/migrations/v5q29e2_phone_camera.sql'
+   'lib/migrations/v5q29e2_phone_camera.sql',
+   'lib/migrations/v5q29e3_multicamera_coordination.sql'
   ];
   foreach($migrationFiles as $migrationFile){
    foreach(MigrationSql::statements(sql($migrationFile)) as $statement)$db->exec($statement);

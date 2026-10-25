@@ -3,6 +3,7 @@ declare(strict_types=1);
 require __DIR__.'/../lib/Bootstrap.php';
 require_once __DIR__.'/../lib/RecordingSessions.php';
 require_once __DIR__.'/../lib/RecordingPhone.php';
+require_once __DIR__.'/../lib/RecordingMulticam.php';
 headerSecurity();header('X-Robots-Tag: noindex, nofollow');
 try {
  if(!installed())throw new DomainException('Install Lucky Game Hub first.',503);
@@ -21,8 +22,12 @@ try {
   }
   if($action==='media_list'){
    $id=RecordingSessions::id((string)($_GET['id']??''));RecordingSessions::get($db,$owner,$id);
-   $q=$db->prepare('SELECT a.id,a.kind,a.take_id,a.source_id,m.mime,m.title,m.bytes,m.duration_ms,m.created_at FROM recording_assets a JOIN recording_media_files m ON m.asset_id=a.id WHERE a.recording_session_id=? ORDER BY m.created_at,a.id LIMIT 160');
+   $q=$db->prepare('SELECT a.id,a.kind,a.take_id,a.source_id,a.start_offset_ms,a.sync_confidence,m.mime,m.title,m.bytes,m.duration_ms,m.created_at FROM recording_assets a JOIN recording_media_files m ON m.asset_id=a.id WHERE a.recording_session_id=? ORDER BY m.created_at,a.id LIMIT 160');
    $q->execute([$id]);success(['media'=>$q->fetchAll(PDO::FETCH_ASSOC)]);
+  }
+  if($action==='camera_devices'){
+   if(!$db->query("SHOW TABLES LIKE 'recording_camera_arms'")->fetch())throw new DomainException('Run upgrade.php to enable multicamera.',409);
+   success(['devices'=>RecordingMulticam::devices($db,$owner,(string)($_GET['id']??''))]);
   }
   throw new DomainException('Unknown recording operation.',404);
  }

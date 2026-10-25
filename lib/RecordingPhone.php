@@ -52,6 +52,17 @@ final class RecordingPhone {
   $title=trim((string)($input['title']??''));if($title===''||mbSafeLen($title)>120||preg_match('/[\x00-\x1f\x7f]/',$title))$title='Phone '.ucfirst($kind);
   $duration=max(0,min(3600000,(int)($input['durationMs']??0)));
   $takeId=(string)($input['takeId']??'');if($takeId!=='')RecordingSessions::id($takeId);
+  $syncStart=filter_var($input['recordedStartMs']??null,FILTER_VALIDATE_INT);
+  $syncEnd=filter_var($input['recordedEndMs']??null,FILTER_VALIDATE_INT);
+  $syncDelta=filter_var($input['clockOffsetMs']??null,FILTER_VALIDATE_INT);
+  $coordinated=$syncStart!==null&&$syncStart!==false;
+  if(!$coordinated&&(array_key_exists('recordedEndMs',$input)||array_key_exists('clockOffsetMs',$input)||array_key_exists('recordedStartMs',$input)))
+   throw new DomainException('Synchronized capture metadata must be complete.',422);
+  if($coordinated){
+   if(!in_array($kind,['video','audio'],true)||$takeId===''||$syncEnd===false||$syncEnd===null||$syncDelta===false||$syncDelta===null||
+     (int)$syncStart<1000000000000||(int)$syncEnd<(int)$syncStart||(int)$syncEnd-(int)$syncStart>3600000||abs((int)$syncDelta)>86400000)
+    throw new DomainException('Invalid synchronized capture metadata.',422);
+  }
   $digest=hash_file('sha256',(string)$file['tmp_name']);
   $path=LUCKY_ROOT.'/storage/recording-assets/'.$assetId.'.bin';$moved=false;
   $db->beginTransaction();try{
@@ -63,8 +74,17 @@ final class RecordingPhone {
      throw new DomainException('Upload identifier already used for different content.',409);
     $db->commit();return ['id'=>$assetId,'kind'=>$kind,'bytes'=>$bytes,'existing'=>true];
    }
-   if($takeId!==''){$q=$db->prepare('SELECT id FROM recording_takes WHERE id=? AND recording_session_id=?');$q->execute([$takeId,$sessionId]);
-    if(!$q->fetchColumn())throw new DomainException('Recording take does not belong to this session.',403);}
+   if($takeId!==''){$q=$db->prepare('SELECT id,started_at FROM recording_takes WHERE id=? AND recording_session_id=?');$q->execute([$takeId,$sessionId]);
+    $take=$q->fetch(PDO::FETCH_ASSOC);if(!$take)throw new DomainException('Recording take does not belong to this session.',403);}
+   $offset=0;
+   if($coordinated){
+    $q=$db->prepare('SELECT armed FROM recording_camera_arms WHERE recording_session_id=? AND pair_id=?');$q->execute([$sessionId,$pairId]);
+    if((int)$q->fetchColumn()!==1)throw new DomainException('Phone was not armed for this coordinated recording.',403);
+    $takeStart=DateTimeImmutable::createFromFormat('!Y-m-d H:i:s.v',(string)$take['started_at'],new DateTimeZone('UTC'));
+    if(!$takeStart)throw new DomainException('Invalid take timestamp.',422);
+    $offset=(int)$syncStart-(int)round((float)$takeStart->format('U.u')*1000);
+    if($offset< -30000||$offset>3600000)throw new DomainException('Capture timing does not match this take.',422);
+   }
    $q=$db->prepare('SELECT COUNT(*) AS total,COALESCE(SUM(m.bytes),0) AS used FROM recording_assets a JOIN recording_media_files m ON m.asset_id=a.id WHERE a.recording_session_id=?');
    $q->execute([$sessionId]);$usage=$q->fetch(PDO::FETCH_ASSOC);
    if((int)$usage['total']>=ClaimMedia::MAX_CLIPS_PER_SESSION||(int)$usage['used']+$bytes>ClaimMedia::MAX_SESSION_BYTES)
@@ -73,10 +93,12 @@ final class RecordingPhone {
    $source=RecordingSessions::source($db,(int)$pair['host_admin_id'],$sessionId,['key'=>$key,'kind'=>'phone','name'=>$sourceName]);
    if(!is_dir(dirname($path))&&!mkdir(dirname($path),0700,true))throw new RuntimeException('Could not create private recording folder.');
    if(!move_uploaded_file((string)$file['tmp_name'],$path))throw new RuntimeException('Failed to save recording.');$moved=true;@chmod($path,0600);
-   $q=$db->prepare('INSERT INTO recording_assets(id,recording_session_id,take_id,source_id,storage_key,kind) VALUES (?,?,?,?,?,?)');
-   $q->execute([$assetId,$sessionId,$takeId!==''?$takeId:null,$source['id'],$assetId,$kind]);
+   $q=$db->prepare('INSERT INTO recording_assets(id,recording_session_id,take_id,source_id,storage_key,kind,start_offset_ms,sync_confidence) VALUES (?,?,?,?,?,?,?,?)');
+   $q->execute([$assetId,$sessionId,$takeId!==''?$takeId:null,$source['id'],$assetId,$kind,$offset,$coordinated?1:0]);
    $q=$db->prepare('INSERT INTO recording_media_files(asset_id,mime,title,bytes,sha256,duration_ms,uploaded_by_pair_id) VALUES (?,?,?,?,?,?,?)');
    $q->execute([$assetId,$mime,$title,$bytes,$digest,$duration,$pairId]);
+   if($coordinated){$q=$db->prepare("INSERT INTO recording_capture_sync(asset_id,recorded_start_ms,recorded_end_ms,clock_offset_ms,sync_method) VALUES (?,?,?,?,'controller_poll')");
+    $q->execute([$assetId,(int)$syncStart,(int)$syncEnd,(int)$syncDelta]);}
    $db->commit();return ['id'=>$assetId,'kind'=>$kind,'bytes'=>$bytes,'existing'=>false];
   }catch(Throwable $e){if($db->inTransaction())$db->rollBack();if($moved)@unlink($path);throw $e;}
  }
