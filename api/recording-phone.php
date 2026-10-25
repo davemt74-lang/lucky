@@ -3,6 +3,7 @@ declare(strict_types=1);
 require __DIR__.'/../lib/Bootstrap.php';
 require_once __DIR__.'/../lib/RecordingSessions.php';
 require_once __DIR__.'/../lib/RecordingPhone.php';
+require_once __DIR__.'/../lib/RecordingMulticam.php';
 headerSecurity();header('Referrer-Policy: no-referrer');header('X-Robots-Tag: noindex, nofollow');
 try{
  if(!installed())throw new DomainException('Lucky Game Hub is not installed.',409);
@@ -23,6 +24,18 @@ try{
   if(!str_starts_with($type,'application/json'))throw new DomainException('JSON required.',415);
   $in=jsonInput();$pair=ControllerPairing::authenticate($db,(string)($in['id']??''),(string)($_SERVER['HTTP_X_CONTROLLER_TOKEN']??''),true);
   success(['sessions'=>RecordingPhone::sessions($db,$pair)]);
+ }
+ if(in_array($action,['arm','poll'],true)){
+  if(!str_starts_with($type,'application/json'))throw new DomainException('JSON required.',415);
+  if(!$db->query("SHOW TABLES LIKE 'recording_camera_arms'")->fetch())throw new DomainException('Run upgrade.php to enable multicamera.',409);
+  $in=jsonInput();$pair=ControllerPairing::authenticate($db,(string)($in['id']??''),(string)($_SERVER['HTTP_X_CONTROLLER_TOKEN']??''),true);
+  $sessionId=(string)($in['session']??'');
+  if($action==='arm'){
+   if(!is_bool($in['enabled']??null))throw new DomainException('Choose whether to arm your phone.',422);
+   if($in['enabled']&&($in['consent']??'')!=='yes')throw new DomainException('Consent is required before arming a camera.',403);
+   success(['camera'=>RecordingMulticam::arm($db,$pair,$sessionId,$in['enabled'],(string)($in['kind']??''))]);
+  }
+  success(['coordination'=>RecordingMulticam::poll($db,$pair,$sessionId,(string)($in['state']??'standby'))]);
  }
  if($action==='upload'){
   if(!str_starts_with($type,'multipart/form-data'))throw new DomainException('Media upload form required.',415);

@@ -97,6 +97,8 @@ final class RecordingSessions {
    $q=$db->prepare('SELECT * FROM recording_takes WHERE recording_session_id=? AND client_nonce=?');$q->execute([$id,$nonce]);$prior=$q->fetch(PDO::FETCH_ASSOC);
    if($prior){if(!hash_equals((string)$prior['request_hash'],$hash))throw new DomainException('Take request token already used for another take.',409);$db->commit();return self::publicTake($prior);}
    if(!in_array($session['status'],['draft','active'],true))throw new DomainException('This recording session is not open for new takes.',409);
+   $q=$db->prepare("SELECT id FROM recording_takes WHERE recording_session_id=? AND status='recording' LIMIT 1");$q->execute([$id]);
+   if($q->fetchColumn())throw new DomainException('Stop the active take before starting another coordinated take.',409);
    if($session['status']==='draft'){
     $q=$db->prepare("UPDATE recording_sessions SET status='active',revision=revision+1,started_at=UTC_TIMESTAMP(3) WHERE id=?");$q->execute([$id]);
    }

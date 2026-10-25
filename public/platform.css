@@ -1311,3 +1311,9 @@ body.game-fullwidth .header{position:relative;z-index:60}
 .recording-media-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}.recording-media-card{min-width:0;padding:10px;border:1px solid #4a647e;border-radius:12px;background:#101e30;overflow-wrap:anywhere}
 .recording-media-card video,.recording-media-card img,.recording-media-card audio{width:100%;max-height:250px;margin-top:10px;object-fit:contain}
 @media(max-width:750px){.recordings-workspace{grid-template-columns:minmax(0,1fr)}.recording-phone-stage{flex-basis:38dvh;min-height:200px;max-height:55dvh}.recording-phone-control-row button{flex:1 1 120px}}
+.recording-multicam-arm{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#142f45;border:1px solid #3b607f;border-radius:12px;padding:10px}
+.recording-multicam-arm strong{color:#eec47f;font-size:13px}.recording-multicam-arm p{color:#c2d6e5;font-size:12px;margin:4px 0 0;line-height:1.4}
+.recording-multicam-arm button{flex:0 0 auto;min-width:118px}
+.recording-camera-devices{display:grid;gap:7px}.recording-camera-device{border:1px solid #586a7e;border-radius:9px;padding:9px 11px;background:#152638;color:#c8d7e4}
+.recording-camera-device[data-online=true]{border-color:#58b38d;color:#d8ffea}
+@media(max-width:540px){.recording-multicam-arm{flex-wrap:wrap}.recording-multicam-arm button{width:100%}}

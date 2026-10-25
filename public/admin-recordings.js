@@ -26,13 +26,15 @@
   $('recording-phone-enabled').checked=permission.phoneEnabled;
   $('recording-phone-enabled').disabled=s.status==='archived'||s.status==='completed';
   $('recording-take-start').disabled=s.status!=='active';
+  await refreshDevices(id);
   const takes=$('recording-takes');takes.replaceChildren();
   for(const t of detail.takes){const row=el('div',`Take ${t.take_index} · ${t.title} · ${t.status}`,'recording-take-row');
    if(t.status==='recording'){const stop=el('button','■ Stop take','btn btn-outline');stop.type='button';stop.onclick=()=>run(async()=>{await api('take_stop',{id,takeId:t.id});await refresh();});row.append(stop);}takes.append(row);}
   if(!detail.takes.length)takes.append(el('p','No takes. Start one before coordinating cameras.'));
   const mediaList=$('recording-media');mediaList.replaceChildren();
   for(const asset of media.media||[]){const row=el('article','','recording-media-card');
-   const label=el('div',`${asset.title} · ${asset.kind} · ${(asset.bytes/1048576).toFixed(1)} MB`);row.append(label);
+   const aligned=Number(asset.sync_confidence)>0?` · take offset ${Number(asset.start_offset_ms)>=0?'+':''}${(Number(asset.start_offset_ms)/1000).toFixed(2)}s (approx.)`:'';
+   const label=el('div',`${asset.title} · ${asset.kind} · ${(asset.bytes/1048576).toFixed(1)} MB${aligned}`);row.append(label);
    const src='api/recording-media.php?'+new URLSearchParams({id:asset.id});
    if(asset.kind==='photo'){const img=el('img');img.alt=asset.title;img.loading='lazy';img.src=src;row.append(img);}
    else{const viewer=el(asset.kind==='audio'?'audio':'video');viewer.src=src;viewer.controls=true;viewer.preload='none';if(asset.kind==='video')viewer.playsInline=true;row.append(viewer);}
@@ -40,6 +42,16 @@
   }
   if(!(media.media||[]).length)mediaList.append(el('p','No phone media uploaded yet.'));
   rootMark();
+ }
+ async function refreshDevices(id=selected){if(!id)return;
+  const response=await api('camera_devices',null,{id});if(selected!==id)return;
+  const root=$('recording-armed-devices');root.replaceChildren();
+  for(const device of response.devices||[]){if(!device.armed)continue;
+   const status=device.online?`${device.state} · connected`:'offline / awaiting reconnection';
+   const item=el('div',`${device.name||'Paired phone'} · ${device.kind} · ${status}`,'recording-camera-device');
+   item.dataset.online=String(device.online);root.append(item);
+  }
+  if(!root.children.length)root.append(el('p','No phones armed. Open Camera Studio on each approved phone, grant consent and tap Arm for host.'));
  }
  function rootMark(){document.querySelectorAll('.recording-list-item').forEach((button,i)=>button.setAttribute('aria-pressed',String(sessions[i]?.id===selected)));}
  async function run(fn){if(busy)return;busy=true;try{await fn();note('Recording session updated.');}catch(e){note(e.message,true);}finally{busy=false;}}
@@ -49,9 +61,11 @@
   const result=await api('create',body);$('recording-create').reset();$('recording-game-wrap').hidden=true;selected=result.session.id;await refresh();
  });};
  $('recording-refresh').onclick=()=>run(refresh);
+ $('recording-refresh-devices').onclick=()=>void refreshDevices().catch(e=>note(e.message,true));
  $('recording-activate').onclick=()=>run(async()=>{await api('status',{id:selected,status:'active',revision:details.session.revision});await refresh();});
  $('recording-finish').onclick=()=>run(async()=>{await api('status',{id:selected,status:'completed',revision:details.session.revision});await api('phone_permission',{id:selected,enabled:false});await refresh();});
  $('recording-phone-enabled').onchange=e=>{const enabled=e.target.checked;void run(async()=>{await api('phone_permission',{id:selected,enabled});await select(selected);});};
  $('recording-take-start').onclick=()=>run(async()=>{await api('take_start',{id:selected,title:$('recording-take-name').value.trim()||'Take',nonce:random()});$('recording-take-name').value='';await refresh();});
  document.querySelector('[data-tab="recordings"]')?.addEventListener('click',()=>void run(refresh));
+ setInterval(()=>{if(selected&&!document.hidden&&!$('tab-recordings').hidden)void refreshDevices().catch(()=>{});},3000);
 })();
