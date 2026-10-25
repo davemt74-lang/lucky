@@ -23,7 +23,7 @@ shellStart('Video Studio','editor','editor-workspace');
      <label>What should the editor do?<textarea id="editor-ai-instruction" maxlength="500" rows="4" placeholder="Make the prize reveal shorter and give it a cinematic feel."></textarea></label>
      <section class="video-ai-cue-box" aria-label="Private local recording analysis">
       <strong>Scene &amp; silence detection</strong>
-      <p class="studio-tool-hint">Inspect source video and audio locally to find scene changes and quiet sections. Nothing is uploaded during analysis.</p>
+      <p class="studio-tool-hint">Inspect video and audio locally to find scene changes and quiet sections. Use the detected marker buttons to set In, Out or Split on your unsaved timeline. Nothing is uploaded during analysis.</p>
       <button type="button" class="btn btn-outline" id="editor-ai-analyze">◉ Analyze timeline locally</button>
       <p id="editor-ai-analysis-state" class="studio-tool-hint" role="status" aria-live="polite">No analysis run for this timeline.</p>
       <ol id="editor-ai-analysis-results" class="video-ai-analysis-results" aria-label="Detected editing cues"></ol>
@@ -107,5 +107,5 @@ shellStart('Video Studio','editor','editor-workspace');
  </dialog>
  <p id="editor-feedback" role="status" class="studio-feedback studio-feedback-overlay" aria-live="polite"></p><span id="editor-caption" class="sr-only" role="status">No clip playing.</span>
 </section>
-<script src="public/client.js" defer></script><script src="public/proof-sequence.js?v=5q8b" defer></script><script src="public/editor-timeline.js?v=5q29a" defer></script><script src="public/editor.js?v=5q29b" defer></script><script src="public/editor-video-ai.js?v=5q29b" defer></script><script src="public/ui-receiver.js?v=5q8" defer></script>
+<script src="public/client.js" defer></script><script src="public/proof-sequence.js?v=5q8b" defer></script><script src="public/editor-timeline.js?v=5q29a" defer></script><script src="public/editor-cue-tools.js?v=5q29c" defer></script><script src="public/editor.js?v=5q29c" defer></script><script src="public/editor-video-ai.js?v=5q29c" defer></script><script src="public/ui-receiver.js?v=5q8" defer></script>
 <?php shellEnd(); ?>
