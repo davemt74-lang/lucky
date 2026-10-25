@@ -41,6 +41,7 @@ jobs:
           php tests/v5q24_plugin_permissions.php
           node tests/v5q24_sdk_contract.js
           node tests/v5q23b_sdk.js
+          node tests/v5q29a_timeline.js
           python3 tests/v5q23b_game_sdk.py
           php tests/v5q16_session_lifecycle.php
           php tests/v5q18_foundation.php
@@ -175,6 +176,7 @@ jobs:
           python tests/v5q27d_phone_claims_browser.py
           python tests/v5q28a_video_ai_browser.py
           python tests/v5q28b_phone_capture_browser.py
+          python tests/v5q29a_timeline_browser.py
           python tests/v5q26b_video_gallery_browser.py
           python tests/v5q27b_host_chooser_scroll_browser.py
       - name: Phone controller regressions

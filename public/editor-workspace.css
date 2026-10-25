@@ -433,3 +433,20 @@ body.editor-workspace .studio-sequence-lane.studio-titles-lane{border-top:1px so
 .video-ai-operation small{font-size:12px;color:#bad1e3;white-space:normal}
 .video-ai-review .platform-control-row{display:flex;gap:8px;flex-wrap:wrap}
 .video-ai-connected{color:#a9ffd5!important}
+
+/* V5Q.29A — precise time ruler, waveform overlays and reversible edit controls. */
+body.editor-workspace .studio-sequence-left{flex-wrap:wrap}
+body.editor-workspace .studio-sequence-left strong{margin-left:4px}
+body.editor-workspace .studio-sequence-left #editor-undo,
+body.editor-workspace .studio-sequence-left #editor-redo{padding:6px 8px}
+body.editor-workspace #editor-undo:disabled,body.editor-workspace #editor-redo:disabled{opacity:.42;cursor:not-allowed}
+body.editor-workspace .studio-snap-control{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#f2dfb4;white-space:nowrap;cursor:pointer}
+body.editor-workspace .studio-snap-control input{accent-color:#f4c775}
+body.editor-workspace .studio-ruler{position:relative;box-sizing:content-box;margin-left:120px;flex:0 0 auto;height:25px;min-width:200px;max-width:none}
+body.editor-workspace .studio-ruler-tick{position:absolute;top:0;bottom:0;box-sizing:border-box;width:auto;min-width:1px;padding:0 3px;border-left:1px solid #6685a8;background:transparent;white-space:nowrap}
+body.editor-workspace .studio-audio-cell{position:relative;isolation:isolate;justify-content:center;overflow:hidden}
+body.editor-workspace .studio-audio-cell .studio-waveform{position:absolute;inset:0;width:100%;height:100%;z-index:-1;opacity:.54;pointer-events:none}
+body.editor-workspace .studio-layer-block{isolation:isolate}
+body.editor-workspace .studio-background-block .studio-waveform{position:absolute;inset:0;width:100%;height:100%;z-index:-1;opacity:.7;pointer-events:none}
+body.editor-workspace .studio-track .editor-clip{cursor:default}
+@media(max-width:750px){body.editor-workspace .studio-sequence-head{align-items:flex-start}body.editor-workspace .studio-sequence-left{gap:5px}body.editor-workspace .studio-snap-control{font-size:10px}body.editor-workspace .studio-ruler{margin-left:85px}}

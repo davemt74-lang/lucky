@@ -43,7 +43,7 @@ window.fetch=async(url,opts={})=>{
 };
 </script>'''.replace('SESSION',SID).replace('MEDIA','d'*32).replace('SECOND','f'*32).replace('CLAIM','e'*32).replace('IMAGE',IMG)
 EDITOR=EDITOR.replace('</section>\n<script', '</section>\n<script')
-EDITOR=EDITOR+MOCK+'<script>'+ (ROOT/'public/editor.js').read_text().replace('</script','<\\/script')+'</script>'
+EDITOR=EDITOR+MOCK+'<script>'+ (ROOT/'public/editor-timeline.js').read_text().replace('</script','<\\/script')+'\n'+(ROOT/'public/editor.js').read_text().replace('</script','<\\/script')+'</script>'
 async def main():
  checks=[];errors=[]
  def ck(s,v):checks.append((s,bool(v)))

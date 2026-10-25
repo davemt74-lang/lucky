@@ -28,7 +28,7 @@ jobs:
         shell: pwsh
         run: |
           $release=Join-Path $env:RUNNER_TEMP 'lucky-homeserver-output'
-          $exe=Join-Path $release 'Lucky_Game_Hub_HomeServer_V5Q21_Setup.exe'
+          $exe=Join-Path $release 'Lucky_Game_Hub_HomeServer_V5Q29A_Setup.exe'
           if(!(Test-Path $exe)){throw 'EXE missing'}
           $hash=(Get-FileHash $exe -Algorithm SHA256).Hash.ToLowerInvariant()
           $expected=(Get-Content (Join-Path $release 'SHA256SUMS.txt') -Raw).Split(' ')[0].Trim()
@@ -40,7 +40,7 @@ jobs:
         shell: pwsh
         run: |
           $release=Join-Path $env:RUNNER_TEMP 'lucky-homeserver-output'
-          $exe=Join-Path $release 'Lucky_Game_Hub_HomeServer_V5Q21_Setup.exe'
+          $exe=Join-Path $release 'Lucky_Game_Hub_HomeServer_V5Q29A_Setup.exe'
           $installation=Join-Path $env:RUNNER_TEMP 'LuckyHomeServerInstalled'
           $proc=Start-Process -FilePath $exe -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/TASKS=""',"/DIR=$installation") -Wait -PassThru
           if($proc.ExitCode -ne 0){throw "EXE installation failed: $($proc.ExitCode)"}
@@ -122,9 +122,9 @@ jobs:
       - name: Upload Windows installer and verification manifest
         uses: actions/upload-artifact@v4
         with:
-          name: Lucky_Game_Hub_HomeServer_V5Q21_Windows_Preview
+          name: Lucky_Game_Hub_HomeServer_V5Q29A_Windows_Preview
           path: |
-            ${{ runner.temp }}/lucky-homeserver-output/Lucky_Game_Hub_HomeServer_V5Q21_Setup.exe
+            ${{ runner.temp }}/lucky-homeserver-output/Lucky_Game_Hub_HomeServer_V5Q29A_Setup.exe
             ${{ runner.temp }}/lucky-homeserver-output/SHA256SUMS.txt
             ${{ runner.temp }}/lucky-homeserver-output/RUNTIME_MANIFEST.json
           if-no-files-found: error
