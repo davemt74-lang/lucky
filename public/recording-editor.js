@@ -3,7 +3,7 @@
  'use strict';
  const $=id=>document.getElementById(id), params=new URLSearchParams(location.search),sessionId=params.get('session')||'';
  let assets=[],revision=0,timeline={offsets:[],switches:[]},session=null,selected='',timeMs=0,playing=false,lastFrame=0,mediaId='',busy=false,dirty=false,initialized=false;
- let exportBusy=false,exportTimer=null,exportClosed=false;
+ let exportBusy=false,exportActive=false,exportTimer=null,exportClosed=false;
  const MAX_MS=86400000, clamp=(n,a,b)=>Math.max(a,Math.min(b,n)),seconds=ms=>(ms/1000).toFixed(2);
  const clock=ms=>{const n=Math.max(0,Math.floor(ms/1000));return `${String(Math.floor(n/60)).padStart(2,'0')}:${String(n%60).padStart(2,'0')}.${Math.floor(ms%1000/100)}`;};
  const el=(tag,text='',className='')=>{const item=document.createElement(tag);item.textContent=text;item.className=className;return item;};
@@ -101,7 +101,7 @@
  }
  async function save(){if(busy)return;busy=true;$('mc-save').disabled=true;
   try{const result=await api('save',{id:sessionId,revision,timeline});revision=result.edit.revision;timeline=result.edit.timeline;dirty=false;
-   $('mc-save').textContent='✓ Saved';$('mc-export-start').disabled=!assets.length;notice(`Timeline saved · revision ${revision}. Original footage remains private and unchanged.`);
+   $('mc-save').textContent='✓ Saved';$('mc-export-start').disabled=!assets.length||exportActive;notice(`Timeline saved · revision ${revision}. Original footage remains private and unchanged.`);
   }catch(e){notice(e.message,true);$('mc-save').disabled=false;}finally{busy=false;}
  }
  async function exportApi(action,body=null){
@@ -144,7 +144,8 @@
   if(!initialized||exportClosed)return;
   try{
    const data=await exportApi('list');renderExports(data.exports||[]);
-   const active=(data.exports||[]).some(job=>['queued','running'].includes(job.status));
+   const active=(data.exports||[]).some(job=>['queued','running'].includes(job.status));exportActive=active;
+   $('mc-export-start').disabled=dirty||exportBusy||active||!assets.length;
    if(active)exportNotice('Export queued or processing. Your sources and saved timeline remain available.');
    else if(!exportBusy)exportNotice('Ready to render a private MP4 from your current saved edits.');
    if(exportTimer)clearTimeout(exportTimer);
@@ -152,7 +153,7 @@
   }catch(e){exportNotice(e.message);}
  }
  async function startExport(){
-  if(exportBusy||dirty||!assets.length)return;
+  if(exportBusy||exportActive||dirty||!assets.length)return;
   exportBusy=true;$('mc-export-start').disabled=true;
   try{
    const selection=$('mc-export-audio').value;
@@ -161,7 +162,7 @@
    exportNotice(`Export ${result.export.status} · ${result.export.id.slice(0,8)}. The server will render without changing original recordings.`);
    await loadExports();
   }catch(e){exportNotice(e.message);}
-  finally{exportBusy=false;$('mc-export-start').disabled=dirty||!assets.length;}
+  finally{exportBusy=false;$('mc-export-start').disabled=dirty||exportActive||!assets.length;}
  }
  function download(){const report={type:'lucky-multicamera-edl-v1',sessionId,sessionType:session?.type,revision,timeline,media:assets.map(a=>({id:a.id,source:a.source_name,takeId:a.take_id,originalOffsetMs:a.initial_global_offset_ms,alignedOffsetMs:offset(a),durationMs:length(a)}))};
   const url=URL.createObjectURL(new Blob([JSON.stringify(report,null,2)],{type:'application/json'}));const link=document.createElement('a');link.href=url;link.download='multicamera-'+sessionId.slice(0,8)+'.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1500);

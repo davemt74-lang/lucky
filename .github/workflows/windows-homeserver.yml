@@ -126,7 +126,7 @@ jobs:
           if(!(Test-Path $exportSource)){throw 'Multicamera encoder test missing'}
           Copy-Item -LiteralPath $exportSource -Destination $exportTest -Force
           $env:PATH=(Join-Path $installation 'runtime\ffmpeg\bin')+';'+$env:PATH
-          & $php -c $ini $exportTest
+          & $php -c $ini -d display_errors=1 -d log_errors=0 $exportTest
           if($LASTEXITCODE -ne 0){throw 'Bundled Windows multicamera FFmpeg render failed'}
           Write-Host 'WINDOWS_MULTICAMERA_MP4_CERTIFIED'
       - name: Upload Windows installer and verification manifest

@@ -32,6 +32,12 @@ try{
  renderAssert(in_array('video',$types,true)&&in_array('audio',$types,true),'Export contains playable video and selected master audio');
  renderAssert(abs((float)$decoded['format']['duration']-1.0)<.25,'FFmpeg output duration is aligned');
  echo "V5Q.29E4B MULTICAMERA MP4 ENCODER CERTIFIED\n";
+}catch(Throwable $e){
+ foreach(['audio-master.log','concat.log','segment-0.log','segment-1.log'] as $log){
+  $path=$root.'/work/'.$log;
+  if(is_file($path))fwrite(STDERR,$log.":\n".(string)file_get_contents($path)."\n");
+ }
+ throw $e;
 }finally{
  foreach(glob($root.'/work/*')?:[] as $file)if(is_file($file))@unlink($file);
  if(is_dir($root.'/work'))@rmdir($root.'/work');

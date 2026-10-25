@@ -36,6 +36,8 @@ with FFmpeg and FFprobe available. Nothing expensive runs in an HTTP request.
 Windows HomeServer now invokes the existing CLI render worker in the background
 on a bounded 15-second cadence while the HomeServer is running. The worker
 has its own exclusive file lock and handles one queued job at a time.
+The Windows first-boot initializer and restart migrator both apply the E1–E4B
+recording migrations; startup verifies the full recording schema is present.
 
 ## Initial render limits
 

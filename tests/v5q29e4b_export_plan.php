@@ -26,4 +26,9 @@ exportReject(fn()=>RecordingExportPlan::build($media,['offsets'=>[],'switches'=>
 exportReject(fn()=>RecordingExportPlan::build([['id'=>$a,'kind'=>'video','duration_ms'=>1200001,'initial_global_offset_ms'=>0]],['offsets'=>[],'switches'=>[]]),422,'Twenty-minute output limit applies');
 $photo=RecordingExportPlan::build([['id'=>$a,'kind'=>'photo','duration_ms'=>0,'initial_global_offset_ms'=>0]],['offsets'=>[],'switches'=>[]]);
 exportAssert($photo['durationMs']===4000&&$photo['segments'][0]['kind']==='photo','Photo duration defaults to four seconds');
+$gap=RecordingExportPlan::build([
+ ['id'=>$a,'kind'=>'video','duration_ms'=>1000,'initial_global_offset_ms'=>0],
+ ['id'=>$b,'kind'=>'video','duration_ms'=>1000,'initial_global_offset_ms'=>2000],
+],['offsets'=>[],'switches'=>[]]);
+exportAssert(array_column($gap['segments'],'kind')===['video','gap','video']&&$gap['durationMs']===3000,'Uncovered moments are explicitly rendered as timeline gaps');
 echo "V5Q.29E4B MULTICAMERA EXPORT PLAN CERTIFIED\n";

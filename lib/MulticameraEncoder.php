@@ -77,7 +77,7 @@ final class MulticameraEncoder {
     $delay=max(0,$offset);
     $filter="[1:a:0]aresample=48000,adelay={$delay}:all=1,apad=whole_dur={$durationSeconds},atrim=duration={$durationSeconds},asetpts=N/SR/TB[master]";
     $args=array_merge($args,['-filter_complex',$filter,'-map','0:v:0','-map','[master]',
-     '-t',$durationSeconds,'-c:v','copy','-c:a','aac','-b:a','160k','-movflags','+faststart',$tempOutput]);
+     '-t',$durationSeconds,'-c:v','copy','-c:a','aac','-b:a','160k','-movflags','+faststart','-f','mp4',$tempOutput]);
     $this->runner->runProcess($args,$tempDir.'/audio-master.log',240);
    }else{
     if(!copy($combined,$tempOutput))throw new RuntimeException('Cannot stage finished multicamera video.');
