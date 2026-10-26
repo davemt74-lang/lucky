@@ -14,5 +14,8 @@ checkCameraHF4(!str_contains($controller,'data-phone-view="camera" disabled'),'C
 checkCameraHF4(str_contains($js,"if(name!=='camera')button.disabled=!availability[name]"),'Controller status refresh does not disable independent studio link');
 checkCameraHF4(str_contains($js,"if(button.dataset.phoneView==='camera')return;"),'Normal camera link is not intercepted by game/proof navigation');
 checkCameraHF4(str_contains($css,'.phone-bottom-nav :is(button,a.phone-camera-studio-link)')&&str_contains($css,'.phone-menu-items :is(button,a.phone-camera-studio-link)'),'Camera links retain designed dock and menu styling');
-checkCameraHF4(str_contains($controller,'public/phone-controller.js?v=5q29e4d1hf4')&&str_contains($controller,'public/platform.css?v=5q29e4d1hf4'),'Controller refreshes its own cached scripts and CSS');
+preg_match('/public\\/phone-controller\\.js\\?v=([a-z0-9]+)/',$controller,$controllerScript);
+preg_match('/public\\/phone-capture\\.js\\?v=([a-z0-9]+)/',$controller,$captureScript);
+preg_match('/public\\/platform\\.css\\?v=([a-z0-9]+)/',$controller,$stylesheet);
+checkCameraHF4(isset($controllerScript[1],$captureScript[1],$stylesheet[1])&&$controllerScript[1]===$captureScript[1]&&$controllerScript[1]===$stylesheet[1],'Controller refreshes its scripts and CSS together');
 echo "V5Q.29E4D1HF4 NATIVE CAMERA NAV CONTRACT PASSED\n";
