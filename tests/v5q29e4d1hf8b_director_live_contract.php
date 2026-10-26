@@ -17,7 +17,7 @@ assertLive(str_contains($proof,'director-publish.js')&&str_contains($proof,'came
 assertLive(str_contains($director,'program.captureStream(25)')&&str_contains($director,'programStream:')&&!str_contains($publisher,'director-preview'),'Only Program canvas exposed to publisher');
 assertLive(str_contains($publisher,"request('publish'")&&str_contains($publisher,"request('stop'")&&str_contains($publisher,'lucky:proof-close'),'Explicit publish, revoke and proof-close lifecycle');
 assertLive(str_contains($api,'requireAdmin()')&&str_contains($api,'assertCsrf()')&&str_contains($api,'SchemaGuard::require'),'Administrative publication, CSRF and upgrade guard');
-assertLive(str_contains($service,"hash('sha256',$key)")&&str_contains($service,'hash_equals('),'Viewer bearer token stored only as hash');
+assertLive(str_contains($service,"hash('sha256',".'$key'.")")&&str_contains($service,'hash_equals('),'Viewer bearer token stored only as hash');
 assertLive(str_contains($service,'consent_ack=1')&&str_contains($service,'is_open=1'),'Live publication requires active consented proof');
 assertLive(str_contains($service,'INTERVAL 14 SECOND')&&str_contains($service,'MAX_VIEWERS=8'),'Inactive broadcasts expire and viewer count is bounded');
 assertLive(str_contains($page,'no-referrer')&&str_contains($page,'director-view-video')&&str_contains($viewer,"addTransceiver('video'"),'Read-only Live View with no leaked invitation referrer');
