@@ -16,7 +16,7 @@ foreach(['v5q_claim_media.sql','v5q29e1_recording_sessions.sql','v5q29e2_phone_c
  'v5q29e3_multicamera_coordination.sql','v5q29e4c_recording_profiles.sql'] as $name)
  foreach(MigrationSql::statements((string)file_get_contents(__DIR__.'/../lib/migrations/'.$name)) as $sql)$db->exec($sql);
 checkAuto(PrizePackages::ensurePhoneCameraColumn($db)===false,'New prize packages include phone camera setting');
-$db->prepare('INSERT INTO game_settings(game_id,config_json,intro_json,theme_json) VALUES (?,?,?,?)')->execute([
+$db->prepare('INSERT IGNORE INTO game_settings(game_id,config_json,intro_json,theme_json) VALUES (?,?,?,?)')->execute([
  'spin-wheel',json_encode(GameEngine::defaults(),JSON_THROW_ON_ERROR),'{}','{}'
 ]);
 PrizePackages::read($db,true);
