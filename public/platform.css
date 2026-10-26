@@ -1182,12 +1182,12 @@ body.game-fullwidth .header{position:relative;z-index:60}
 .phone-controller-page .phone-prize-decision [data-phone=prize-decline]{color:#ffb0b5;border-color:#a74d5b;background:#4b263466}
 .phone-bottom-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);z-index:90;width:min(100%,565px);display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:2px;padding:7px 7px max(8px,env(safe-area-inset-bottom));border:1px solid #38506d;border-bottom:0;border-radius:17px 17px 0 0;background:#0a1a30f5;box-shadow:0 -12px 32px #0009;backdrop-filter:blur(8px)}
 .phone-bottom-nav[hidden]{display:none!important}
-.phone-bottom-nav button{display:grid;place-items:center;align-content:center;gap:4px;min-width:0;min-height:53px;padding:5px 0;border:0;border-radius:10px;background:transparent;color:#bad0e2;font:inherit}
-.phone-bottom-nav button span{font-size:20px;line-height:1.1}
-.phone-bottom-nav button small{font-size:10px}
-.phone-bottom-nav button.is-active{background:#263953;color:#ffda98}
+.phone-bottom-nav :is(button,a.phone-camera-studio-link){display:grid;place-items:center;align-content:center;gap:4px;min-width:0;min-height:53px;padding:5px 0;border:0;border-radius:10px;background:transparent;color:#bad0e2;font:inherit}
+.phone-bottom-nav :is(button,a.phone-camera-studio-link) span{font-size:20px;line-height:1.1}
+.phone-bottom-nav :is(button,a.phone-camera-studio-link) small{font-size:10px}
+.phone-bottom-nav :is(button,a.phone-camera-studio-link).is-active{background:#263953;color:#ffda98}
 .phone-bottom-nav button:disabled{opacity:.42;cursor:not-allowed}
-.phone-bottom-nav button:focus-visible{outline:2px solid #f5c472;outline-offset:1px}
+.phone-bottom-nav :is(button,a.phone-camera-studio-link):focus-visible{outline:2px solid #f5c472;outline-offset:1px}
 .phone-quick-menu{box-sizing:border-box;position:fixed;inset:0;width:100%;max-width:none;height:100dvh;max-height:none;margin:0;overflow:auto;border:0;border-radius:0;background:#101f33;color:#f4f8ff;padding:calc(env(safe-area-inset-top) + 18px) clamp(16px,4vw,28px) calc(env(safe-area-inset-bottom) + 24px);box-shadow:0 25px 65px #000d}
 .phone-quick-menu::backdrop{background:#040a16dd;backdrop-filter:blur(4px)}
 .phone-quick-menu header{display:flex;align-items:center;justify-content:space-between}
@@ -1196,9 +1196,9 @@ body.game-fullwidth .header{position:relative;z-index:60}
 .phone-quick-menu h2{font-size:21px;margin:20px 0 6px}
 .phone-quick-menu p{font-size:12px;color:#b4c7db;line-height:1.5}
 .phone-menu-items{display:grid;gap:8px;margin:16px 0}
-.phone-menu-items button{display:flex;align-items:center;text-align:left;gap:14px;border:1px solid #3e5570;border-radius:12px;padding:12px;background:#192e48;color:#f9fcff;font-size:20px;min-height:56px}
-.phone-menu-items button span{display:flex;flex-direction:column;gap:3px;font-size:13px;font-weight:850}
-.phone-menu-items button span small{font-size:11px;font-weight:400;color:#b2c8df}
+.phone-menu-items :is(button,a.phone-camera-studio-link){display:flex;align-items:center;text-align:left;gap:14px;border:1px solid #3e5570;border-radius:12px;padding:12px;background:#192e48;color:#f9fcff;font-size:20px;min-height:56px}
+.phone-menu-items :is(button,a.phone-camera-studio-link) span{display:flex;flex-direction:column;gap:3px;font-size:13px;font-weight:850}
+.phone-menu-items :is(button,a.phone-camera-studio-link) span small{font-size:11px;font-weight:400;color:#b2c8df}
 .phone-menu-items button:disabled{opacity:.44}
 .phone-menu-privacy{padding-top:13px;border-top:1px solid #405371}
 .phone-menu-disconnect{width:100%;margin-top:12px;min-height:44px;color:#ffb5bd;border-color:#a6575f}
@@ -1223,7 +1223,7 @@ body.game-fullwidth .header{position:relative;z-index:60}
 .phone-direction-popup{max-width:290px;grid-template-rows:repeat(3,minmax(64px,1fr));gap:9px;margin:18px auto 8px}
 .phone-direction-popup button{min-height:64px;font-size:28px;font-weight:850}
 .phone-direction-popup [data-phone=select]{grid-column:2;grid-row:2;border-color:#e9b96c;background:#725331;color:#fff1cd;font-size:13px}
-@media(max-width:360px){.phone-bottom-nav button small{font-size:9px}.phone-bottom-nav button span{font-size:19px}}
+@media(max-width:360px){.phone-bottom-nav :is(button,a.phone-camera-studio-link) small{font-size:9px}.phone-bottom-nav :is(button,a.phone-camera-studio-link) span{font-size:19px}}
 
 /* V5Q.27D: uncluttered phone controls and authenticated claim history. */
 .phone-controller-page .phone-inline-status{margin:0 auto 8px;width:min(100%,620px);text-align:center;font-size:12px;line-height:1.45;color:#c3d6e7}
@@ -1325,3 +1325,5 @@ body.game-fullwidth .header{position:relative;z-index:60}
 .recording-camera-devices{display:grid;gap:7px}.recording-camera-device{border:1px solid #586a7e;border-radius:9px;padding:9px 11px;background:#152638;color:#c8d7e4}
 .recording-camera-device[data-online=true]{border-color:#58b38d;color:#d8ffea}
 @media(max-width:540px){.recording-multicam-arm{flex-wrap:wrap}.recording-multicam-arm button{width:100%}}
+
+.phone-bottom-nav a.phone-camera-studio-link,.phone-menu-items a.phone-camera-studio-link{text-decoration:none;cursor:pointer}
