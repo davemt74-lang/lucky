@@ -88,7 +88,16 @@
    $('proof-return').href=returnUrl();
    const profile=r.session?.pools?.[p.tier]?.prizes?.find(x=>x.id===p.prizeId);
    // Initialize the verified claim first so camera discovery never loses its context.
-   if($('capture-phone-camera'))$('capture-phone-camera').checked=false;
+   // Prize packages own the default phone-camera permission. Always resolve the
+   // current package setting: a host may enable cameras after a game starts.
+   let packageCameraEnabled=r.session?.prizePackage?.phoneCameraEnabled===true;
+   const packageId=r.session?.prizePackage?.id||'';
+   if(/^[a-f0-9]{32}$/.test(packageId)){
+    try{const packages=await L.api('prize_packages');const selected=(packages.packages||[]).find(item=>item.id===packageId);
+     if(selected)packageCameraEnabled=selected.phoneCameraEnabled===true;
+    }catch(_){/* Keep the game snapshot permission if package lookup is unavailable. */}
+   }
+   if($('capture-phone-camera'))$('capture-phone-camera').checked=packageCameraEnabled;
    window.LuckyCapture?.show(session,claim,p.name,profile?.proofAngles||[],r.session?.game||'spin-wheel');
    $('camera-enable').disabled=false;
    // Announce active proof NOW; a slow/failed revision-history request must not
