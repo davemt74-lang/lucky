@@ -77,6 +77,7 @@ jobs:
           php tests/v5q29e3_multicamera_contract.php
           php tests/v5q29e4a_timeline_contract.php
           php tests/v5q29e4b_export_plan.php
+          php tests/v5q29e4c_profiles_contract.php
           php -l api/recording-export.php
           php -l bin/recording-export-worker.php
           php -l lib/RecordingExports.php
@@ -123,6 +124,7 @@ jobs:
           php tests/v5q29e3_multicamera_db.php
           php tests/v5q29e4a_timeline_db.php
           php tests/v5q29e4b_export_db.php
+          php tests/v5q29e4c_profiles_db.php
   browsers:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -146,6 +148,7 @@ jobs:
           python tests/v5q29e3_multicamera_browser.py
           python tests/v5q29e4a_timeline_browser.py
           python tests/v5q29e4b_export_browser.py
+          python tests/v5q29e4c_profile_browser.py
           python tests/proof_admin_browser.py
           python tests/proof_browser.py
           python tests/v5q3_editor_browser.py
