@@ -53,7 +53,7 @@
   catch(e){throw Error('Cannot reach Camera Studio ('+action+'). Temporary network interruption: '+(e?.message||'Network error')+'. The phone will retry while this page remains open.');}
   const data=await response.json().catch(()=>({}));if(!response.ok||!data.ok)throw Error(data.error||`Server error (${response.status})`);return data;
  }
- async function refresh(silent=false){if(loading||uploading)return;loading=true;const existing=$('session-camera-session').value;
+ async function refresh(silent=false,allowUpload=false){if(loading||(uploading&&!allowUpload))return;loading=true;const existing=$('session-camera-session').value;
   try{if(!pair)throw Error('No approved phone pairing. Return to the controller and scan the desktop QR code.');
    const result=await call('list',{});sessions=result.sessions||[];
    const select=$('session-camera-session');select.replaceChildren();
@@ -132,7 +132,7 @@
    if(coordCapture&&armed){data.append('recordedStartMs',String(Math.round(coordCapture.startMs)));data.append('recordedEndMs',String(Math.round(coordCapture.endMs)));data.append('clockOffsetMs',String(coordCapture.clockDelta));}
    data.append('media',file,file.name);const result=await call('upload',data);
    const wasCoordinated=!!coordCapture;coordCapture=null;clearPreview();render();note(`✓ Saved ${result.asset.kind} to ${group.title}${wasCoordinated?' with take timing':''}. It is available in Admin → Recordings.`);
-   await refresh(true);
+   await refresh(true,true);
    resume=wasCoordinated&&armed&&approved();
   }catch(e){note(e.message+' Your file remains here; tap Send again to retry.',true);}finally{autoSending=false;uploading=false;render();if(resume){await open();await poll();}}
  }
