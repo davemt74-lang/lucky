@@ -14,7 +14,7 @@ $camera=$read('public/recording-camera.js');
 $admin=$read('admin.php');
 $css=$read('public/platform.css');
 $browser=$read('tests/v5q29e2_camera_browser.py');
-checkCameraHF3(str_contains($controller,'camera:paired'),'Paired controllers have a Camera Studio navigation action during active games');
+checkCameraHF3(str_contains($controller,'camera:true')&&str_contains($read('controller.php'),'<a href="camera.php" data-phone-view="camera"'),'Approved phones retain an independent Camera Studio entry during active games');
 checkCameraHF3(str_contains($launcher,'RecordingSessions::autoSpinWheel($db,$owner'),'Phone-launched Spin the Wheel creates its camera group');
 checkCameraHF3(str_contains($launcher,"'phoneCameraEnabled'=>\$pkg['phoneCameraEnabled']"),'Phone-launched game snapshots camera package setting');
 checkCameraHF3(str_contains($api,'RecordingPhone::ensureSpinWheelCamera($db,$pair);'),'Approved phone camera listing repairs eligible older live games');
