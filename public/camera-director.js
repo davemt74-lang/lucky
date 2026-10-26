@@ -38,6 +38,8 @@
  function labels(){
   $('director-preview-label').textContent=source(state.preview)?.label||'No camera cued';
   $('director-program-label').textContent=source(state.program)?.label||'Program off';
+  $('director-cut').disabled=!state.active||!source(state.preview);
+  $('director-fade').disabled=!state.active||!source(state.preview);
   $('director-export-start').disabled=!state.program||state.recording;
  }
  function select(id){state.preview=source(id)?id:'';selector.value=state.preview;labels();return !!state.preview;}
