@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS director_broadcasts (
+ id CHAR(32) NOT NULL PRIMARY KEY,
+ session_id CHAR(32) NOT NULL UNIQUE,
+ claim_id CHAR(32) NOT NULL,
+ host_admin_id INT NOT NULL,
+ token_hash CHAR(64) NOT NULL,
+ updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ INDEX idx_director_owner(host_admin_id,updated_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS director_viewers (
+ id CHAR(32) NOT NULL PRIMARY KEY,
+ broadcast_id CHAR(32) NOT NULL,
+ offer_sdp MEDIUMTEXT NOT NULL,
+ answer_sdp MEDIUMTEXT NULL,
+ updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ INDEX idx_director_viewers(broadcast_id,updated_at),
+ CONSTRAINT fk_director_broadcast FOREIGN KEY(broadcast_id) REFERENCES director_broadcasts(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
