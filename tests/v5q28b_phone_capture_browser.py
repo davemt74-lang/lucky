@@ -10,12 +10,12 @@ for name in ('public/voice-commands.js','public/phone-controller.js','public/pho
  html=re.sub(r'<script src="'+re.escape(name)+r'[^>]+></script>',lambda _: '<script>'+js.replace('</script','<\\/script')+'</script>',html)
 html=html.replace('</head>','<base href="https://lucky.test/"><style>'+(ROOT/'public/platform.css').read_text()+'</style></head>',1)
 stub='''<script>
-window.__allow=false;window.__consent=true;window.__proofActive=true;window.__phase='live';window.__uploads=[];
+window.__allow=false;window.__consent=true;window.__proofActive=true;window.__phase='live';window.__uploads=[];window.__commands=[];
 window.fetch=async(url,opts={})=>{
  const u=String(url),action=new URL(u,'https://lucky.test/').searchParams.get('action');
  if(u.includes('phone-media.php')){__uploads.push({entries:[...opts.body.entries()].map(([k,v])=>[k,v instanceof File?v.name:v]),headers:opts.headers,credentials:opts.credentials});return new Response(JSON.stringify({ok:true,clip:{id:'d'.repeat(32)}}));}
  if(action==='status')return new Response(JSON.stringify({ok:true,status:'paired',claims:[],game:{id:'a'.repeat(32),status:'active',canSpin:true,spinCount:0,claimedCount:1,remaining:5},proof:__proofActive?{active:true,sessionId:'a'.repeat(32),claimId:'b'.repeat(32),phoneCameraAllowed:__allow,consent:__consent,phase:__phase,savedCount:0}:{active:false}}));
- if(action==='command')return new Response(JSON.stringify({ok:true,applied:true,effect:'proof-consent'}));
+ if(action==='command'){const cmd=JSON.parse(opts.body||'{}').command;__commands.push(cmd);if(cmd==='proof-consent-on')__consent=true;if(cmd==='proof-consent-off')__consent=false;return new Response(JSON.stringify({ok:true,applied:true,effect:'proof-consent'}));}
  return new Response(JSON.stringify({ok:true}));
 };</script>'''
 html=html.replace('</head>',stub+'</head>',1)
@@ -33,12 +33,14 @@ async def main():
   check('Phone capture disabled without host permission',await page.locator('#phone-capture-open').is_disabled())
   await page.evaluate('__allow=true;__consent=false')
   await page.wait_for_timeout(900)
-  check('Host permission alone insufficient without consent',await page.locator('#phone-capture-open').is_disabled())
-  await page.evaluate('__consent=true')
-  await page.locator('#phone-capture-open').wait_for(state='visible')
   await page.wait_for_function("!document.getElementById('phone-capture-open').disabled",timeout=2500)
+  check('Host permission enables Open phone camera before consent',await page.locator('#phone-capture-open').is_enabled())
   await page.locator('#phone-capture-open').click()
-  check('Approved proof opens phone camera modal',await page.locator('#phone-capture-dialog').is_visible())
+  check('Approved host permission opens phone camera modal',await page.locator('#phone-capture-dialog').is_visible())
+  check('Capture remains disabled until explicit consent',await page.locator('#phone-capture-start').is_disabled())
+  await page.locator('#phone-capture-consent').check()
+  await page.wait_for_function("window.__commands.includes('proof-consent-on') && !document.getElementById('phone-capture-start').disabled",timeout=4500)
+  check('Modal consent forwarded to host and enables capture',await page.locator('#phone-capture-start').is_enabled())
   for mime,name,mode in [('image/png','snapshot.png','photo'),('video/mp4','recording.mp4','video'),('audio/mpeg','commentary.mp3','audio')]:
    await page.locator('#phone-capture-file').set_input_files({'name':name,'mimeType':mime,'buffer':b'1234567890'})
    check(f'{mode} gallery file ready',await page.locator('#phone-capture-send').is_visible())

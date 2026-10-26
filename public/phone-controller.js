@@ -273,11 +273,13 @@
  function updateProof(proof){
   const accordion=$('phone-proof-controls');if(!accordion)return;
   proofState=proof||{active:false};const showing=!!proofState?.active;applyMode();
-  const allowed=showing&&!!proofState.phoneCameraAllowed&&!!proofState.consent&&!!proofState.sessionId&&!!proofState.claimId;
+  // Opening the camera is separate from authorization to start recording.
+  // The camera dialog collects consent; the host confirms it before capture.
+  const permitted=showing&&!!proofState.phoneCameraAllowed&&/^[a-f0-9]{32}$/.test(proofState.sessionId||'')&&/^[a-f0-9]{32}$/.test(proofState.claimId||'');
   const captureEntry=$('phone-capture-entry');if(captureEntry)captureEntry.hidden=!showing;
-  const captureButton=$('phone-capture-open');if(captureButton)captureButton.disabled=!allowed;
-  const captureNote=$('phone-capture-entry-note');if(captureNote)captureNote.textContent=!proofState.phoneCameraAllowed?'Ask the host to check “Use phone camera” in desktop proof permissions.':!proofState.consent?'Check recording consent below to enable the phone camera.':'Phone capture permitted · Your files go to this prize.';
-  window.dispatchEvent(new CustomEvent('lucky:phone-proof-status',{detail:{active:showing,phoneCameraAllowed:allowed,sessionId:proofState.sessionId||'',claimId:proofState.claimId||'',phase:proofState.phase||'live'}}));
+  const captureButton=$('phone-capture-open');if(captureButton)captureButton.disabled=!permitted;
+  const captureNote=$('phone-capture-entry-note');if(captureNote)captureNote.textContent=!permitted?'Phone proof capture requires the host camera permission. Check the package setting or desktop proof permissions.':!proofState.consent?'Open the camera, then confirm private recording consent before capturing.':'Phone camera ready · Your files go to this prize.';
+  window.dispatchEvent(new CustomEvent('lucky:phone-proof-status',{detail:{active:showing,phoneCameraAllowed:permitted,consent:!!proofState.consent,sessionId:proofState.sessionId||'',claimId:proofState.claimId||'',phase:proofState.phase||'live'}}));
 
   // The proof controls are the only primary controls while the desktop proof page is active.
   // Keep the accordion closed on first entry; preserve its user-selected state while active.
@@ -455,6 +457,7 @@
  });
  document.querySelectorAll('[data-phone]').forEach(button=>button.addEventListener('click',()=>send(button.dataset.phone)));
  $('phone-proof-consent')?.addEventListener('change',e=>send(e.target.checked?'proof-consent-on':'proof-consent-off'));
+ window.addEventListener('lucky:phone-proof-consent-request',e=>{if(proofState?.active&&proofState.phoneCameraAllowed)void send(e.detail?.consent?'proof-consent-on':'proof-consent-off');});
  $('phone-capture-open')?.addEventListener('click',()=>window.LuckyPhoneCapture?.open());
  $('phone-disconnect').addEventListener('click',async()=>{closeMenu();try{await request('disconnect');}catch(_){}forget();});
  try{const existing=JSON.parse(sessionStorage.getItem(storageKey)||'null');if(existing&&/^[a-f0-9]{32}$/.test(existing.id)&&/^[a-f0-9]{64}$/.test(existing.token))state=existing;}catch(_){}
