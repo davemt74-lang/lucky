@@ -78,6 +78,7 @@ jobs:
           php tests/v5q29e4a_timeline_contract.php
           php tests/v5q29e4b_export_plan.php
           php tests/v5q29e4c_profiles_contract.php
+          php tests/v5q29e4d1_studio_contract.php
           php -l api/recording-export.php
           php -l bin/recording-export-worker.php
           php -l lib/RecordingExports.php
@@ -149,6 +150,7 @@ jobs:
           python tests/v5q29e4a_timeline_browser.py
           python tests/v5q29e4b_export_browser.py
           python tests/v5q29e4c_profile_browser.py
+          python tests/v5q29e4d1_studio_browser.py
           python tests/proof_admin_browser.py
           python tests/proof_browser.py
           python tests/v5q3_editor_browser.py
