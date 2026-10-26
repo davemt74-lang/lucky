@@ -5,6 +5,7 @@ require_once __DIR__.'/ControllerGame.php';
 require_once __DIR__.'/GamePackageActivation.php';
 require_once __DIR__.'/ControllerRate.php';
 require_once __DIR__.'/PrizeDecision.php';
+require_once __DIR__.'/RecordingSessions.php';
 
 /** Approved-phone game picker. No admin credentials or private game data in replies. */
 final class PhoneGameDashboard {
@@ -48,7 +49,7 @@ final class PhoneGameDashboard {
    PrizePackages::lockGame($db,'spin-wheel');
    $pkg=PrizePackages::currentConfig($db);
    $session=$modules[$game]->createSession($pkg['config'],bin2hex(random_bytes(16)));
-   $session['prizePackage']=['id'=>$pkg['id'],'name'=>$pkg['name']];
+   $session['prizePackage']=['id'=>$pkg['id'],'name'=>$pkg['name'],'phoneCameraEnabled'=>$pkg['phoneCameraEnabled']];
   }else{
    $config=GameSessionLifecycle::lockGame($db,$game);
    GameSessionLifecycle::assertVacant($db,$game);
@@ -58,6 +59,11 @@ final class PhoneGameDashboard {
   $viewer=token();
   $q=$db->prepare('INSERT INTO game_sessions(id,game_id,status,version,state_json,viewer_token) VALUES (?,?,?,?,?,?)');
   $q->execute([$session['id'],$game,$session['status'],$session['version'],json_encode($session,JSON_THROW_ON_ERROR),$viewer]);
+  if($game==='spin-wheel'&&($pkg['phoneCameraEnabled']??false)){
+   $recordingId=RecordingSessions::autoSpinWheel($db,$owner,(string)$session['id'],(string)$pkg['name']);
+   $q=$db->prepare('INSERT INTO audit_log(admin_id,event,session_id,details) VALUES (?,?,?,?)');
+   $q->execute([$owner,'recording.game-auto-created',$session['id'],json_encode(['recordingId'=>$recordingId,'packageId'=>$pkg['id'],'source'=>'approved-phone'],JSON_THROW_ON_ERROR)]);
+  }
   $q=$db->prepare('INSERT INTO audit_log(admin_id,event,session_id,details) VALUES (?,?,?,?)');
   $q->execute([$owner,'session.start',$session['id'],json_encode(['game'=>$game,'source'=>'approved-phone','pairId'=>$pairId],JSON_THROW_ON_ERROR)]);
   $q=$db->prepare('INSERT INTO controller_commands(pair_id,client_nonce,command,delivered_at) VALUES (?,? ,\'launch\',UTC_TIMESTAMP())');

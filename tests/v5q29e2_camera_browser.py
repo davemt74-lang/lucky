@@ -11,7 +11,7 @@ basecss = (root / 'public/style.css').read_text()
 phone_id = 'a' * 32
 phone_key = 'b' * 64
 session_id = 'c' * 32
-mock_state = {'available': True, 'uploads': 0}
+mock_state = {'available': True, 'uploads': 0, 'fail_once': False}
 
 
 def respond(route):
@@ -25,6 +25,10 @@ def respond(route):
     elif '/public/style.css' in url:
         route.fulfill(status=200, content_type='text/css', body=basecss)
     elif '/api/recording-phone.php?action=list' in url:
+        if mock_state['fail_once']:
+            mock_state['fail_once'] = False
+            route.abort('failed')
+            return
         assert route.request.headers.get('x-controller-token') == phone_key
         assert phone_id in route.request.post_data
         rows = [{'id': session_id, 'title': 'Live concert', 'type': 'live_event', 'status': 'active', 'clips': mock_state['uploads'], 'takeId': 'd'*32}] if mock_state['available'] else []
@@ -59,6 +63,14 @@ with sync_playwright() as playwright:
     assert mock_state['uploads'] == 1, 'One upload after explicit consent'
     page.locator('[data-session-mode="audio"]').click()
     expect(page.locator('[data-session-mode="audio"]')).to_have_attribute('aria-pressed','true')
+    mock_state['fail_once'] = True
+    page.locator('#session-camera-refresh').click()
+    expect(page.locator('#session-camera-session')).to_have_value(session_id)
+    expect(page.locator('#session-camera-badge')).to_contain_text('Reconnecting')
+    expect(page.locator('#session-camera-open')).to_be_enabled()
+    page.locator('#session-camera-refresh').click()
+    expect(page.locator('#session-camera-badge')).to_contain_text('available session')
+    expect(page.locator('#session-camera-message')).to_contain_text('reconnected')
     mock_state['available'] = False
     page.locator('#session-camera-refresh').click()
     expect(page.locator('#session-camera-badge')).to_have_text('0 available sessions')

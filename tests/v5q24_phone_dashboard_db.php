@@ -24,7 +24,9 @@ $db=new PDO('mysql:host=127.0.0.1;port=3306;dbname=lucky_test;charset=utf8mb4',
  'root','luckytestpassword',[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,
  PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC,PDO::ATTR_EMULATE_PREPARES=>false]);
 foreach(MigrationSql::statements((string)file_get_contents(__DIR__.'/../lib/schema.sql')) as $query)$db->exec($query);
-foreach(MigrationSql::statements((string)file_get_contents(__DIR__.'/../lib/migrations/v5q15b_prize_decisions.sql')) as $query)$db->exec($query);
+foreach(['v5q15b_prize_decisions.sql','v5q_claim_media.sql','v5q29e1_recording_sessions.sql',
+ 'v5q29e2_phone_camera.sql','v5q29e3_multicamera_coordination.sql','v5q29e4c_recording_profiles.sql'] as $name)
+ foreach(MigrationSql::statements((string)file_get_contents(__DIR__.'/../lib/migrations/'.$name)) as $query)$db->exec($query);
 $game='dash-'.bin2hex(random_bytes(5));$pair=bin2hex(random_bytes(16));
 $owner=0;$started=[];
 try{
@@ -79,6 +81,9 @@ try{
  $wheel=PhoneGameDashboard::launch($db,'spin-wheel',$pair,$nonceWheel,$owner);
  $db->commit();$started[]=$wheel['id'];
  ckDash($wheel['game']==='spin-wheel','Approved phone can launch built-in wheel after packaged game ends');
+ $camera=$db->prepare("SELECT s.id,p.phone_enabled FROM recording_sessions s JOIN recording_phone_permissions p ON p.recording_session_id=s.id WHERE s.game_session_id=? AND s.owner_admin_id=? AND s.status='active'");
+ $camera->execute([$wheel['id'],$owner]);$group=$camera->fetch(PDO::FETCH_ASSOC);
+ ckDash(is_array($group)&&(int)$group['phone_enabled']===1,'Phone-launched wheel immediately creates approved automatic camera group');
  echo "V5Q.24 phone game dashboard: pairing, catalog, trusted launch, replay, owner scope and switching PASSED\n";
 }finally{
  if($db->inTransaction())$db->rollBack();

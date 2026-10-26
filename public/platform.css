@@ -671,6 +671,11 @@ body.admin-studio-page .prize-package-add{flex:0 0 42px;height:42px;margin-botto
 body.admin-studio-page .prize-package-config{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;background:#101c2e;border:1px solid #3e526c;border-top:0;padding:13px 15px;border-radius:0 0 12px 12px;margin-bottom:17px}
 body.admin-studio-page .prize-package-config>label:first-child{flex:1 1 170px;max-width:260px}
 body.admin-studio-page .prize-package-config .platform-checkbox{display:flex;align-items:center;min-height:38px;font-size:12px}
+body.admin-studio-page .prize-package-config .prize-package-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;flex:1 1 100%;padding:9px 0;align-items:start}
+body.admin-studio-page .prize-workspace-dialog .prize-package-config .prize-package-options .platform-checkbox{display:flex;align-items:center;gap:9px;min-width:0;min-height:35px;margin:0;font-size:13px;line-height:1.4;cursor:pointer}
+body.admin-studio-page .prize-workspace-dialog .prize-package-config .prize-package-options input[type=checkbox]{appearance:auto;flex:0 0 19px;width:19px;height:19px;min-height:19px;margin:0;padding:0;accent-color:#65b1ff}
+body.admin-studio-page .prize-workspace-dialog .prize-package-config .prize-package-options .platform-checkbox span{display:block;min-width:0}
+@media(max-width:650px){body.admin-studio-page .prize-package-config .prize-package-options{grid-template-columns:1fr}}
 body.admin-studio-page .prize-package-config button{font-size:11px;white-space:nowrap}
 body.admin-studio-page #package-selection-status{flex:1 1 100%;margin:0}
 body.admin-studio-page #package-remove{border-color:#9c6571;color:#ffccd0}
@@ -926,7 +931,7 @@ body.admin-studio-page .prize-dialog-footer{display:flex;justify-content:flex-en
 body.admin-studio-page .prize-dialog-footer .spacer{flex:1}
 body.admin-studio-page .prize-edit-form{display:grid;gap:18px}
 body.admin-studio-page .prize-edit-form>label,body.admin-studio-page .prize-edit-grid>label{display:grid;gap:7px;color:#dbe8f9;font-size:12px;font-weight:700}
-body.admin-studio-page .prize-edit-form input:not([type=file]),body.admin-studio-page .prize-edit-form textarea,body.admin-studio-page .prize-workspace-dialog .prize-package-config input:not([type=file]){width:100%;color:#fff;background:#0d182b;border:1px solid #526a85;border-radius:9px;padding:11px 12px;min-height:42px;font:inherit;box-sizing:border-box}
+body.admin-studio-page .prize-edit-form input:not([type=file]):not([type=checkbox]),body.admin-studio-page .prize-edit-form textarea,body.admin-studio-page .prize-workspace-dialog .prize-package-config input:not([type=file]):not([type=checkbox]){width:100%;color:#fff;background:#0d182b;border:1px solid #526a85;border-radius:9px;padding:11px 12px;min-height:42px;font:inherit;box-sizing:border-box}
 body.admin-studio-page .prize-edit-form textarea{resize:vertical;min-height:112px}
 body.admin-studio-page .prize-edit-grid{display:grid;grid-template-columns:minmax(0,2fr) minmax(125px,1fr);gap:12px}
 body.admin-studio-page .prize-edit-media-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
