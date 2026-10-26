@@ -63,6 +63,22 @@ CREATE TABLE IF NOT EXISTS controller_proof_state (
  FOREIGN KEY fk_controller_proof_session (session_id) REFERENCES game_sessions(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- HF7: One ephemeral WebRTC offer per paired phone. Media travels peer-to-peer,
+-- never through this database. Remove disconnected peers after 3 minutes.
+CREATE TABLE IF NOT EXISTS controller_live_streams (
+ pair_id CHAR(32) NOT NULL PRIMARY KEY,
+ session_id CHAR(32) NOT NULL,
+ claim_id CHAR(32) NOT NULL,
+ nonce CHAR(32) NOT NULL,
+ offer_sdp MEDIUMTEXT NOT NULL,
+ answer_sdp MEDIUMTEXT NULL,
+ updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ INDEX idx_phone_live_session (session_id,claim_id,updated_at),
+ CONSTRAINT fk_live_phone_pair FOREIGN KEY (pair_id) REFERENCES controller_pairs(id) ON DELETE CASCADE,
+ CONSTRAINT fk_live_phone_session FOREIGN KEY (session_id) REFERENCES game_sessions(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- V5Q.15M independent video timelines; maintains legacy claim-aware edit_json.
 CREATE TABLE IF NOT EXISTS montage_timeline_layers (session_id CHAR(32) NOT NULL PRIMARY KEY, layers_json LONGTEXT NOT NULL, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, FOREIGN KEY fk_timeline_layers_session(session_id) REFERENCES game_sessions(id) ON DELETE CASCADE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
