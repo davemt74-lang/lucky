@@ -32,6 +32,7 @@
   if(!list.some(s=>s.id===state.program)&&state.program){
    state.program='';state.transition=null;
    info('Program camera disconnected. Select and Take another source.',true);
+   window.dispatchEvent(new Event('lucky:director-program-ended'));
   }
   labels();
  }
@@ -149,5 +150,6 @@
  preview.width=program.width=WIDTH;preview.height=program.height=HEIGHT;
  sync();labels();frame=requestAnimationFrame(paint);
  window.LuckyCameraDirector={sources:()=>sources().map(({id,label})=>({id,label})),select,take,startExport,stopExport,
+  programStream:()=>state.active&&state.program&&source(state.program)?program.captureStream(25):null,
   state:()=>({preview:state.preview,program:state.program,recording:state.recording,transition:!!state.transition})};
 })();
