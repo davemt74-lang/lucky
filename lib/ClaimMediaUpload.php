@@ -15,7 +15,7 @@ final class ClaimMediaUpload {
   if($trustedStagedPath!==null){
    $dir=realpath(LUCKY_ROOT.'/storage/phone-media-pending');$real=realpath($trustedStagedPath);
    if(!$dir||!$real||dirname($real)!==$dir||!preg_match('/^[a-f0-9]{64}\.part$/D',basename($real))||
-      is_link($trustedStagedPath)||$real!==(string)$file['tmp_name']||
+      is_link($trustedStagedPath)||$real!==realpath((string)$file['tmp_name'])||
       !is_file($real)||filesize($real)!==(int)($file['size']??0))
     throw new DomainException('Invalid private phone upload staging file.',403);
   }elseif(!is_uploaded_file((string)$file['tmp_name']))
