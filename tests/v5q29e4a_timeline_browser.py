@@ -54,6 +54,7 @@ with sync_playwright() as playwright:
     expect(page.locator('#mc-offset')).to_have_value('0.50')
     page.locator('[data-nudge="100"]').click()
     expect(page.locator('#mc-offset')).to_have_value('0.60')
+    page.locator('#mc-inspector-close').click()
     page.locator('#mc-angles [data-angle-id="'+second+'"]').click()
     expect(page.locator('.mc-cut')).to_have_count(1)
     page.locator('#mc-save').click()
