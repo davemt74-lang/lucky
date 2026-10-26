@@ -20,5 +20,5 @@ requirePhone(str_contains($stream,'requireAdmin()')&&str_contains($stream,'owner
 $ui=(string)file_get_contents(__DIR__.'/../camera.php');$script=(string)file_get_contents(__DIR__.'/../public/recording-camera.js');
 requirePhone(str_contains($ui,'viewport-fit=cover')&&str_contains($ui,'session-camera-consent')&&str_contains($ui,'data-session-mode="audio"'),'Full-screen camera offers video, photo, audio, and consent');
 requirePhone(str_contains($script,'getUserMedia')&&str_contains($script,'MediaRecorder')&&str_contains($script,"call('upload',data)"),'Camera recordings and uploads are bound to server approval');
-requirePhone(str_contains((string)file_get_contents(__DIR__.'/../admin.php'),'tab-recordings')&&str_contains((string)file_get_contents(__DIR__.'/../public/phone-controller.js'),"location.assign('camera.php')"),'Admin and paired phone surfaces both expose Camera Studio');
+requirePhone(str_contains((string)file_get_contents(__DIR__.'/../admin.php'),'tab-recordings')&&str_contains((string)file_get_contents(__DIR__.'/../controller.php'),'<a href="camera.php" data-phone-view="camera"'),'Admin and paired phone surfaces both expose Camera Studio');
 echo 'V5Q.29E2 PHONE CAMERA CONTRACT PASSED'."\n";
