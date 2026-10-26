@@ -39,6 +39,7 @@ try {
   audit($db,'recording.phone-permission',null,['id'=>$id,'enabled'=>$grant['phoneEnabled']]);success(['permission'=>$grant]);
  }
  if($action==='create'){
+  if(!RecordingProfiles::ready($db))throw new DomainException('Run upgrade.php to enable recording profiles.',409);
   $row=RecordingSessions::create($db,$owner,$input);audit($db,'recording.session-created',$row['gameSessionId'],['id'=>$row['id'],'type'=>$row['type']]);success(['session'=>$row],201);
  }
  if($action==='import_game'){

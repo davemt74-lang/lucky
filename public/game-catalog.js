@@ -21,6 +21,18 @@
   }
  }
  const defaultSplash=game=>({intro:{title:game.title||'Game intro',subtitle:'Ready to play',trackId:'',volume:70,announcement:true},theme:{accent:'#f6cb74',background:'#0d1423'}});
+ const captureInputs={multicameraEnabled:'catalog-record-multicam',phoneCameraEnabled:'catalog-record-phone',
+  video:'catalog-record-video',photo:'catalog-record-photo',audio:'catalog-record-audio',
+  maxCameras:'catalog-record-max',countdownSeconds:'catalog-record-countdown'};
+ function recordingValues(){const out={};for(const [name,id] of Object.entries(captureInputs)){
+  const control=$(id);if(!control)continue;out[name]=control.type==='checkbox'?control.checked:Number(control.value);
+ }return out;}
+ function fillRecording(value={}){const fallback={multicameraEnabled:true,phoneCameraEnabled:true,video:true,photo:true,audio:true,maxCameras:4,countdownSeconds:3};
+  for(const [name,id] of Object.entries(captureInputs)){const control=$(id),chosen=value[name]??fallback[name];
+   if(!control)continue;if(control.type==='checkbox')control.checked=!!chosen;else control.value=chosen;
+  }
+  if($('catalog-record-max')&&$('catalog-record-multicam'))$('catalog-record-max').disabled=!$('catalog-record-multicam').checked;
+ }
  function splashValues(){return {intro:{title:$('intro-title').value.trim(),subtitle:$('intro-subtitle').value.trim(),trackId:$('intro-track').value,
   volume:Number($('intro-volume').value),announcement:$('intro-announcement').checked},
   theme:{accent:$('theme-accent').value,background:$('theme-background').value}};}
@@ -60,6 +72,7 @@
   $('catalog-controller').value=game.controllerMode;
   $('catalog-controller').disabled=game.status==='ready';
   $('catalog-enabled').checked=!!game.enabled;
+  fillRecording(game.recording);
   showImages(game);paintList();note('');loadSplash(game);
  }
  function paintList(){
@@ -98,6 +111,7 @@
   for(const [key,control] of Object.entries(fields))body[key]=$(control).value;
   body.playersMin=Number($('catalog-min').value);body.playersMax=Number($('catalog-max').value);
   body.controllerMode=$('catalog-controller').value;body.enabled=$('catalog-enabled').checked;
+  body.recording=recordingValues();
    body.splash=splashValues();
    if(!body.splash.intro.title){note('Enter a splash title.',true);return;}
   try {note('Saving…');const game=games.find(g=>g.id===selected);
@@ -106,6 +120,7 @@
     await api('game_catalog_save',{body});await reload(selected);note('Game profile and splash settings saved.');}
   catch(e){note(e.message,true);}
  };
+ if($('catalog-record-multicam'))$('catalog-record-multicam').onchange=()=>{$('catalog-record-max').disabled=!$('catalog-record-multicam').checked;};
  document.querySelectorAll('[data-game-art]').forEach(input=>input.onchange=async()=>{
   const file=input.files?.[0],slot=input.dataset.gameArt;if(!file||!selected)return;
   if(file.size>6*1024*1024){note('Artwork must be 6MB or less.',true);input.value='';return;}

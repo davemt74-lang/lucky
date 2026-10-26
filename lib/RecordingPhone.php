@@ -9,6 +9,8 @@ final class RecordingPhone {
   RecordingSessions::id($sessionId);
   $q=$db->prepare('SELECT id FROM recording_sessions WHERE id=? AND owner_admin_id=?');$q->execute([$sessionId,$owner]);
   if(!$q->fetchColumn())throw new DomainException('Recording session not found.',404);
+  if($enabled&&!RecordingProfiles::get($db,$sessionId)['capture']['phoneCameraEnabled'])
+   throw new DomainException('Phone capture is disabled in this recording profile.',403);
   $q=$db->prepare('INSERT INTO recording_phone_permissions(recording_session_id,phone_enabled) VALUES (?,?) ON DUPLICATE KEY UPDATE phone_enabled=VALUES(phone_enabled)');
   $q->execute([$sessionId,(int)$enabled]);return ['sessionId'=>$sessionId,'phoneEnabled'=>$enabled];
  }
@@ -23,7 +25,10 @@ final class RecordingPhone {
   foreach($q->fetchAll(PDO::FETCH_ASSOC) as $r){
    $t=$db->prepare("SELECT id FROM recording_takes WHERE recording_session_id=? AND status='recording' ORDER BY take_index DESC LIMIT 1");
    $t->execute([$r['id']]);
-   $out[]=['id'=>$r['id'],'title'=>$r['title'],'type'=>$r['recording_type'],'status'=>$r['status'],'clips'=>(int)$r['clip_count'],'takeId'=>$t->fetchColumn()?:null];
+   $profile=RecordingProfiles::get($db,(string)$r['id']);
+   $out[]=['id'=>$r['id'],'title'=>$r['title'],'type'=>$r['recording_type'],'status'=>$r['status'],'clips'=>(int)$r['clip_count'],
+    'takeId'=>$t->fetchColumn()?:null,'capture'=>$profile['capture'],'brief'=>$profile['brief'],'shotList'=>$profile['shotList'],
+    'tags'=>$profile['tags'],'location'=>$profile['location'],'eventDate'=>$profile['eventDate']];
   }
   return $out;
  }
@@ -67,6 +72,7 @@ final class RecordingPhone {
   $path=LUCKY_ROOT.'/storage/recording-assets/'.$assetId.'.bin';$moved=false;
   $db->beginTransaction();try{
    $pair=self::assertApproved($db,$pairId,$token,$sessionId);
+   RecordingProfiles::kind($db,$sessionId,$kind);
    $q=$db->prepare('SELECT a.id,a.recording_session_id,m.kind,m.mime,m.bytes,m.sha256 FROM recording_assets a JOIN recording_media_files m ON m.asset_id=a.id WHERE a.id=? FOR UPDATE');
    $q->execute([$assetId]);$old=$q->fetch(PDO::FETCH_ASSOC);
    if($old){

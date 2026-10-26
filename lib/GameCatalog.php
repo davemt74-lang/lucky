@@ -30,7 +30,7 @@ final class GameCatalog {
    'publisherName'=>'','publisherWebsite'=>'','category'=>'Games','version'=>$registered?($builtIn?'bundled':(string)($manifest['packageVersion']??'0.1.0')):'0.1.0',
    'ageRating'=>'','playersMin'=>1,'playersMax'=>8,'controllerMode'=>$registered?(GameRegistry::controller($id)===null?'none':'custom'):'custom',
    'enabled'=>$registered,'images'=>['cover'=>null,'hero'=>null,'logo'=>null,'splash'=>null,'gallery'=>[]],
-   'splash'=>null,
+   'splash'=>null,'recording'=>[ 'multicameraEnabled'=>true,'maxCameras'=>4,'phoneCameraEnabled'=>true,'video'=>true,'photo'=>true,'audio'=>true,'countdownSeconds'=>3 ],
    'status'=>$registered?'ready':'draft','source'=>$registered?($builtIn?'bundled':'package'):'catalog-only',
    'builtIn'=>$builtIn,'canDelete'=>!$builtIn];
  }
@@ -64,6 +64,8 @@ final class GameCatalog {
   $data=json_decode((string)file_get_contents($file),true,32,JSON_THROW_ON_ERROR);
   if(!is_array($data)||($data['id']??null)!==$id)throw new RuntimeException('Corrupt game catalog metadata.');
   $base=array_replace($base,$data);
+  require_once __DIR__.'/RecordingProfiles.php';
+  $base['recording']=RecordingProfiles::capture($base['recording']??[]);
   // Catalog metadata may not promote an unregistered game to playable.
   $modules=GameRegistry::modules();$registered=isset($modules[$id]);$builtIn=$id==='spin-wheel';
   $base['status']=$registered?'ready':'draft';
@@ -111,6 +113,7 @@ final class GameCatalog {
    $controller=$input['controllerMode']??$current['controllerMode'];
    if(!in_array($controller,['none','custom'],true))throw new DomainException('Invalid controller mode.',422);
    $registered=isset(GameRegistry::modules()[$id]);
+   require_once __DIR__.'/RecordingProfiles.php';
    $current=array_replace($current,[
     'title'=>$title,
     'tagline'=>self::field($input,'tagline',180,$current['tagline']),
@@ -123,7 +126,8 @@ final class GameCatalog {
     'playersMin'=>$min,'playersMax'=>$max,
     'enabled'=>($input['enabled']??$current['enabled'])===true,
     'controllerMode'=>$registered?(GameRegistry::controller($id)===null?'none':'custom'):$controller,
-    'splash'=>array_key_exists('splash',$input)?self::splash($input['splash']):($current['splash']??null)
+    'splash'=>array_key_exists('splash',$input)?self::splash($input['splash']):($current['splash']??null),
+    'recording'=>array_key_exists('recording',$input)?RecordingProfiles::capture($input['recording']):RecordingProfiles::capture($current['recording']??[])
    ]);
    self::atomic($folder.'/metadata.json',json_encode($current,JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR));
    return self::load($id,$root);
