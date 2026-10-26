@@ -90,6 +90,7 @@ async def main():
   await page.locator('#phone-prize-offer').wait_for(state='visible',timeout=5000)
   verify('Prize tab active during decision',await page.locator('#phone-bottom-nav [data-phone-view=prize]').get_attribute('aria-current')=='page')
   verify('Arrows disabled during prize decision',await page.locator('#phone-arrows-toggle').is_disabled())
+  verify('Camera Studio is a direct link independent of controller status',await page.locator('#phone-bottom-nav a[data-phone-view=camera][href="camera.php"]').count()==1 and await page.locator('#phone-menu-panel-controls a[data-phone-view=camera][href="camera.php"]').count()==1)
   verify('Dashboard stays locked while independent Camera Studio remains available during claim',await page.locator('#phone-quick-menu [data-phone-view=home]').is_disabled() and await page.locator('#phone-bottom-nav [data-phone-view=camera]').is_enabled())
   verify('Prize card preserves name, tier and value',await page.locator('#phone-offer-name').inner_text()=='Game Night Prize' and await page.locator('#phone-offer-value').inner_text()=='$15.00')
   await page.evaluate("__proof=true;__pending=false;__phase='countdown'")
