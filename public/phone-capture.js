@@ -1,7 +1,7 @@
 (() => {
  'use strict';
  const $=id=>document.getElementById(id),dialog=$('phone-capture-dialog');if(!dialog)return;
- const MAX_BYTES=80*1024*1024,MAX_SECONDS=60;
+ const MAX_BYTES=80*1024*1024,MAX_SECONDS=60,CHUNK_BYTES=512*1024;
  const allowedTypes={photo:new Set(['image/jpeg','image/png','image/webp']),video:new Set(['video/mp4','video/webm','video/quicktime']),audio:new Set(['audio/mpeg','audio/mp4','audio/ogg','audio/wav','audio/x-wav','audio/webm'])};
  let permission=null,mode='photo',stream=null,recorder=null,recorderTimer=null,selectedFile=null,selectedDurationMs=0,nonce='',previewUrl='',saving=false,generation=0,armed=false,multicamRecording=false;
  const fail=(message)=>{const el=$('phone-capture-status');if(el){el.textContent=message;el.classList.add('platform-error');}};
@@ -83,12 +83,43 @@
   try{pair=JSON.parse(sessionStorage.getItem('lucky-phone-controller-v5p')||'null');}catch(_){}
   if(!/^[a-f0-9]{32}$/.test(pair?.id||'')||!/^[a-f0-9]{64}$/.test(pair?.token||'')){fail('Phone pairing expired. Scan the QR code again.');return;}
   saving=true;buttons();note('Uploading to the private Video Studio…');
-  try{const data=new FormData();for(const [k,v] of Object.entries({id:pair.id,nonce:receipt,session:proof.sessionId,claim:proof.claimId,kind:mode,durationMs:String(selectedDurationMs||0),title:file.name.replace(/\.[^.]+$/,'').slice(0,120)||'Phone proof'}))data.append(k,v);data.append('media',file,file.name);
-   const response=await fetch('api/phone-media.php',{method:'POST',credentials:'omit',cache:'no-store',headers:{'X-Controller-Token':pair.token},body:data});const result=await response.json().catch(()=>({}));
-   if(!response.ok||!result.ok)throw Error(result.error||`Upload failed (HTTP ${response.status}).`);
+  try{
+   const fields={id:pair.id,nonce:receipt,session:proof.sessionId,claim:proof.claimId,kind:mode,
+    durationMs:String(selectedDurationMs||0),title:file.name.replace(/\.[^.]+$/,'').slice(0,120)||'Phone proof'};
+   const form=extra=>{const data=new FormData();for(const [key,value] of Object.entries({...fields,...extra}))data.append(key,String(value));return data;};
+   const send=async(data,description)=>{
+    let response;
+    try{response=await fetch('api/phone-media.php',{method:'POST',credentials:'omit',cache:'no-store',
+     headers:{'X-Controller-Token':pair.token},body:data});}
+    catch(_){throw Error(description+': connection dropped. Check the cloud HTTPS upload connection and retry.');}
+    let result={};try{result=await response.json();}catch(_){}
+    if(!response.ok||!result.ok)throw Error(result.error||
+     (response.status===413?'Server upload limit rejected this piece of the recording.':description+' failed (HTTP '+response.status+').'));
+    return result;
+   };
+   let result;
+   // Send video in small pieces even for a short recording. Shared PHP hosting
+   // commonly limits a single POST to 2–8 MB, below the 80 MB media limit.
+   if(mode==='video'||file.size>CHUNK_BYTES){
+    const total=Math.ceil(file.size/CHUNK_BYTES),shared={uploadAction:'chunk',bytes:file.size,total};
+    for(let index=0;index<total;index++){
+     if(!authorized()||permission.sessionId!==proof.sessionId||permission.claimId!==proof.claimId)
+      throw Error('Desktop proof permission changed while sending the recording.');
+     const part=form({...shared,index});part.append('chunk',file.slice(index*CHUNK_BYTES,(index+1)*CHUNK_BYTES),'part-'+index+'.bin');
+     const ack=await send(part,'Chunk '+(index+1)+' of '+total);
+     const next=Number(ack.upload?.next);
+     if(!Number.isInteger(next)||next<index+1||next>total)throw Error('The server did not acknowledge the uploaded video piece.');
+     note('Uploading video to Video Studio… '+Math.round(next/total*100)+'% ('+next+'/'+total+' pieces).');
+     index=next-1; // A retry can resume where the host already has the pieces.
+    }
+    result=await send(form({uploadAction:'commit',bytes:file.size,total}),'Finalize video');
+   }else{
+    const data=form({uploadAction:'direct'});data.append('media',file,file.name);
+    result=await send(data,'Send capture');
+   }
    if(!authorized()||permission.sessionId!==proof.sessionId||permission.claimId!==proof.claimId){close();return;}
-   note(`✓ ${mode} saved to Video Studio · ${result.clip?.id||'Upload complete'}.`);cleanupStream();clearPreview();buttons();
-  }catch(e){fail(`${e.message} Your file is still here; tap Send to retry.`);}finally{saving=false;buttons();}
+   note('✓ '+mode+' saved to Video Studio · '+(result.clip?.id||'Upload complete')+'.');cleanupStream();clearPreview();buttons();
+  }catch(e){fail(e.message+' Your file is still here; tap Send to retry.');}finally{saving=false;buttons();}
  }
  function open(){if(!permitted()){fail('The host must enable phone camera for this prize first.');return;}
   if(!dialog.open)dialog.showModal();$('phone-capture-prize').textContent='Current prize proof · Photos, video and audio go to the host Video Studio.';
