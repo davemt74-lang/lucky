@@ -14,6 +14,51 @@ final class RecordingPhone {
   $q=$db->prepare('INSERT INTO recording_phone_permissions(recording_session_id,phone_enabled) VALUES (?,?) ON DUPLICATE KEY UPDATE phone_enabled=VALUES(phone_enabled)');
   $q->execute([$sessionId,(int)$enabled]);return ['sessionId'=>$sessionId,'phoneEnabled'=>$enabled];
  }
+ /**
+  * Repair a camera-enabled live Spin the Wheel launch if an earlier code path
+  * did not create its group. Only the game's approved host phones may trigger
+  * this, and the stable game nonce makes repeat listings idempotent.
+  */
+ public static function ensureSpinWheelCamera(PDO $db,array $pair):?string {
+  if(ControllerPairing::status($pair)!=='paired')throw new DomainException('Phone pairing requires host approval.',403);
+  $owner=(int)($pair['host_admin_id']??0);
+  if($owner<1)return null;
+  $q=$db->prepare("SELECT s.id,s.state_json FROM game_sessions s WHERE s.game_id='spin-wheel' AND s.status IN ('active','paused')
+    AND EXISTS(SELECT 1 FROM audit_log a WHERE a.session_id=s.id AND a.event='session.start' AND a.admin_id=?)
+    ORDER BY s.created_at DESC,s.id DESC LIMIT 1");
+  $q->execute([$owner]);$game=$q->fetch(PDO::FETCH_ASSOC);
+  if(!$game)return null;
+  $state=json_decode((string)$game['state_json'],true);
+  $packageId=is_array($state)?($state['prizePackage']['id']??null):null;
+  if(!is_string($packageId)||!preg_match('/^[a-f0-9]{32}$/D',$packageId)){
+   $q=$db->prepare("SELECT package_id FROM prize_package_selection WHERE game_id='spin-wheel'");
+   $q->execute();$packageId=$q->fetchColumn();
+  }
+  if(!is_string($packageId)||!preg_match('/^[a-f0-9]{32}$/D',$packageId))return null;
+  $q=$db->prepare("SELECT name,phone_camera_enabled FROM prize_packages WHERE id=? AND game_id='spin-wheel'");
+  $q->execute([$packageId]);$package=$q->fetch(PDO::FETCH_ASSOC);
+  if(!$package||(int)$package['phone_camera_enabled']!==1)return null;
+  $nonce='spin-wheel-phone-'.$game['id'];
+  $q=$db->prepare('SELECT id FROM recording_sessions WHERE owner_admin_id=? AND create_nonce=?');
+  $q->execute([$owner,$nonce]);$prior=$q->fetchColumn();
+  if($prior!==false)return (string)$prior; // Do not override a host's completed/revoked group.
+  $q=$db->prepare("SELECT s.id FROM recording_sessions s JOIN recording_phone_permissions p ON p.recording_session_id=s.id
+    WHERE s.owner_admin_id=? AND s.game_session_id=? AND s.status='active' AND p.phone_enabled=1 LIMIT 1");
+  $q->execute([$owner,$game['id']]);$manual=$q->fetchColumn();
+  if($manual!==false)return (string)$manual;
+  $db->beginTransaction();
+  try{
+   $q=$db->prepare('SELECT status FROM game_sessions WHERE id=? FOR UPDATE');
+   $q->execute([$game['id']]);$status=$q->fetchColumn();
+   if(!in_array($status,['active','paused'],true)){$db->commit();return null;}
+   $q=$db->prepare("SELECT name,phone_camera_enabled FROM prize_packages WHERE id=? AND game_id='spin-wheel' FOR UPDATE");
+   $q->execute([$packageId]);$package=$q->fetch(PDO::FETCH_ASSOC);
+   if(!$package||(int)$package['phone_camera_enabled']!==1){$db->commit();return null;}
+   $id=RecordingSessions::autoSpinWheel($db,$owner,(string)$game['id'],(string)$package['name']);
+   $db->commit();
+   return $id;
+  }catch(Throwable $e){if($db->inTransaction())$db->rollBack();throw $e;}
+ }
  public static function sessions(PDO $db,array $pair):array {
   if(ControllerPairing::status($pair)!=='paired')throw new DomainException('Phone pairing requires host approval.',403);
   $q=$db->prepare("SELECT s.id,s.title,s.recording_type,s.status,s.started_at,COUNT(DISTINCT a.id) AS clip_count
