@@ -13,7 +13,7 @@ stub='''<script>
 window.__allow=false;window.__consent=true;window.__proofActive=true;window.__phase='live';window.__uploads=[];window.__commands=[];
 window.fetch=async(url,opts={})=>{
  const u=String(url),action=new URL(u,'https://lucky.test/').searchParams.get('action');
- if(u.includes('phone-media.php')){__uploads.push({entries:[...opts.body.entries()].map(([k,v])=>[k,v instanceof File?v.name:v]),headers:opts.headers,credentials:opts.credentials});return new Response(JSON.stringify({ok:true,clip:{id:'d'.repeat(32)}}));}
+ if(u.includes('phone-media.php')){const entries=[...opts.body.entries()].map(([k,v])=>[k,v instanceof File?v.name:v]);const values=Object.fromEntries(entries);__uploads.push({entries,headers:opts.headers,credentials:opts.credentials});return new Response(JSON.stringify({ok:true,upload:{next:Number(values.index)+1,total:Number(values.total)},clip:{id:'d'.repeat(32)}}));}
  if(action==='status')return new Response(JSON.stringify({ok:true,status:'paired',claims:[],game:{id:'a'.repeat(32),status:'active',canSpin:true,spinCount:0,claimedCount:1,remaining:5},proof:__proofActive?{active:true,sessionId:'a'.repeat(32),claimId:'b'.repeat(32),phoneCameraAllowed:__allow,consent:__consent,phase:__phase,savedCount:0}:{active:false}}));
  if(action==='command'){const cmd=JSON.parse(opts.body||'{}').command;__commands.push(cmd);if(cmd==='proof-consent-on')__consent=true;if(cmd==='proof-consent-off')__consent=false;return new Response(JSON.stringify({ok:true,applied:true,effect:'proof-consent'}));}
  return new Response(JSON.stringify({ok:true}));
@@ -45,13 +45,15 @@ async def main():
    await page.locator('#phone-capture-file').set_input_files({'name':name,'mimeType':mime,'buffer':b'1234567890'})
    check(f'{mode} gallery file ready',await page.locator('#phone-capture-send').is_visible())
    await page.locator('#phone-capture-send').click()
-   await page.wait_for_function(f"window.__uploads.length=={1+['photo','video','audio'].index(mode)}")
+   await page.wait_for_function(f"window.__uploads.length=={[1,3,4][['photo','video','audio'].index(mode)]}")
    await page.wait_for_function("document.getElementById('phone-capture-status').textContent.startsWith('✓') && document.getElementById('phone-capture-send').hidden",timeout=4000)
   captured=await page.evaluate('window.__uploads')
-  for idx,(mime,name,mode) in enumerate([('image/png','snapshot.png','photo'),('video/mp4','recording.mp4','video'),('audio/mpeg','commentary.mp3','audio')]):
+  for idx,(mime,name,mode) in zip([0,1,3],[('image/png','snapshot.png','photo'),('video/mp4','recording.mp4','video'),('audio/mpeg','commentary.mp3','audio')]):
    values=dict(captured[idx]['entries'])
-   check(f'{mode} bound to approved phone, session and claim',values.get('id')=='c'*32 and values.get('session')=='a'*32 and values.get('claim')=='b'*32 and values.get('kind')==mode and values.get('media')==name)
+   media_ok=values.get('chunk')=='part-0.bin' and values.get('uploadAction')=='chunk' if mode=='video' else values.get('media')==name
+   check(f'{mode} bound to approved phone, session and claim',values.get('id')=='c'*32 and values.get('session')=='a'*32 and values.get('claim')=='b'*32 and values.get('kind')==mode and media_ok)
    check(f'{mode} uses header bearer, not admin cookie',captured[idx]['credentials']=='omit' and captured[idx]['headers'].get('X-Controller-Token')=='d'*64)
+  check('Video upload finishes only after chunk acknowledgement',dict(captured[2]['entries']).get('uploadAction')=='commit')
   await page.evaluate('__allow=false')
   await page.wait_for_function("!document.getElementById('phone-capture-dialog').open",timeout=2700)
   check('Disabling host permission closes phone capture immediately on poll',await page.locator('#phone-capture-open').is_disabled())
