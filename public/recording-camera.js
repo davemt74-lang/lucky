@@ -3,7 +3,7 @@
  const $=id=>document.getElementById(id),KEY='lucky-phone-controller-v5p',MAX_BYTES=80*1024*1024,MAX_SECONDS=180;
  const valid={video:new Set(['video/webm','video/mp4','video/quicktime']),photo:new Set(['image/jpeg','image/png','image/webp']),audio:new Set(['audio/webm','audio/mpeg','audio/mp4','audio/ogg','audio/wav','audio/x-wav'])};
  let pair=null,sessions=[],mode='video',facing='environment',stream=null,recorder=null,parts=[],bytes=0,clock=null,started=0,generation=0,media=null,mediaNonce='',previewUrl='',duration=0,uploading=false,loading=false;
- let armed=false,armedSession='',armBusy=false,pollBusy=false,clockDelta=0,coordCapture=null,finishedTake='',autoSending=false;
+ let armed=false,armedSession='',armBusy=false,pollBusy=false,clockDelta=0,coordCapture=null,finishedTake='',autoSending=false,connectionInterrupted=false;
  const random=()=>crypto.randomUUID?.().replaceAll('-','')||Array.from(crypto.getRandomValues(new Uint8Array(16)),b=>b.toString(16).padStart(2,'0')).join('');
  const note=(message,bad=false)=>{const e=$('session-camera-message');e.textContent=message;e.classList.toggle('platform-error',bad);};
  const session=()=>sessions.find(s=>s.id===$('session-camera-session').value);
@@ -50,7 +50,7 @@
   if(body instanceof FormData)payload=body;else{headers['Content-Type']='application/json';payload=JSON.stringify({id:pair?.id,...body});}
   let response;
   try{response=await fetch('api/recording-phone.php?action='+encodeURIComponent(action),{method:'POST',headers,body:payload,credentials:'omit',cache:'no-store'});}
-  catch(e){throw Error('Cannot reach Camera Studio. Check the Cloud HTTPS connection, reopen the paired phone controller and retry. ('+(e?.message||'Network error')+')');}
+  catch(e){throw Error('Cannot reach Camera Studio ('+action+'). Temporary network interruption: '+(e?.message||'Network error')+'. The phone will retry while this page remains open.');}
   const data=await response.json().catch(()=>({}));if(!response.ok||!data.ok)throw Error(data.error||`Server error (${response.status})`);return data;
  }
  async function refresh(silent=false){if(loading||uploading)return;loading=true;const existing=$('session-camera-session').value;
@@ -63,9 +63,18 @@
    if(existing&&existing!==select.value){armed=false;armedSession='';coordCapture=null;release();}
    applyProfile();
    $('session-camera-badge').textContent=`${sessions.length} available session${sessions.length===1?'':'s'}`;
-   if(!silent)note(sessions.length?'Choose Video, Photo, or Audio; then open your camera.':'Ask the host to activate a recording and enable approved phone capture in Admin → Recordings.');
-  }catch(e){sessions=[];armed=false;armedSession='';coordCapture=null;$('session-camera-session').replaceChildren(new Option('Phone access unavailable',''));$('session-camera-badge').textContent='Disconnected';
-   release();note(e.message,true);
+   const recovered=connectionInterrupted;connectionInterrupted=false;
+   if(recovered)note('Camera Studio reconnected. You can continue with the selected recording.');
+   else if(!silent)note(sessions.length?'Choose Video, Photo, or Audio; then open your camera.':'Ask the host to activate a recording and enable approved phone capture in Admin → Recordings.');
+  }catch(e){
+   const transient=e.message.startsWith('Cannot reach Camera Studio');
+   if(transient){connectionInterrupted=true;$('session-camera-badge').textContent=sessions.length?'Reconnecting · '+sessions.length+' cached':'Reconnecting';
+    if(!silent||sessions.length===0)note(sessions.length?'Camera Studio connection interrupted. Your selected session and capture are preserved; retrying automatically.':e.message,true);
+   }else{
+    connectionInterrupted=false;sessions=[];armed=false;armedSession='';coordCapture=null;
+    $('session-camera-session').replaceChildren(new Option('Phone access unavailable',''));$('session-camera-badge').textContent='Disconnected';
+    release();note(e.message,true);
+   }
   }finally{loading=false;render();}
  }
  function type(){if(mode==='photo')return'';
@@ -145,7 +154,7 @@
    const take=command.activeTake;
    if(recording()&&coordCapture&&(!take||take.id!==coordCapture.takeId)){stop('host');return;}
    if(!recording()&&!media&&stream&&take&&take.id!==finishedTake)start(take);
-  }catch(e){armed=false;armedSession='';coordCapture=null;release();note(`Recording control disconnected: ${e.message}`,true);}
+  }catch(e){if(e.message.startsWith('Cannot reach Camera Studio')){note('Host connection interrupted. Local capture is preserved and camera coordination will retry automatically.',true);}else{armed=false;armedSession='';coordCapture=null;release();note(`Recording control disconnected: ${e.message}`,true);}}
   finally{pollBusy=false;render();}
  }
  $('session-camera-session').onchange=()=>{release();applyProfile();render();note(`Selected ${session()?.title||'another recording'}.`);};
@@ -162,5 +171,6 @@
  try{const p=JSON.parse(sessionStorage.getItem(KEY)||'null');if(/^[a-f0-9]{32}$/.test(p?.id||'')&&/^[a-f0-9]{64}$/.test(p?.token||''))pair=p;}catch(_){}
  window.addEventListener('pagehide',()=>{if(armed&&pair&&armedSession){void call('arm',{session:armedSession,enabled:false,kind:mode,consent:'no'}).catch(()=>{});}release();});
  document.addEventListener('visibilitychange',()=>{if(document.hidden&&stream&&!recording()&&!armed)stopStream();if(!document.hidden&&armed)void poll();});
- render();void refresh();setInterval(()=>{if(!document.hidden)void refresh(true);},5000);setInterval(()=>{if(armed&&!document.hidden)void poll();},1200);
+ window.addEventListener('online',()=>{if(!document.hidden)void refresh();});
+ render();void refresh();setInterval(()=>{if(!document.hidden&&!stream&&!recording()&&!armed&&!uploading)void refresh(true);},12000);setInterval(()=>{if(armed&&!document.hidden)void poll();},1200);
 })();
