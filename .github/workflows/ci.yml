@@ -215,6 +215,7 @@ jobs:
           python tests/v5q29c_cue_actions_browser.py
           python tests/v5q29c_cue_integration_browser.py
           python tests/v5q28b_phone_capture_browser.py
+          python tests/v5q29e4d1hf5_proof_camera_browser.py
           python tests/v5q29d_multicamera_browser.py
           python tests/v5q29a_timeline_browser.py
           python tests/v5q26b_video_gallery_browser.py
