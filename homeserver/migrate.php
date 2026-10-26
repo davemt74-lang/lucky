@@ -22,6 +22,7 @@ foreach(['recording_sessions','recording_takes','recording_sources','recording_a
 PrizePublicationMigration::ensure($db);
 require_once __DIR__.'/../lib/PrizePackages.php';
 PrizePackages::ensureBudgetColumn($db);
+PrizePackages::ensurePhoneCameraColumn($db);
 require_once __DIR__.'/../lib/GamePluginCapabilities.php';
 GamePluginCapabilities::ensureSchema($db);
 echo "HomeServer schema current.\n";

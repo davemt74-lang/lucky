@@ -122,6 +122,10 @@
  function render(){
   const view=data?.view;const live=['active','paused'].includes(view?.status);const active=view?.status==='active';
   const claimsPanel=document.querySelector('.host-claims-column');if(claimsPanel)claimsPanel.hidden=!live;
+   const cameraState=$('host-phone-camera-state');if(cameraState){cameraState.hidden=!live;
+    if(live)cameraState.textContent=data?.session?.prizePackage?.phoneCameraEnabled===false?
+     'Phone camera off for this prize package. Change the package setting for the next game.':
+     '📷 Phone camera ready on approved controllers · Each phone must grant consent before capture.';}
   document.body.classList.toggle('game-no-live-session',!live);paintPackageChooser();
   $('start-game').disabled=busy||active||view?.status==='paused';
   $('start-game').textContent=view?'▶ New game':'▶ Start Game';

@@ -48,7 +48,9 @@
  }
  async function call(action,body){const headers={'X-Controller-Token':pair?.token||''};let payload;
   if(body instanceof FormData)payload=body;else{headers['Content-Type']='application/json';payload=JSON.stringify({id:pair?.id,...body});}
-  const response=await fetch('api/recording-phone.php?action='+encodeURIComponent(action),{method:'POST',headers,body:payload,credentials:'omit',cache:'no-store'});
+  let response;
+  try{response=await fetch('api/recording-phone.php?action='+encodeURIComponent(action),{method:'POST',headers,body:payload,credentials:'omit',cache:'no-store'});}
+  catch(e){throw Error('Cannot reach Camera Studio. Check the Cloud HTTPS connection, reopen the paired phone controller and retry. ('+(e?.message||'Network error')+')');}
   const data=await response.json().catch(()=>({}));if(!response.ok||!data.ok)throw Error(data.error||`Server error (${response.status})`);return data;
  }
  async function refresh(silent=false){if(loading||uploading)return;loading=true;const existing=$('session-camera-session').value;

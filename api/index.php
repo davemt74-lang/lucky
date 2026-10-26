@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-require __DIR__.'/../lib/Bootstrap.php';require_once __DIR__.'/../lib/CloudGameUpdates.php';require_once __DIR__.'/../lib/GamePackageInstaller.php';require_once __DIR__.'/../lib/GamePackageActivation.php';require_once __DIR__.'/../lib/CloudGamePackageDownload.php';require_once __DIR__.'/../lib/GamePublisherChannels.php';require_once __DIR__.'/../lib/GameCatalog.php';require_once __DIR__.'/../lib/ProductCatalog.php';require_once __DIR__.'/../lib/ControllerGame.php';require_once __DIR__.'/../lib/PrizeDecision.php';require_once __DIR__.'/../lib/GameSessionLifecycle.php';require_once __DIR__.'/../lib/GamePluginCapabilities.php';headerSecurity();
+require __DIR__.'/../lib/Bootstrap.php';require_once __DIR__.'/../lib/CloudGameUpdates.php';require_once __DIR__.'/../lib/GamePackageInstaller.php';require_once __DIR__.'/../lib/GamePackageActivation.php';require_once __DIR__.'/../lib/CloudGamePackageDownload.php';require_once __DIR__.'/../lib/GamePublisherChannels.php';require_once __DIR__.'/../lib/GameCatalog.php';require_once __DIR__.'/../lib/ProductCatalog.php';require_once __DIR__.'/../lib/ControllerGame.php';require_once __DIR__.'/../lib/PrizeDecision.php';require_once __DIR__.'/../lib/GameSessionLifecycle.php';require_once __DIR__.'/../lib/GamePluginCapabilities.php';require_once __DIR__.'/../lib/RecordingSessions.php';headerSecurity();
 $action=strval($_GET['action']??'');$method=$_SERVER['REQUEST_METHOD']??'GET';
 function setting(PDO $db,string $game='spin-wheel'):array {
  $q=$db->prepare('SELECT * FROM game_settings WHERE game_id=?');$q->execute([$game]);$r=$q->fetch();
@@ -370,10 +370,11 @@ try {
      array_key_exists('budgetCents',$in)?$in['budgetCents']:null,array_key_exists('budgetCents',$in));
     audit($db,'package.created',null,['packageId'=>$out['id']]);
    }elseif($action==='package_save'){
-    $out=PrizePackages::save($db,(string)($in['id']??''),(int)($in['version']??0),
+    if(array_key_exists('phoneCameraEnabled',$in)&&!is_bool($in['phoneCameraEnabled']))throw new DomainException('Phone camera setting must be on or off.',422);
+     $out=PrizePackages::save($db,(string)($in['id']??''),(int)($in['version']??0),
      $in['name']??'',is_array($in['config']??null)?$in['config']:[],
      ($in['enabled']??false)===true,($in['playerSelectable']??false)===true,
-     array_key_exists('budgetCents',$in)?$in['budgetCents']:null,$in['image']??'');
+     array_key_exists('budgetCents',$in)?$in['budgetCents']:null,$in['image']??'',array_key_exists('phoneCameraEnabled',$in)&&is_bool($in['phoneCameraEnabled'])?$in['phoneCameraEnabled']:null);
     audit($db,'package.saved',null,['packageId'=>$out['id'],'version'=>$out['version']]);
    }elseif($action==='package_publish'){
     if(!array_key_exists('published',$in)||!is_bool($in['published']))throw new DomainException('Publication status must be Draft or Published.',400);
@@ -488,10 +489,14 @@ try {
     $config=$pkg['config'];
    }
    $s=GameRegistry::module($game)->createSession($config,bin2hex(random_bytes(16)));
-   if(isset($pkg))$s['prizePackage']=['id'=>$pkg['id'],'name'=>$pkg['name']];
+   if(isset($pkg))$s['prizePackage']=['id'=>$pkg['id'],'name'=>$pkg['name'],'phoneCameraEnabled'=>$pkg['phoneCameraEnabled']];
    GameFoundation::checkSession(GameRegistry::module($game),$s,(string)($s['id']??''));
    $viewToken=token();$q=$db->prepare('INSERT INTO game_sessions(id,game_id,status,version,state_json,viewer_token) VALUES (?,?,?,?,?,?)');
    $q->execute([$s['id'],$game,$s['status'],$s['version'],json_encode($s,JSON_THROW_ON_ERROR),$viewToken]);
+   if($game==='spin-wheel'&&($pkg['phoneCameraEnabled']??false)){
+    $recordingId=RecordingSessions::autoSpinWheel($db,(int)$_SESSION['admin_id'],(string)$s['id'],(string)$pkg['name']);
+    audit($db,'recording.game-auto-created',$s['id'],['recordingId'=>$recordingId,'packageId'=>$pkg['id']]);
+   }
    audit($db,'session.start',$s['id'],['game'=>$game,'packageId'=>$pkg['id']??null]);$db->commit();
   }catch(Throwable $e){$db->rollBack();throw $e;}
   success(['data'=>['session'=>$s,'viewerToken'=>$viewToken,'view'=>GameRegistry::module($s['game'])->publicView($s)]],201);

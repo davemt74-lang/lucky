@@ -176,6 +176,7 @@
   packageId=id;packageDirty=false;activeTier='tier1';settings.config=structuredClone(p.config);
   $('package-name').value=p.name;$('package-image').value=p.image||'';$('package-enabled').checked=!!p.enabled;
   $('package-player-choice').checked=!!p.playerSelectable;
+   $('package-phone-camera').checked=p.phoneCameraEnabled!==false;
   $('package-budget').value=p.budgetCents==null?'':cents(p.budgetCents);
   for(const [k,v] of Object.entries(settings.config.odds))if($('odds-'+k))$('odds-'+k).value=v;
   selectTier('tier1');drawPackageTabs();
@@ -220,6 +221,7 @@
   const p=packageFor(packageId);if(!p)throw Error('Select a prize package.');
   const response=await L.api('package_save',{body:{id:p.id,version:p.version,name:$('package-name').value.trim(),
    config:settings.config,enabled:$('package-enabled').checked,playerSelectable:$('package-player-choice').checked,
+   phoneCameraEnabled:$('package-phone-camera').checked,
    budgetCents:packageBudget,image:$('package-image').value.trim()}});
   Object.assign(p,response.package);settings.config=structuredClone(p.config);packageDirty=false;
   drawPackageTabs();renderTier();status('Prize package saved locally. Current sessions remain unchanged.');return true;
@@ -273,7 +275,7 @@
   try{await L.api('package_delete',{body:{id:packageId}});await reloadPackages(selectedPackage);status('Package deleted.');}
   catch(e){status(e.message,true);}
  };
- for(const id of ['package-name','package-image','package-budget','package-enabled','package-player-choice'])$(id).addEventListener('change',markPackageDirty);
+ for(const id of ['package-name','package-image','package-budget','package-enabled','package-player-choice','package-phone-camera'])$(id).addEventListener('change',markPackageDirty);
  $('tab-prizes').addEventListener('change',e=>{
   if(!e.target.closest('.prize-package-config')&&!e.target.closest('.prize-package-tabs'))markPackageDirty();
  });

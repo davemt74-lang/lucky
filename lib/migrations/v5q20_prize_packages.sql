@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS prize_packages (
  enabled TINYINT(1) NOT NULL DEFAULT 1,
  publication_status VARCHAR(12) NOT NULL DEFAULT 'published',
  player_selectable TINYINT(1) NOT NULL DEFAULT 1,
+ phone_camera_enabled TINYINT(1) NOT NULL DEFAULT 1,
  version INT UNSIGNED NOT NULL DEFAULT 1,
  sort_order INT UNSIGNED NOT NULL DEFAULT 0,
  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
