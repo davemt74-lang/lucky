@@ -1,5 +1,7 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__.'/RecordingProfiles.php';
+require_once __DIR__.'/GameCatalog.php';
 
 /** Universal media-production groups. Every method is scoped to the authenticated host. */
 final class RecordingSessions {
@@ -42,31 +44,40 @@ final class RecordingSessions {
  public static function create(PDO $db,int $owner,array $in):array {
   if($owner<1)throw new DomainException('Administrator login required.',403);
   [$type,$title,$description,$game]=self::input($in);$nonce=self::nonce((string)($in['nonce']??''));
-  if($game!==''){$q=$db->prepare('SELECT 1 FROM game_sessions WHERE id=?');$q->execute([$game]);if(!$q->fetchColumn())throw new DomainException('Game session not found.',404);}
-  $hash=self::fingerprint([$type,$title,$description,$game]);$id=self::newId();
+  $gameId=null;
+  if($game!==''){$q=$db->prepare('SELECT game_id FROM game_sessions WHERE id=?');$q->execute([$game]);$gameId=$q->fetchColumn();if($gameId===false)throw new DomainException('Game session not found.',404);}
+  $profile=RecordingProfiles::make($in,$gameId===null?null:(string)$gameId);
+  $hash=self::fingerprint([$type,$title,$description,$game,RecordingProfiles::metadata($in),$gameId===null?$profile['capture']:null]);$id=self::newId();
+  $db->beginTransaction();
   try{
    $q=$db->prepare('INSERT INTO recording_sessions(id,owner_admin_id,recording_type,title,description,game_session_id,create_nonce,request_hash) VALUES (?,?,?,?,?,?,?,?)');
    $q->execute([$id,$owner,$type,$title,$description,$game!==''?$game:null,$nonce,$hash]);
+   RecordingProfiles::save($db,$id,$gameId===null?null:(string)$gameId,$profile);
   }catch(PDOException $e){
-   if((string)$e->getCode()!=='23000')throw $e;
+   if((string)$e->getCode()!=='23000'){if($db->inTransaction())$db->rollBack();throw $e;}
    $q=$db->prepare('SELECT id,request_hash FROM recording_sessions WHERE owner_admin_id=? AND create_nonce=?');$q->execute([$owner,$nonce]);$prior=$q->fetch(PDO::FETCH_ASSOC);
-   if(!$prior)throw $e;
-   if(!hash_equals((string)$prior['request_hash'],$hash))throw new DomainException('This request token was already used for different recording details.',409);
+   if(!$prior){if($db->inTransaction())$db->rollBack();throw $e;}
+   if(!hash_equals((string)$prior['request_hash'],$hash)){if($db->inTransaction())$db->rollBack();throw new DomainException('This request token was already used for different recording details.',409);}
    $id=(string)$prior['id'];
-  }
+  }catch(Throwable $e){if($db->inTransaction())$db->rollBack();throw $e;}
+  if($db->inTransaction())$db->commit();
   return self::get($db,$owner,$id);
  }
  public static function list(PDO $db,int $owner):array {
   if($owner<1)throw new DomainException('Administrator login required.',403);
   $q=$db->prepare('SELECT id,recording_type,title,description,game_session_id,status,revision,started_at,ended_at,created_at,updated_at FROM recording_sessions WHERE owner_admin_id=? ORDER BY created_at DESC,id DESC LIMIT 100');$q->execute([$owner]);
-  return array_map([self::class,'publicSession'],$q->fetchAll(PDO::FETCH_ASSOC));
+  $rows=array_map([self::class,'publicSession'],$q->fetchAll(PDO::FETCH_ASSOC));
+  foreach($rows as &$row)$row['profile']=RecordingProfiles::get($db,(string)$row['id']);unset($row);
+  return $rows;
  }
  private static function publicSession(array $row):array {
   return ['id'=>$row['id'],'type'=>$row['recording_type'],'title'=>$row['title'],'description'=>$row['description'],
    'gameSessionId'=>$row['game_session_id'],'status'=>$row['status'],'revision'=>(int)$row['revision'],
    'startedAt'=>$row['started_at'],'endedAt'=>$row['ended_at'],'createdAt'=>$row['created_at'],'updatedAt'=>$row['updated_at']];
  }
- public static function get(PDO $db,int $owner,string $id):array {return self::publicSession(self::owned($db,$owner,$id));}
+ public static function get(PDO $db,int $owner,string $id):array {
+  $row=self::publicSession(self::owned($db,$owner,$id));$row['profile']=RecordingProfiles::get($db,$id);return $row;
+ }
  public static function detail(PDO $db,int $owner,string $id):array {
   $session=self::get($db,$owner,$id);
   $q=$db->prepare('SELECT id,take_index,title,status,started_at,ended_at FROM recording_takes WHERE recording_session_id=? ORDER BY take_index');$q->execute([$id]);$takes=$q->fetchAll(PDO::FETCH_ASSOC);
