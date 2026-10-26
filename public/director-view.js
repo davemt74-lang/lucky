@@ -10,7 +10,7 @@
   const params=new URLSearchParams({action});
   if(method==='GET')Object.entries(fields).forEach(([k,v])=>params.set(k,v));
   const response=await fetch('api/director-live.php?'+params.toString(),{
-   method,cache:'no-store',credentials:'omit',
+   method,cache:'no-store',credentials:'same-origin',
    ...(method==='POST'?{headers:{'Content-Type':'application/json'},body:JSON.stringify(fields)}:{})
   });
   const out=await response.json().catch(()=>({}));
