@@ -3,7 +3,7 @@ declare(strict_types=1);
 require __DIR__.'/lib/Bootstrap.php';
 if(!installed()){http_response_code(503);exit('The game platform is not installed.');}
 headerSecurity();header('Referrer-Policy: no-referrer');header('X-Robots-Tag: noindex, nofollow');
-?><!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="referrer" content="no-referrer"><meta name="theme-color" content="#0d1423"><title>Phone Controller · Lucky Games</title><link rel="stylesheet" href="public/style.css"><link rel="stylesheet" href="public/platform.css?v=5q29e2"></head>
+?><!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="referrer" content="no-referrer"><meta name="theme-color" content="#0d1423"><title>Phone Controller · Lucky Games</title><link rel="stylesheet" href="public/style.css"><link rel="stylesheet" href="public/platform.css?v=5q29e4d1hf4"></head>
 <body class="phone-controller-page"><main class="phone-controller" aria-label="Lucky Games phone controller"><p id="phone-status" role="status" aria-live="polite" class="phone-inline-status">Connecting…</p>
 <section id="phone-dashboard" class="phone-game-dashboard" hidden aria-labelledby="phone-dashboard-title">
  <div class="surface phone-dashboard-heading"><p class="mini-label">YOUR HOME ARCADE</p><h1 id="phone-dashboard-title">Choose a game</h1>
@@ -44,7 +44,7 @@ headerSecurity();header('Referrer-Policy: no-referrer');header('X-Robots-Tag: no
 <button type="button" data-phone-view="game" disabled><span aria-hidden="true">🎮</span><small>Game</small></button>
 <button type="button" id="phone-arrows-toggle" aria-label="Open arrow navigation" aria-haspopup="dialog" aria-controls="phone-arrows-dialog" aria-expanded="false" disabled><span aria-hidden="true">✥</span><small>Arrows</small></button>
 <button type="button" data-phone-view="prize" disabled><span aria-hidden="true">🎁</span><small>Prize</small></button>
-<button type="button" data-phone-view="camera" disabled><span aria-hidden="true">▣</span><small>Camera Studio</small></button>
+<a href="camera.php" data-phone-view="camera" class="phone-camera-studio-link"><span aria-hidden="true">▣</span><small>Camera Studio</small></a>
 <button type="button" data-phone-view="more"><span aria-hidden="true">☰</span><small>More</small></button>
 </nav>
 <dialog id="phone-arrows-dialog" class="phone-arrows-dialog" aria-labelledby="phone-arrows-title">
@@ -74,7 +74,7 @@ headerSecurity();header('Referrer-Policy: no-referrer');header('X-Robots-Tag: no
 <button type="button" data-phone-view="home" disabled>⌂ <span>Dashboard<small>Choose the next game</small></span></button>
 <button type="button" data-phone-view="game" disabled>🎮 <span>Current game<small>Desktop gameplay controls</small></span></button>
 <button type="button" data-phone-view="prize" disabled>🎁 <span>Prize claims<small>View accepted prizes and video proofs</small></span></button>
-<button type="button" data-phone-view="camera" disabled>▣ <span>Camera proof<small>Record, review and save</small></span></button>
+<a href="camera.php" data-phone-view="camera" class="phone-camera-studio-link">▣ <span>Camera Studio<small>Capture video, photos, and audio</small></span></a>
 </div>
 <p class="phone-menu-privacy">Video playback and recording happen on the host computer, not your phone.</p>
 <button id="phone-disconnect" type="button" class="btn btn-outline phone-menu-disconnect" hidden>Disconnect this phone</button>
@@ -87,4 +87,4 @@ headerSecurity();header('Referrer-Policy: no-referrer');header('X-Robots-Tag: no
 <ol id="phone-claimed-prizes" class="phone-claimed-prizes" aria-live="polite"></ol>
 <p id="phone-claims-empty" class="phone-claims-empty">No prizes claimed yet.</p>
 </section>
-</dialog><dialog id="phone-decline-dialog" class="phone-confirm-dialog" aria-labelledby="phone-decline-title" aria-describedby="phone-decline-note"><h2 id="phone-decline-title">Decline this prize?</h2><p id="phone-decline-note">The prize won't be claimed, and this game will end. This can't be undone.</p><div class="phone-actions"><button type="button" id="phone-decline-cancel" class="btn btn-primary">Keep my prize</button><button type="button" id="phone-decline-confirm" class="btn btn-outline">Decline &amp; end game</button></div></dialog></main><script src="public/voice-commands.js?v=5p2" defer></script><script src="public/phone-controller.js?v=5q29e4d1hf3" defer></script><script src="public/phone-capture.js?v=5q29d" defer></script></body></html>
+</dialog><dialog id="phone-decline-dialog" class="phone-confirm-dialog" aria-labelledby="phone-decline-title" aria-describedby="phone-decline-note"><h2 id="phone-decline-title">Decline this prize?</h2><p id="phone-decline-note">The prize won't be claimed, and this game will end. This can't be undone.</p><div class="phone-actions"><button type="button" id="phone-decline-cancel" class="btn btn-primary">Keep my prize</button><button type="button" id="phone-decline-confirm" class="btn btn-outline">Decline &amp; end game</button></div></dialog></main><script src="public/voice-commands.js?v=5p2" defer></script><script src="public/phone-controller.js?v=5q29e4d1hf4" defer></script><script src="public/phone-capture.js?v=5q29d" defer></script></body></html>
