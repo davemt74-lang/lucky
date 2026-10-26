@@ -31,7 +31,7 @@ checkAuto($cameraCloned['phoneCameraEnabled']===true,'Cloning disabled package s
 $persisted=PrizePackages::read($db,true)['packages'];
 $offRows=array_values(array_filter($persisted,fn($p)=>$p['id']===$cameraOff['id']));
 checkAuto(count($offRows)===1&&$offRows[0]['phoneCameraEnabled']===false,'Disabled camera setting persists');
-$owner=0;$game=bin2hex(random_bytes(16));
+$owner=0;$game=bin2hex(random_bytes(16));$recoveredGame=null;
 try {
  $db->prepare('INSERT INTO admins(username,password_hash) VALUES (?,?)')
   ->execute(['auto-camera-'.bin2hex(random_bytes(6)),password_hash('demo',PASSWORD_DEFAULT)]);
@@ -46,13 +46,28 @@ try {
  checkAuto($recording['status']==='active'&&$recording['gameSessionId']===$game,'Game starts with linked active recording');
  checkAuto($recording['profile']['capture']['phoneCameraEnabled']===true,'Game profile allows paired phone camera');
  $pair=['status'=>'paired','paired_expires_at'=>gmdate('Y-m-d H:i:s',time()+3600),'host_admin_id'=>$owner];
+ $db->prepare("INSERT INTO audit_log(admin_id,event,session_id,details) VALUES (?,'session.start',?,'{}')")->execute([$owner,$game]);
  $available=RecordingPhone::sessions($db,$pair);
  checkAuto(count(array_filter($available,fn($r)=>$r['id']===$recordingId))===1,'Paired controller sees automatic game camera group');
  RecordingPhone::grant($db,$owner,$recordingId,false);
  $available=RecordingPhone::sessions($db,$pair);
  checkAuto(!array_filter($available,fn($r)=>$r['id']===$recordingId),'Host revocation removes the camera group immediately');
+ checkAuto(RecordingPhone::ensureSpinWheelCamera($db,$pair)===$recordingId,'Reconciliation is idempotent and respects revoked camera group');
+ checkAuto(!array_filter(RecordingPhone::sessions($db,$pair),fn($r)=>$r['id']===$recordingId),'Reconciliation never overrides host revocation');
+ $db->prepare("UPDATE game_sessions SET status='ended' WHERE id=?")->execute([$game]);
+ $recoveredGame=bin2hex(random_bytes(16));$selected=PrizePackages::currentConfig($db);
+ checkAuto(($selected['phoneCameraEnabled']??false)===true,'Selected package enables automatic camera');
+ $state=json_encode(['prizePackage'=>['id'=>$selected['id'],'name'=>$selected['name']]],JSON_THROW_ON_ERROR);
+ $db->prepare("INSERT INTO game_sessions(id,game_id,status,version,state_json,viewer_token) VALUES (?,'spin-wheel','active',1,?,?)")
+  ->execute([$recoveredGame,$state,bin2hex(random_bytes(24))]);
+ $db->prepare("INSERT INTO audit_log(admin_id,event,session_id,details) VALUES (?,'session.start',?,'{}')")->execute([$owner,$recoveredGame]);
+ $recovered=RecordingPhone::ensureSpinWheelCamera($db,$pair);
+ checkAuto(is_string($recovered)&&strlen($recovered)===32,'Approved phone listing recovers active game without separate recording setup');
+ checkAuto(RecordingPhone::ensureSpinWheelCamera($db,$pair)===$recovered,'Repeated phone listing does not create duplicate camera groups');
+ checkAuto(count(array_filter(RecordingPhone::sessions($db,$pair),fn($r)=>$r['id']===$recovered))===1,'Recovered camera group is visible to approved phone');
  echo "V5Q.29E4D1 PHONE CAMERA DEFAULT MARIADB CERTIFICATION PASSED\n";
 } finally {
  if($owner)$db->prepare('DELETE FROM admins WHERE id=?')->execute([$owner]);
+ if($recoveredGame)$db->prepare('DELETE FROM game_sessions WHERE id=?')->execute([$recoveredGame]);
  $db->prepare('DELETE FROM game_sessions WHERE id=?')->execute([$game]);
 }
