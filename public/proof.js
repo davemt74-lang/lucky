@@ -92,11 +92,13 @@
    // current package setting: a host may enable cameras after a game starts.
    let packageCameraEnabled=r.session?.prizePackage?.phoneCameraEnabled===true;
    const packageId=r.session?.prizePackage?.id||'';
-   if(/^[a-f0-9]{32}$/.test(packageId)){
-    try{const packages=await L.api('prize_packages');const selected=(packages.packages||[]).find(item=>item.id===packageId);
-     if(selected)packageCameraEnabled=selected.phoneCameraEnabled===true;
-    }catch(_){/* Keep the game snapshot permission if package lookup is unavailable. */}
-   }
+   try{const packages=await L.api('prize_packages');
+    // Legacy active games can predate package camera snapshots. Use the
+    // selected package for those older sessions without requiring a new game.
+    const currentId=/^[a-f0-9]{32}$/.test(packageId)?packageId:(packages.selected||'');
+    const selected=(packages.packages||[]).find(item=>item.id===currentId);
+    if(selected)packageCameraEnabled=selected.phoneCameraEnabled===true;
+   }catch(_){/* Keep the game snapshot permission if package lookup is unavailable. */}
    if($('capture-phone-camera'))$('capture-phone-camera').checked=packageCameraEnabled;
    window.LuckyCapture?.show(session,claim,p.name,profile?.proofAngles||[],r.session?.game||'spin-wheel');
    $('camera-enable').disabled=false;
