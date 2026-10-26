@@ -5,10 +5,20 @@ require_once __DIR__.'/MontageClaimTimeline.php';
 
 /** Shared trusted upload pipeline for Admin and capability-scoped paired phones. */
 final class ClaimMediaUpload {
- public static function store(PDO $db,array $form,?array $file,?callable $authorize=null,?string $fixedId=null):array {
+ public static function store(PDO $db,array $form,?array $file,?callable $authorize=null,?string $fixedId=null,?string $trustedStagedPath=null):array {
   $sessionId=(string)($form['session']??'');$claimId=(string)($form['claim']??'');
   if(!ClaimMedia::validId($sessionId)||!ClaimMedia::validId($claimId))throw new DomainException('Invalid claim association.',400);
-  if(!is_array($file)||($file['error']??-1)!==UPLOAD_ERR_OK||!isset($file['tmp_name'])||!is_uploaded_file((string)$file['tmp_name']))
+  if(!is_array($file)||($file['error']??-1)!==UPLOAD_ERR_OK||!isset($file['tmp_name']))
+   throw new DomainException('Choose a valid file, or check your server upload size limit.',422);
+  // Only the private, server-assembled phone chunk path may bypass PHP's
+  // is_uploaded_file() check. Untrusted form paths never reach this branch.
+  if($trustedStagedPath!==null){
+   $dir=realpath(LUCKY_ROOT.'/storage/phone-media-pending');$real=realpath($trustedStagedPath);
+   if(!$dir||!$real||dirname($real)!==$dir||!preg_match('/^[a-f0-9]{64}\.part$/D',basename($real))||
+      is_link($trustedStagedPath)||$real!==(string)$file['tmp_name']||
+      !is_file($real)||filesize($real)!==(int)($file['size']??0))
+    throw new DomainException('Invalid private phone upload staging file.',403);
+  }elseif(!is_uploaded_file((string)$file['tmp_name']))
    throw new DomainException('Choose a valid file, or check your server upload size limit.',422);
   $mime=(new finfo(FILEINFO_MIME_TYPE))->file($file['tmp_name']);
   $dimensions=str_starts_with($mime,'image/')?@getimagesize($file['tmp_name']):null;
@@ -51,7 +61,8 @@ final class ClaimMediaUpload {
    if((int)$usage['total']>=ClaimMedia::MAX_CLIPS_PER_SESSION||(int)$usage['used']+(int)$file['size']>ClaimMedia::MAX_SESSION_BYTES)
     throw new DomainException('Game media limit reached. Delete older clips to continue.',413);
    if(!is_dir(dirname($path))&&!mkdir(dirname($path),0700,true))throw new RuntimeException('Could not create private media directory.');
-   if(!move_uploaded_file($file['tmp_name'],$path))throw new RuntimeException('Could not store your recording.');$moved=true;@chmod($path,0600);
+   $stored=$trustedStagedPath!==null?rename($file['tmp_name'],$path):move_uploaded_file($file['tmp_name'],$path);
+   if(!$stored)throw new RuntimeException('Could not store your recording.');$moved=true;@chmod($path,0600);
    $q=$db->prepare('INSERT INTO claim_media (id,session_id,claim_id,kind,mime,title,source_label,angle_label,angle_index,bytes,duration_ms,sort_order) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)');
    $q->execute([$id,$sessionId,$claimId,$kind,$mime,$title,$sourceLabel,$angleLabel,$angleIndex,(int)$file['size'],$duration,(int)$usage['last_order']+1]);
    if($kind==='video'){
