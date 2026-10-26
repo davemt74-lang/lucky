@@ -7,6 +7,18 @@
  const random=()=>crypto.randomUUID?.().replaceAll('-','')||Array.from(crypto.getRandomValues(new Uint8Array(16)),b=>b.toString(16).padStart(2,'0')).join('');
  const note=(message,bad=false)=>{const e=$('session-camera-message');e.textContent=message;e.classList.toggle('platform-error',bad);};
  const session=()=>sessions.find(s=>s.id===$('session-camera-session').value);
+ const permitted=kind=>session()?.capture?.[kind]!==false;
+ function instructions(){const item=session(),panel=$('session-camera-instructions');panel.hidden=!item;
+  if(!item)return;
+  const names={game:'Game proof',live_event:'Live event',production:'Content campaign',general:'Custom recording'};
+  $('session-camera-profile-title').textContent=(names[item.type]||'Recording')+' · '+item.title;
+  $('session-camera-profile-brief').textContent=item.brief||'Capture the requested footage and send it to the host.';
+  const shots=$('session-camera-profile-shots');shots.replaceChildren();
+  for(const shot of item.shotList||[]){const li=document.createElement('li');li.textContent=shot;shots.append(li);}
+  $('session-camera-profile-details').textContent=[item.eventDate,item.location,...(item.tags||[]).map(t=>'#'+t),
+   'Max '+(item.capture?.maxCameras||4)+' camera(s)','Host countdown '+(item.capture?.countdownSeconds??3)+'s'].filter(Boolean).join(' · ');
+ }
+ function applyProfile(){if(session()&&!permitted(mode))mode=['video','photo','audio'].find(permitted)||'video';instructions();}
  const approved=()=>!!pair&&!!session()&&$('session-camera-consent').checked;
  const recording=()=>recorder?.state==='recording';
  const previewNode=()=>$(mode==='video'?'session-camera-review-video':mode==='photo'?'session-camera-review-photo':'session-camera-review-audio');
@@ -21,7 +33,7 @@
  }
  function release(){generation++;stopStream();clearPreview();render();}
  function render(){const active=!!session(),live=!!stream,rec=recording(),saved=!!media;
-  $('session-camera-open').hidden=!active||live||saved;$('session-camera-open').disabled=loading||uploading||!$('session-camera-consent').checked;
+  $('session-camera-open').hidden=!active||live||saved;$('session-camera-open').disabled=loading||uploading||!$('session-camera-consent').checked||!permitted(mode);
   $('session-camera-record').hidden=!live||rec||mode==='photo'||armed;$('session-camera-photo').hidden=!live||mode!=='photo';
   $('session-camera-record').disabled=!$('session-camera-consent').checked;$('session-camera-photo').disabled=!$('session-camera-consent').checked;
   $('session-camera-stop').hidden=!rec;$('session-camera-flip').hidden=!live||rec||mode==='audio';
@@ -32,7 +44,7 @@
   const button=$('session-camera-arm');button.textContent=armed?'■ Disarm phone':'◎ Arm for host';button.disabled=armBusy||uploading||(!armed&&(!live||!approved()||mode==='photo'||saved));
   $('session-camera-arm-status').textContent=armed?(rec?'● Host-directed recording in progress':`Armed for ${session()?.title||'recording'} · waiting for host`):'Open video or audio and grant consent, then arm to follow the host’s take.';
   $('session-camera-stage').dataset.mode=mode;
-  document.querySelectorAll('[data-session-mode]').forEach(b=>{b.setAttribute('aria-pressed',String(b.dataset.sessionMode===mode));b.disabled=uploading||rec||armed;});
+  document.querySelectorAll('[data-session-mode]').forEach(b=>{b.setAttribute('aria-pressed',String(b.dataset.sessionMode===mode));b.disabled=uploading||rec||armed||!permitted(b.dataset.sessionMode);});
  }
  async function call(action,body){const headers={'X-Controller-Token':pair?.token||''};let payload;
   if(body instanceof FormData)payload=body;else{headers['Content-Type']='application/json';payload=JSON.stringify({id:pair?.id,...body});}
@@ -47,6 +59,7 @@
    if(!sessions.length)select.add(new Option('No active sessions enabled for phones',''));
    select.value=sessions.some(s=>s.id===existing)?existing:sessions[0]?.id||'';
    if(existing&&existing!==select.value){armed=false;armedSession='';coordCapture=null;release();}
+   applyProfile();
    $('session-camera-badge').textContent=`${sessions.length} available session${sessions.length===1?'':'s'}`;
    if(!silent)note(sessions.length?'Choose Video, Photo, or Audio; then open your camera.':'Ask the host to activate a recording and enable approved phone capture in Admin → Recordings.');
   }catch(e){sessions=[];armed=false;armedSession='';coordCapture=null;$('session-camera-session').replaceChildren(new Option('Phone access unavailable',''));$('session-camera-badge').textContent='Disconnected';
@@ -62,7 +75,7 @@
   if(mode!=='photo')viewer.onloadedmetadata=()=>{if(media===file&&Number.isFinite(viewer.duration)&&viewer.duration>0)duration=Math.min(3600000,Math.max(duration,Math.round(viewer.duration*1000)));};
   note(`Ready to send ${(file.size/1048576).toFixed(1)} MB to ${session()?.title||'your group'}.`);render();
  }
- async function open(){if(!session()||uploading)return;if(!$('session-camera-consent').checked){note('Confirm recording consent before opening the camera.',true);return;}
+ async function open(){if(!session()||uploading||!permitted(mode))return;if(!$('session-camera-consent').checked){note('Confirm recording consent before opening the camera.',true);return;}
   const mark=++generation;stopStream();clearPreview();render();
   if(!navigator.mediaDevices?.getUserMedia){note('A secure HTTPS connection and camera-compatible browser are required. You can still select an existing file.',true);return;}
   try{
@@ -102,7 +115,7 @@
   canvas.toBlob(blob=>{if(mark!==generation)return;if(!blob)return note('Unable to capture photo.',true);
    show(new File([blob],`photo-${Date.now()}.jpg`,{type:'image/jpeg'}));},'image/jpeg',.9);
  }
- async function send(){if(!approved()||!media||uploading)return;uploading=true;render();const group=session(),file=media,receipt=mediaNonce;let resume=false;
+ async function send(){if(!approved()||!media||uploading||!permitted(mode))return;uploading=true;render();const group=session(),file=media,receipt=mediaNonce;let resume=false;
   try{const data=new FormData();for(const [key,value] of Object.entries({id:pair.id,nonce:receipt,consent:'yes',session:group.id,kind:mode,
     takeId:coordCapture?.takeId||group.takeId||'',durationMs:String(duration),title:file.name.replace(/\.[^.]+$/,'').slice(0,120)||'Phone recording'}))data.append(key,value);
    if(coordCapture&&armed){data.append('recordedStartMs',String(Math.round(coordCapture.startMs)));data.append('recordedEndMs',String(Math.round(coordCapture.endMs)));data.append('clockOffsetMs',String(coordCapture.clockDelta));}
@@ -133,15 +146,16 @@
   }catch(e){armed=false;armedSession='';coordCapture=null;release();note(`Recording control disconnected: ${e.message}`,true);}
   finally{pollBusy=false;render();}
  }
- $('session-camera-session').onchange=()=>{release();note(`Selected ${session()?.title||'another recording'}.`);};
+ $('session-camera-session').onchange=()=>{release();applyProfile();render();note(`Selected ${session()?.title||'another recording'}.`);};
  $('session-camera-consent').onchange=()=>{if(!$('session-camera-consent').checked){if(armed)void setArm(false);armed=false;armedSession='';coordCapture=null;release();note('Recording consent withdrawn. Camera and microphone stopped.');}else render();};$('session-camera-refresh').onclick=()=>refresh();
- document.querySelectorAll('[data-session-mode]').forEach(b=>b.onclick=()=>{if(recording()||uploading)return;release();mode=b.dataset.sessionMode;render();note(`Ready for ${mode} capture.`);});
+ document.querySelectorAll('[data-session-mode]').forEach(b=>b.onclick=()=>{if(recording()||uploading||!permitted(b.dataset.sessionMode))return;release();mode=b.dataset.sessionMode;render();note(`Ready for ${mode} capture.`);});
  $('session-camera-open').onclick=open;$('session-camera-flip').onclick=()=>{facing=facing==='environment'?'user':'environment';void open();};
  $('session-camera-arm').onclick=()=>void setArm(!armed);
  $('session-camera-record').onclick=()=>start();$('session-camera-stop').onclick=()=>{stop('manual');if(armed){finishedTake=coordCapture?.takeId||'';void setArm(false);}};$('session-camera-photo').onclick=photo;
  $('session-camera-retake').onclick=()=>{release();note('Previous capture discarded; you can start again.');};
  $('session-camera-send').onclick=send;$('session-camera-file').onchange=e=>{const f=e.target.files?.[0];e.target.value='';if(!f||!session())return;
   const kind=Object.keys(valid).find(k=>valid[k].has(f.type));if(!kind||f.size<1||f.size>MAX_BYTES){note('File must be a supported photo, video, or audio under 80 MB.',true);return;}
+  if(!permitted(kind)){note('This recording profile does not permit '+kind+' uploads.',true);return;}
   release();mode=kind;show(f);};
  try{const p=JSON.parse(sessionStorage.getItem(KEY)||'null');if(/^[a-f0-9]{32}$/.test(p?.id||'')&&/^[a-f0-9]{64}$/.test(p?.token||''))pair=p;}catch(_){}
  window.addEventListener('pagehide',()=>{if(armed&&pair&&armedSession){void call('arm',{session:armedSession,enabled:false,kind:mode,consent:'no'}).catch(()=>{});}release();});
