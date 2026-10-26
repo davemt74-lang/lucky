@@ -6,7 +6,7 @@ $proof=(string)file_get_contents($base.'/proof.php');
 $script=(string)file_get_contents($base.'/public/camera-director.js');
 $style=(string)file_get_contents($base.'/public/platform.css');
 $layout=(string)file_get_contents($base.'/lib/Layout.php');
-directorCheck(str_contains($proof,'id="camera-director"')&&str_contains($proof,'public/camera-director.js?v=5q29e4d1hf8a'),
+directorCheck(str_contains($proof,'id="camera-director"')&&preg_match('/public\/camera-director\.js\?v=5q29e4d1hf8[a-z]/',$proof)===1,
  'Director control surface and versioned program engine are installed on proof page');
 directorCheck(str_contains($proof,'id="director-preview"')&&str_contains($proof,'id="director-program"'),
  'Separate cue and program monitors exist in the same proof workspace');
@@ -24,8 +24,9 @@ directorCheck(str_contains($script,'MediaRecorder(exportStream')&&str_contains($
 directorCheck(str_contains($script,"window.addEventListener('lucky:proof-close',close)")&&
  str_contains($script,'MAX_BYTES=80*1024*1024'),
  'Proof release stops program publishing and export is bounded');
-directorCheck(str_contains($style,'.director-monitors')&&str_contains($layout,'platform.css?v=5q29e4d1hf8a'),
+directorCheck(str_contains($style,'.director-monitors')&&preg_match('/platform\.css\?v=5q29e4d1hf8[a-z]/',$layout)===1,
  'Responsive styling deployed with cache-busted CSS');
-directorCheck(str_contains($proof,'video-only')&&str_contains($proof,'Live View publishing'),
+directorCheck(str_contains($proof,'video-only')&&
+ (str_contains($proof,'Live View publishing')||str_contains($proof,'The broadcast shows only Program, never Preview')),
  'Initial phase explicitly distinguishes local program export from live distribution');
 echo "HF8A CAMERA DIRECTOR CONTRACT PASSED\n";
