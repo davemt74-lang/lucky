@@ -1270,6 +1270,9 @@ body.game-fullwidth .header{position:relative;z-index:60}
 .phone-capture-dialog header h2{margin:0;font-size:20px}
 .phone-capture-dialog header button{width:44px;height:44px;flex:none;color:#fff;background:#243d59;border:1px solid #526c87;border-radius:11px}
 .phone-capture-dialog #phone-capture-prize{font-size:13px;color:#bcd3e9}
+.phone-capture-consent{display:flex;align-items:flex-start;gap:12px;margin:12px 0;padding:14px;background:#243853;border:1px solid #587c9e;border-radius:11px;color:#eff7ff;line-height:1.45;font-size:14px;cursor:pointer}
+.phone-capture-consent input{flex:none;width:21px;height:21px;margin:0;accent-color:#efc573}
+.phone-capture-consent:focus-within{outline:2px solid #efc573;outline-offset:2px}
 .phone-capture-modes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:15px 0}
 .phone-capture-modes button{min-height:49px;min-width:0;padding:8px;border:1px solid #486682;border-radius:12px;color:#dbefff;background:#1a314d;font-size:13px}
 .phone-capture-modes button[aria-pressed=true]{border-color:#f1b86f;background:#3e3854;color:#ffedc9}
