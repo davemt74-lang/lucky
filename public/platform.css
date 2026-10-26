@@ -1330,3 +1330,24 @@ body.game-fullwidth .header{position:relative;z-index:60}
 @media(max-width:540px){.recording-multicam-arm{flex-wrap:wrap}.recording-multicam-arm button{width:100%}}
 
 .phone-bottom-nav a.phone-camera-studio-link,.phone-menu-items a.phone-camera-studio-link{text-decoration:none;cursor:pointer}
+
+/* HF8A Camera Director: the source grid remains above these independent monitors. */
+.camera-director{background:linear-gradient(145deg,#0a182b,#142840);border:1px solid #395272;border-radius:16px;padding:16px;display:grid;gap:14px;min-width:0;margin-top:12px;color:#e4ecf7}
+.director-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.director-heading h3{font-size:22px;margin:2px 0 6px;color:#f3d39a}.director-heading p{margin:0;color:#afc5df;line-height:1.5}
+.director-count{border-radius:100px;background:#263f59;color:#cbecff;padding:6px 12px;white-space:nowrap}
+.director-monitors{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.director-monitor{border:1px solid #344c69;border-radius:12px;background:#06101e;overflow:hidden;min-width:0}
+.director-program-monitor{border-color:#ba3c44;box-shadow:0 0 0 1px #74232a}
+.director-monitor-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:#17283c;font-size:12px;letter-spacing:.04em}
+.director-monitor-head strong{color:#e3b779}.director-program-monitor .director-monitor-head strong{color:#ff9a9a}
+.director-monitor-head span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#ccd9e7;letter-spacing:0}
+.director-monitor-head #director-recording-badge{color:#ff7373;font-weight:800}
+.director-monitor canvas{display:block;width:100%;height:auto;aspect-ratio:16/9;background:#09192b}
+.director-toolbar{display:flex;align-items:flex-end;flex-wrap:wrap;gap:10px}
+.director-toolbar label,.director-graphics label{display:grid;gap:5px;min-width:0;color:#b3cee5;font-size:12px;flex:1 1 180px}
+.director-toolbar select,.director-graphics input,.director-graphics select{color:#ecf6ff;background:#0a1d31;border:1px solid #4a6888;border-radius:10px;min-height:40px;padding:9px 11px;width:100%;max-width:100%}
+.director-toolbar button{min-height:40px}.director-graphics{display:flex;gap:10px;flex-wrap:wrap}.director-graphics label:first-child{flex:3 1 250px}
+.director-export{border-top:1px solid #3d5268;padding-top:12px}.director-export .btn[hidden]{display:none}
+.director-scope{line-height:1.5;color:#9eafc8;margin:0}
+@media(max-width:720px){.camera-director{padding:11px}.director-monitors{grid-template-columns:1fr}.director-toolbar label{flex-basis:100%}.director-toolbar button{flex:1 1 40%}}
