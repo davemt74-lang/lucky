@@ -78,6 +78,7 @@ jobs:
           php tests/v5q29e4a_timeline_contract.php
           php tests/v5q29e4b_export_plan.php
           php tests/v5q29e4c_profiles_contract.php
+          php tests/v5q29e4d1_studio_contract.php
           php -l api/recording-export.php
           php -l bin/recording-export-worker.php
           php -l lib/RecordingExports.php
@@ -136,7 +137,9 @@ jobs:
       - name: Install Chromium and Playwright
         run: |
           pip install playwright
-          python -m playwright install --with-deps chromium
+          # The GitHub Ubuntu image already includes Chromium's shared libraries.
+          # Avoid reinstalling dozens of apt packages through a slow mirror.
+          python -m playwright install chromium
           CHROME=$(find "$HOME/.cache/ms-playwright" -type f -name chrome -path '*chrome-linux64*' | head -1)
           test -x "$CHROME"
           sudo ln -sf "$CHROME" /usr/bin/chromium
@@ -149,6 +152,7 @@ jobs:
           python tests/v5q29e4a_timeline_browser.py
           python tests/v5q29e4b_export_browser.py
           python tests/v5q29e4c_profile_browser.py
+          python tests/v5q29e4d1_studio_browser.py
           python tests/proof_admin_browser.py
           python tests/proof_browser.py
           python tests/v5q3_editor_browser.py
@@ -230,6 +234,11 @@ jobs:
           if command -v ffmpeg >/dev/null && command -v ffprobe >/dev/null; then
             ffmpeg -hide_banner -version | head -1
           else
+            # Azure's package mirror can take longer than the entire job
+            # timeout. Use Ubuntu's canonical archive for this CI-only tool.
+            if [[ -f /etc/apt/sources.list.d/ubuntu.sources ]]; then
+              sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' /etc/apt/sources.list.d/ubuntu.sources
+            fi
             sudo apt-get update -qq
             sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ffmpeg
           fi
