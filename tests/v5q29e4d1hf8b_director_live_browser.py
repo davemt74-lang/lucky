@@ -22,12 +22,12 @@ async def main():
         browser = await pw.chromium.launch(executable_path="/usr/bin/chromium", headless=True, args=["--no-sandbox"])
         page = await browser.new_page(viewport={"width": 1280, "height": 1000})
         page.on("pageerror", lambda error: errors.append(str(error)))
-        html = f'''<div id="camera-grid"><section class="camera-source" data-camera-id="desktop1"><strong>Cam A</strong><video></video></section></div>
+        html = f'''<base href="https://lucky.test/"><div id="camera-grid"><section class="camera-source" data-camera-id="desktop1"><strong>Cam A</strong><video></video></section></div>
 {markup.group(0)}<script>
 window.Lucky={{getMe:async()=>({{csrf:'csrf-test'}})}};
 window.calls=[];window.stopped=false;
 window.fetch=async (url,opts={{}})=>{{
- const action=new URL(url,location.href).searchParams.get('action');
+ const action=new URL(url,'https://lucky.test/').searchParams.get('action');
  calls.push({{action,body:opts.body?JSON.parse(opts.body):{{}}}});
  const result=action==='publish'?{{ok:true,id:'b'.repeat(32),key:'c'.repeat(48)}}:
   action==='host_list'?{{ok:true,offers:[]}}:{{ok:true,stopped:action==='stop'}};
