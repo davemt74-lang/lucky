@@ -4,6 +4,7 @@ require __DIR__.'/../lib/Bootstrap.php';
 require_once __DIR__.'/../lib/ControllerPairing.php';
 require_once __DIR__.'/../lib/PhoneCapturePolicy.php';
 require_once __DIR__.'/../lib/ClaimMediaUpload.php';
+require_once __DIR__.'/../lib/PhoneMediaChunks.php';
 headerSecurity();header('Referrer-Policy: no-referrer');header('X-Robots-Tag: noindex, nofollow');
 try {
  if(!installed())throw new DomainException('Install Lucky Game Hub first.',503);
@@ -23,6 +24,8 @@ try {
  $nonce=(string)($_POST['nonce']??'');$id=PhoneCapturePolicy::mediaId($pairId,$nonce);
  $session=(string)($_POST['session']??'');$claim=(string)($_POST['claim']??'');
  ControllerPairing::checkId($session);ControllerPairing::checkId($claim);
+ $uploadAction=(string)($_POST['uploadAction']??'direct');
+ if(!in_array($uploadAction,['direct','chunk','commit'],true))throw new DomainException('Unknown phone media upload action.',422);
  $form=$_POST;
  $form['sourceLabel']='Paired phone · '.substr((string)$pair['device_name'],0,46);
  $form['angleLabel']=substr('Phone · '.preg_replace('/[\x00-\x1f\x7f]/','',(string)$pair['device_name']),0,80);$form['angleIndex']=0;
@@ -36,6 +39,14 @@ try {
   if(!$proof)throw new DomainException('No live proof is available for phone upload.',409);
   PhoneCapturePolicy::verify($locked,$proof,$sessionId,$claimId,time());
  };
- $clip=ClaimMediaUpload::store($db,$form,$_FILES['media']??null,$authorize,$id);
+ if($uploadAction==='chunk'){
+  PhoneMediaChunks::prune();
+  success(['upload'=>PhoneMediaChunks::append($db,$pair,$form,$_FILES['chunk']??null)]);
+ }
+ if($uploadAction==='commit'){
+  $clip=PhoneMediaChunks::finish($db,$pair,$form,$authorize,$id);
+ }else{
+  $clip=ClaimMediaUpload::store($db,$form,$_FILES['media']??null,$authorize,$id);
+ }
  success(['clip'=>['id'=>$clip['id'],'kind'=>$clip['kind'],'title'=>$clip['title'],'bytes'=>$clip['bytes'],'sessionId'=>$clip['sessionId'],'claimId'=>$clip['claimId']]],201);
 }catch(Throwable $e){error_log('Lucky phone upload: '.get_class($e).' '.$e->getMessage());errorOut($e);}
