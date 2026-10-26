@@ -24,6 +24,20 @@ final class RecordingMulticam {
   if(!in_array($kind,self::KINDS,true))throw new DomainException('Choose video or audio for multicamera.',422);
   self::approved($db,$pair,$sessionId);
   $db->beginTransaction();try{
+   // Serialize competing phones on the parent recording row before counting
+   // online armed peers, preventing two devices from taking the final slot.
+   $q=$db->prepare('SELECT id FROM recording_sessions WHERE id=? AND owner_admin_id=? FOR UPDATE');
+   $q->execute([$sessionId,(int)$pair['host_admin_id']]);
+   if(!$q->fetchColumn())throw new DomainException('Recording session not found.',404);
+   if($enabled){
+    $capture=RecordingProfiles::kind($db,$sessionId,$kind);
+    $q=$db->prepare("SELECT COUNT(*) FROM recording_camera_arms a JOIN controller_pairs p ON p.id=a.pair_id
+      WHERE a.recording_session_id=? AND a.pair_id<>? AND a.armed=1
+      AND a.last_seen_at >= DATE_SUB(UTC_TIMESTAMP(3),INTERVAL 15 SECOND) AND p.status='paired'");
+    $q->execute([$sessionId,$pair['id']]);
+    if((int)$q->fetchColumn()>=$capture['maxCameras'])
+     throw new DomainException('Recording camera limit reached. Disarm a phone or update the next recording profile.',409);
+   }
    $q=$db->prepare("INSERT INTO recording_camera_arms(recording_session_id,pair_id,capture_kind,armed,last_state,last_seen_at) VALUES (?,?,?,?,'standby',UTC_TIMESTAMP(3)) ON DUPLICATE KEY UPDATE capture_kind=VALUES(capture_kind),armed=VALUES(armed),last_state='standby',last_seen_at=UTC_TIMESTAMP(3)");
    $q->execute([$sessionId,$pair['id'],$kind,(int)$enabled]);
    $db->commit();return ['armed'=>$enabled,'kind'=>$kind];
