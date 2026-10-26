@@ -124,21 +124,22 @@ final class PrizePackages {
    throw new DomainException('This prize package is not available for selection.',403);
   $q=$db->prepare('UPDATE prize_package_selection SET package_id=? WHERE game_id=?');$q->execute([$id,'spin-wheel']);
  }
- public static function create(PDO $db,string $name,?string $cloneFrom=null,mixed $budgetCents=null,bool $overrideBudget=false):array {
+ public static function create(PDO $db,string $name,?string $cloneFrom=null,mixed $budgetCents=null,bool $overrideBudget=false,?bool $phoneCameraEnabled=null):array {
   self::requireReady($db);self::lockGame($db);
   $name=self::label($name);
   $count=(int)$db->query("SELECT COUNT(*) FROM prize_packages WHERE game_id='spin-wheel'")->fetchColumn();
   if($count>=16)throw new DomainException('Maximum 16 prize packages.',422);
   $source=$cloneFrom??self::chosen($db);
   self::id($source);
-  $q=$db->prepare("SELECT config_json,budget_cents,phone_camera_enabled FROM prize_packages WHERE game_id='spin-wheel' AND id=?");
+  $q=$db->prepare("SELECT config_json,budget_cents FROM prize_packages WHERE game_id='spin-wheel' AND id=?");
   $q->execute([$source]);$sourceRow=$q->fetch(PDO::FETCH_ASSOC);
   if(!$sourceRow)throw new DomainException('Package to duplicate is unavailable.',404);
   $config=GameEngine::validateConfig(json_decode($sourceRow['config_json'],true,512,JSON_THROW_ON_ERROR));
   $budget=$sourceRow['budget_cents']===null?null:(int)$sourceRow['budget_cents'];
   if($overrideBudget)$budget=self::budget($budgetCents,$config);
   $id=bin2hex(random_bytes(16));
-  $phoneEnabled=(bool)$sourceRow['phone_camera_enabled'];
+  // New game packages enable phone capture by default, even when cloning a disabled source.
+  $phoneEnabled=$phoneCameraEnabled??true;
   $q=$db->prepare("INSERT INTO prize_packages (id,game_id,name,config_json,budget_cents,enabled,player_selectable,phone_camera_enabled,publication_status,sort_order) VALUES (?,'spin-wheel',?,?,?,1,1,?,'draft',?)");
   $q->execute([$id,$name,json_encode($config,JSON_THROW_ON_ERROR),$budget,(int)$phoneEnabled,$count]);
   return ['id'=>$id,'name'=>$name,'enabled'=>true,'playerSelectable'=>true,'phoneCameraEnabled'=>$phoneEnabled,'publicationStatus'=>'draft','version'=>1,'config'=>$config,'budgetCents'=>$budget,'image'=>''];
