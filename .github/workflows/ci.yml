@@ -244,9 +244,13 @@ jobs:
           else
             # Azure's package mirror can take longer than the entire job
             # timeout. Use Ubuntu's canonical archive for this CI-only tool.
-            if [[ -f /etc/apt/sources.list.d/ubuntu.sources ]]; then
-              sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' /etc/apt/sources.list.d/ubuntu.sources
-            fi
+            # Runner images have multiple APT source formats. The old
+            # single-file replacement left Azure mirrors active and exhausted
+            # the 20-minute encode job timeout during dependency downloads.
+            for source in /etc/apt/sources.list /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources; do
+              [[ -f "$source" ]] || continue
+              sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g; s|https://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' "$source"
+            done
             sudo apt-get update -qq
             sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ffmpeg
           fi
