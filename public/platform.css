@@ -800,6 +800,9 @@ body.admin-studio-page .prize-package-budget-label small{font-size:10px;color:#b
 .prize-package-modal-fields label small{color:#aebed6;font-size:11px}
 .prize-package-modal-fields input{width:100%;min-height:42px;background:#0c172a;color:#f5f7ff;border:1px solid #4a6382;border-radius:9px;padding:10px 12px}
 .prize-package-modal-fields input:focus-visible{outline:2px solid #f2c778;outline-offset:2px}
+.prize-package-modal-fields .prize-package-create-camera{display:flex;align-items:flex-start;gap:12px;padding:12px;border:1px solid #3e5774;border-radius:10px;background:#102039;cursor:pointer}
+.prize-package-modal-fields .prize-package-create-camera input[type=checkbox]{flex:0 0 20px;width:20px;height:20px;min-height:20px;margin:2px 0 0;padding:0;accent-color:#7fcac4}
+.prize-package-create-camera span{display:grid;gap:5px;min-width:0}.prize-package-create-camera strong{font-size:13px;color:#f2f6fb}.prize-package-create-camera small{line-height:1.45}
 .prize-package-modal #prize-package-modal-error{color:#ffb8ba;margin:-7px 0 15px}
 .prize-package-modal #prize-package-modal-error[hidden]{display:none}
 .prize-package-modal-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap}
