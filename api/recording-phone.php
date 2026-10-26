@@ -23,6 +23,7 @@ try{
  if($action==='list'){
   if(!str_starts_with($type,'application/json'))throw new DomainException('JSON required.',415);
   $in=jsonInput();$pair=ControllerPairing::authenticate($db,(string)($in['id']??''),(string)($_SERVER['HTTP_X_CONTROLLER_TOKEN']??''),true);
+  RecordingPhone::ensureSpinWheelCamera($db,$pair);
   success(['sessions'=>RecordingPhone::sessions($db,$pair)]);
  }
  if(in_array($action,['arm','poll'],true)){
