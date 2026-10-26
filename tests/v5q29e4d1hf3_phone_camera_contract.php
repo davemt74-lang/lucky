@@ -22,6 +22,7 @@ checkCameraHF3(str_contains($recording,'function ensureSpinWheelCamera(')&&str_c
 checkCameraHF3(str_contains($recording,'Do not override a host')&&str_contains($recording,"create_nonce=?"),'Camera repair preserves revocation and is idempotent');
 checkCameraHF3(str_contains($camera,'connectionInterrupted=true')&&str_contains($camera,'12' . '000'), 'Camera listing retries without clearing cached session on transient failures');
 checkCameraHF3(str_contains($camera,'Local capture is preserved'),'Brief camera coordination losses preserve the recording');
+checkCameraHF3(str_contains($camera,'await refresh(true,true);'),'Completed media uploads immediately refresh the camera group clip count');
 checkCameraHF3(str_contains($admin,'class="prize-package-options"')&&str_contains($admin,'id="package-phone-camera"'),'Existing package controls remain together and editable');
 checkCameraHF3(str_contains($css,'input:not([type=file]):not([type=checkbox])')&&str_contains($css,'.prize-package-options input[type=checkbox]'),'Package checkbox sizing does not inherit text field dimensions');
 checkCameraHF3(str_contains($browser,"mock_state['fail_once'] = True"),'Browser acceptance simulates temporary Camera Studio load failure');
