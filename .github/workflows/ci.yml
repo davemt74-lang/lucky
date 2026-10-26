@@ -85,6 +85,7 @@ jobs:
           php tests/v5q29e4d1hf6_chunks_contract.php
           php tests/v5q29e4d1hf7_phone_live_contract.php
           php tests/v5q29e4d1hf8a_director_contract.php
+          php tests/v5q29e4d1hf8b_director_live_contract.php
           php -l api/recording-export.php
           php -l bin/recording-export-worker.php
           php -l lib/RecordingExports.php
@@ -128,6 +129,7 @@ jobs:
           php tests/v5q28b_phone_capture_db.php
           php tests/v5q29e4d1hf6_chunks_db.php
           php tests/v5q29e4d1hf7_phone_live_db.php
+          php tests/v5q29e4d1hf8b_director_live_db.php
           php tests/v5q29e1_recording_sessions_db.php
           php tests/v5q29e2_phone_camera_db.php
           php tests/v5q29e3_multicamera_db.php
@@ -223,6 +225,7 @@ jobs:
           python tests/v5q29e4d1hf6_chunk_upload_browser.py
           python tests/v5q29e4d1hf7_phone_live_browser.py
           python tests/v5q29e4d1hf8a_director_browser.py
+          python tests/v5q29e4d1hf8b_director_live_browser.py
           python tests/v5q29e4d1hf5_proof_camera_browser.py
           python tests/v5q29d_multicamera_browser.py
           python tests/v5q29a_timeline_browser.py
