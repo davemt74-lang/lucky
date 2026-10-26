@@ -14,8 +14,8 @@ try{
  $origin=(string)($_SERVER['HTTP_ORIGIN']??'');$scheme=$secure?'https':'http';
  $originHost=(string)parse_url($origin,PHP_URL_HOST);$originPort=parse_url($origin,PHP_URL_PORT);
  $expectedPort=preg_match('/:(\d+)$/',$host,$matches)?(int)$matches[1]:($secure?443:80);
- if($origin===''||strcasecmp($originHost,$hostName)!==0||parse_url($origin,PHP_URL_SCHEME)!==$scheme||
-    ($originPort??($secure?443:80))!==$expectedPort||parse_url($origin,PHP_URL_USER)!==null||parse_url($origin,PHP_URL_PASS)!==null)
+ if($origin!==''&&(strcasecmp($originHost,$hostName)!==0||parse_url($origin,PHP_URL_SCHEME)!==$scheme||
+    ($originPort??($secure?443:80))!==$expectedPort||parse_url($origin,PHP_URL_USER)!==null||parse_url($origin,PHP_URL_PASS)!==null))
   throw new DomainException('Phone camera origin is not permitted.',403);
  $db=db();$action=(string)($_GET['action']??'');$type=strtolower((string)($_SERVER['CONTENT_TYPE']??''));
  if(!$db->query("SHOW TABLES LIKE 'recording_phone_permissions'")->fetch()||!$db->query("SHOW TABLES LIKE 'recording_media_files'")->fetch())

@@ -44,7 +44,7 @@ headerSecurity();header('Referrer-Policy: no-referrer');header('X-Robots-Tag: no
 <button type="button" data-phone-view="game" disabled><span aria-hidden="true">🎮</span><small>Game</small></button>
 <button type="button" id="phone-arrows-toggle" aria-label="Open arrow navigation" aria-haspopup="dialog" aria-controls="phone-arrows-dialog" aria-expanded="false" disabled><span aria-hidden="true">✥</span><small>Arrows</small></button>
 <button type="button" data-phone-view="prize" disabled><span aria-hidden="true">🎁</span><small>Prize</small></button>
-<button type="button" data-phone-view="camera" disabled><span aria-hidden="true">▣</span><small>Camera</small></button>
+<button type="button" data-phone-view="camera" disabled><span aria-hidden="true">▣</span><small>Camera Studio</small></button>
 <button type="button" data-phone-view="more"><span aria-hidden="true">☰</span><small>More</small></button>
 </nav>
 <dialog id="phone-arrows-dialog" class="phone-arrows-dialog" aria-labelledby="phone-arrows-title">

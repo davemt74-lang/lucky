@@ -126,6 +126,7 @@ jobs:
           php tests/v5q29e4a_timeline_db.php
           php tests/v5q29e4b_export_db.php
           php tests/v5q29e4c_profiles_db.php
+          php tests/v5q29e4d1_phone_camera_default_db.php
   browsers:
     runs-on: ubuntu-latest
     timeout-minutes: 20

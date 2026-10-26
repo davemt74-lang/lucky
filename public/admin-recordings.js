@@ -35,11 +35,12 @@
   link.href='recording-editor.php?session='+encodeURIComponent(s.id);
   const p=s.profile||{},capture=p.capture||{};
   const location=p.location?' · '+p.location:'';const tags=(p.tags||[]).map(t=>'#'+t).join(' ');
-  $('recording-selected-details').textContent=`${s.type.replace('_',' ')} · ${s.status} · ${s.gameSessionId?'Game '+s.gameSessionId.slice(0,8):'Independent recording'}${location}${tags?' · '+tags:''} · ${(capture.multicameraEnabled?'Multi':'Single')}-camera (max ${capture.maxCameras||1}) · ${['video','photo','audio'].filter(k=>capture[k]).join('/')}`;
+  $('recording-selected-details').textContent=`${s.type.replace('_',' ')} · ${s.status==='completed'?'COMPLETED · no longer available on phone controllers':s.status==='draft'?'DRAFT · activate below to allow approved phones':'ACTIVE · available to approved phones when capture is enabled'} · ${s.gameSessionId?'Game '+s.gameSessionId.slice(0,8):'Independent recording'}${location}${tags?' · '+tags:''} · ${(capture.multicameraEnabled?'Multi':'Single')}-camera (max ${capture.maxCameras||1}) · ${['video','photo','audio'].filter(k=>capture[k]).join('/')}`;
   $('recording-activate').hidden=s.status!=='draft';$('recording-finish').hidden=s.status!=='active';
   $('recording-phone-enabled').checked=permission.phoneEnabled;
   $('recording-phone-enabled').disabled=s.status==='archived'||s.status==='completed'||capture.phoneCameraEnabled===false;
-  $('recording-phone-enabled').title=capture.phoneCameraEnabled===false?'Phone capture disabled in this profile. Create a new recording with updated settings.':'';
+  $('recording-phone-enabled').title=capture.phoneCameraEnabled===false?'Phone capture disabled in this profile. Create a new recording with updated settings.':
+    s.status==='completed'?'Completed sessions no longer appear on the phone. Create a new recording for additional footage.':'';
   $('recording-take-start').disabled=s.status!=='active';
   const instructions=[p.brief,...(p.shotList||[]).map((shot,i)=>`${i+1}. ${shot}`)].filter(Boolean).join('\n');
   $('recording-take-name').placeholder=instructions?instructions.slice(0,100):'Take 1 / scene description';

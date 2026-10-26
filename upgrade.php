@@ -39,6 +39,7 @@ if(($_SERVER['REQUEST_METHOD']??'')==='POST'){
   require_once __DIR__.'/lib/PrizePackages.php';
   PrizePackages::ensureBudgetColumn($db);
   PrizePackages::ensureImageColumn($db);
+   PrizePackages::ensurePhoneCameraColumn($db);
   require_once __DIR__.'/lib/GamePluginCapabilities.php';
   GamePluginCapabilities::ensureSchema($db);
   // Previous V5Q installs already have claim_media: add camera identity safely once.

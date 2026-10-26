@@ -32,6 +32,12 @@ final class PrizePackages {
   $db->exec("ALTER TABLE prize_packages ADD COLUMN image_url VARCHAR(2048) NOT NULL DEFAULT '' AFTER budget_cents");
   return true;
  }
+ public static function ensurePhoneCameraColumn(PDO $db):bool {
+  if(!$db->query("SHOW TABLES LIKE 'prize_packages'")->fetchColumn())return false;
+  if($db->query("SHOW COLUMNS FROM prize_packages LIKE 'phone_camera_enabled'")->fetch())return false;
+  $db->exec("ALTER TABLE prize_packages ADD COLUMN phone_camera_enabled TINYINT(1) NOT NULL DEFAULT 1 AFTER player_selectable");
+  return true;
+ }
  private static function image(mixed $value):string {
   if(!is_string($value)||!GameEngine::validUrl($value))throw new DomainException('Use a valid package image HTTP(S) URL or leave blank.',422);
   return $value;
@@ -47,6 +53,8 @@ final class PrizePackages {
  public static function requireReady(PDO $db):void {
   $q=$db->query("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ('prize_packages','prize_package_selection')");
   if((int)$q->fetchColumn()!==2)throw new DomainException('Prize packages need a database upgrade. Run upgrade.php.',409);
+  if(!$db->query("SHOW COLUMNS FROM prize_packages LIKE 'phone_camera_enabled'")->fetch())
+   throw new DomainException('Run upgrade.php to activate prize-package phone cameras.',409);
  }
  public static function lockGame(PDO $db,string $game='spin-wheel'):void {
   if($game!=='spin-wheel')throw new DomainException('Prize packages are not configured for this game.',404);
@@ -67,12 +75,13 @@ final class PrizePackages {
  }
  public static function rows(PDO $db,string $game='spin-wheel',bool $admin=false):array {
   self::requireReady($db);
-  $q=$db->prepare('SELECT id,name,enabled,player_selectable,publication_status,version,config_json,budget_cents,image_url FROM prize_packages WHERE game_id=?'.($admin?'': " AND enabled=1 AND player_selectable=1 AND publication_status='published'"). ' ORDER BY sort_order ASC,id ASC');
+  $q=$db->prepare('SELECT id,name,enabled,player_selectable,publication_status,version,config_json,budget_cents,image_url,phone_camera_enabled FROM prize_packages WHERE game_id=?'.($admin?'': " AND enabled=1 AND player_selectable=1 AND publication_status='published'"). ' ORDER BY sort_order ASC,id ASC');
   $q->execute([$game]);$rows=[];
   foreach($q as $r){
    $item=['id'=>$r['id'],'name'=>$r['name'],'enabled'=>(bool)$r['enabled'],
     'playerSelectable'=>(bool)$r['player_selectable'],'publicationStatus'=>$r['publication_status'],'version'=>(int)$r['version'],
-     'budgetCents'=>$r['budget_cents']===null?null:(int)$r['budget_cents'],'image'=>$r['image_url']??''];
+     'budgetCents'=>$r['budget_cents']===null?null:(int)$r['budget_cents'],'image'=>$r['image_url']??'',
+     'phoneCameraEnabled'=>(bool)$r['phone_camera_enabled']];
    if($admin)$item['config']=json_decode($r['config_json'],true,512,JSON_THROW_ON_ERROR);
    $rows[]=$item;
   }
@@ -86,10 +95,11 @@ final class PrizePackages {
  public static function currentConfig(PDO $db,string $game='spin-wheel'):array {
   self::requireReady($db);
   $id=self::chosen($db,$game);
-  $q=$db->prepare('SELECT name,config_json,enabled,publication_status FROM prize_packages WHERE id=? AND game_id=?');
+  $q=$db->prepare('SELECT name,config_json,enabled,publication_status,phone_camera_enabled FROM prize_packages WHERE id=? AND game_id=?');
   $q->execute([$id,$game]);$r=$q->fetch();
   if(!$r||(int)$r['enabled']!==1||$r['publication_status']!=='published')throw new DomainException('Publish and enable a prize package before starting.',409);
-  return ['id'=>$id,'name'=>$r['name'],'config'=>GameEngine::validateConfig(json_decode($r['config_json'],true,512,JSON_THROW_ON_ERROR))];
+  return ['id'=>$id,'name'=>$r['name'],'config'=>GameEngine::validateConfig(json_decode($r['config_json'],true,512,JSON_THROW_ON_ERROR)),
+   'phoneCameraEnabled'=>(bool)$r['phone_camera_enabled']];
  }
  public static function read(PDO $db,bool $admin=false):array {
   self::requireReady($db);
@@ -121,30 +131,32 @@ final class PrizePackages {
   if($count>=16)throw new DomainException('Maximum 16 prize packages.',422);
   $source=$cloneFrom??self::chosen($db);
   self::id($source);
-  $q=$db->prepare("SELECT config_json,budget_cents FROM prize_packages WHERE game_id='spin-wheel' AND id=?");
+  $q=$db->prepare("SELECT config_json,budget_cents,phone_camera_enabled FROM prize_packages WHERE game_id='spin-wheel' AND id=?");
   $q->execute([$source]);$sourceRow=$q->fetch(PDO::FETCH_ASSOC);
   if(!$sourceRow)throw new DomainException('Package to duplicate is unavailable.',404);
   $config=GameEngine::validateConfig(json_decode($sourceRow['config_json'],true,512,JSON_THROW_ON_ERROR));
   $budget=$sourceRow['budget_cents']===null?null:(int)$sourceRow['budget_cents'];
   if($overrideBudget)$budget=self::budget($budgetCents,$config);
   $id=bin2hex(random_bytes(16));
-  $q=$db->prepare("INSERT INTO prize_packages (id,game_id,name,config_json,budget_cents,enabled,player_selectable,publication_status,sort_order) VALUES (?,'spin-wheel',?,?,?,1,1,'draft',?)");
-  $q->execute([$id,$name,json_encode($config,JSON_THROW_ON_ERROR),$budget,$count]);
-  return ['id'=>$id,'name'=>$name,'enabled'=>true,'playerSelectable'=>true,'publicationStatus'=>'draft','version'=>1,'config'=>$config,'budgetCents'=>$budget,'image'=>''];
+  $phoneEnabled=(bool)$sourceRow['phone_camera_enabled'];
+  $q=$db->prepare("INSERT INTO prize_packages (id,game_id,name,config_json,budget_cents,enabled,player_selectable,phone_camera_enabled,publication_status,sort_order) VALUES (?,'spin-wheel',?,?,?,1,1,?,'draft',?)");
+  $q->execute([$id,$name,json_encode($config,JSON_THROW_ON_ERROR),$budget,(int)$phoneEnabled,$count]);
+  return ['id'=>$id,'name'=>$name,'enabled'=>true,'playerSelectable'=>true,'phoneCameraEnabled'=>$phoneEnabled,'publicationStatus'=>'draft','version'=>1,'config'=>$config,'budgetCents'=>$budget,'image'=>''];
  }
- public static function save(PDO $db,string $id,int $version,string $name,array $cfg,bool $enabled,bool $player,mixed $budgetCents=null,mixed $image=''):array {
+ public static function save(PDO $db,string $id,int $version,string $name,array $cfg,bool $enabled,bool $player,mixed $budgetCents=null,mixed $image='',?bool $phoneCameraEnabled=null):array {
   self::requireReady($db);self::lockGame($db);self::id($id);$name=self::label($name);
   $cfg=GameEngine::validateConfig($cfg);
   $budgetCents=self::budget($budgetCents,$cfg);$image=self::image($image);
-  $q=$db->prepare("SELECT version,enabled,publication_status FROM prize_packages WHERE id=? AND game_id='spin-wheel' FOR UPDATE");
+  $q=$db->prepare("SELECT version,enabled,publication_status,phone_camera_enabled FROM prize_packages WHERE id=? AND game_id='spin-wheel' FOR UPDATE");
   $q->execute([$id]);$r=$q->fetch();
   if(!$r)throw new DomainException('Prize package not found.',404);
   if((int)$r['version']!==$version)throw new DomainException('This package was changed elsewhere. Reload before saving.',409);
   if(!$enabled&&self::chosen($db)===$id)throw new DomainException('Select another enabled package before disabling this one.',409);
-  $q=$db->prepare("UPDATE prize_packages SET name=?,config_json=?,budget_cents=?,image_url=?,enabled=?,player_selectable=?,version=version+1 WHERE id=? AND game_id='spin-wheel' AND version=?");
-  $q->execute([$name,json_encode($cfg,JSON_THROW_ON_ERROR),$budgetCents,$image,(int)$enabled,(int)$player,$id,$version]);
+  $phoneCameraEnabled=$phoneCameraEnabled??(bool)$r['phone_camera_enabled'];
+  $q=$db->prepare("UPDATE prize_packages SET name=?,config_json=?,budget_cents=?,image_url=?,enabled=?,player_selectable=?,phone_camera_enabled=?,version=version+1 WHERE id=? AND game_id='spin-wheel' AND version=?");
+  $q->execute([$name,json_encode($cfg,JSON_THROW_ON_ERROR),$budgetCents,$image,(int)$enabled,(int)$player,(int)$phoneCameraEnabled,$id,$version]);
   if($q->rowCount()!==1)throw new DomainException('Prize package update conflict.',409);
-  return ['id'=>$id,'name'=>$name,'enabled'=>$enabled,'playerSelectable'=>$player,'publicationStatus'=>$r['publication_status'],'version'=>$version+1,'config'=>$cfg,'budgetCents'=>$budgetCents,'image'=>$image];
+  return ['id'=>$id,'name'=>$name,'enabled'=>$enabled,'playerSelectable'=>$player,'publicationStatus'=>$r['publication_status'],'version'=>$version+1,'config'=>$cfg,'budgetCents'=>$budgetCents,'image'=>$image,'phoneCameraEnabled'=>$phoneCameraEnabled];
  }
  public static function publish(PDO $db,string $id,int $version,bool $published):array {
   self::requireReady($db);self::lockGame($db);self::id($id);

@@ -63,6 +63,34 @@ final class RecordingSessions {
   if($db->inTransaction())$db->commit();
   return self::get($db,$owner,$id);
  }
+ /**
+  * Create the game's camera-ready recording group inside the game-start
+  * transaction. A stable nonce prevents duplicate groups on retries.
+  * Phones still require QR approval and their own capture consent.
+  */
+ public static function autoSpinWheel(PDO $db,int $owner,string $gameSessionId,string $packageName):string {
+  if(!$db->inTransaction())throw new LogicException('Automatic game recordings require the game-start transaction.');
+  if($owner<1)throw new DomainException('Administrator login required.',403);
+  self::id($gameSessionId);
+  if(!RecordingProfiles::ready($db)||!$db->query("SHOW TABLES LIKE 'recording_phone_permissions'")->fetchColumn())
+   throw new DomainException('Run upgrade.php to enable automatic phone camera recording.',409);
+  $nonce='spin-wheel-phone-'.$gameSessionId;
+  $q=$db->prepare('SELECT id FROM recording_sessions WHERE owner_admin_id=? AND create_nonce=? FOR UPDATE');
+  $q->execute([$owner,$nonce]);$prior=$q->fetchColumn();
+  if($prior!==false)return (string)$prior;
+  $title=self::title('Spin the Wheel · '.$packageName);
+  $description='Automatic phone camera group for this game. Complete the group in Admin → Recordings when filming is finished.';
+  $id=bin2hex(random_bytes(16));
+  $hash=hash('sha256','auto-spin-wheel:'.$gameSessionId.':'.$packageName);
+  $q=$db->prepare("INSERT INTO recording_sessions(id,owner_admin_id,recording_type,title,description,game_session_id,status,create_nonce,request_hash,started_at) VALUES (?,?,'game',?,?,?,'active',?,?,UTC_TIMESTAMP(3))");
+  $q->execute([$id,$owner,$title,$description,$gameSessionId,$nonce,$hash]);
+  $profile=RecordingProfiles::make(['brief'=>'Capture gameplay, reactions, and prize celebrations.','shotList'=>['Game action','Player reactions','Prize proof']], 'spin-wheel');
+  $profile['capture']['phoneCameraEnabled']=true;
+  RecordingProfiles::save($db,$id,'spin-wheel',$profile);
+  $q=$db->prepare('INSERT INTO recording_phone_permissions(recording_session_id,phone_enabled) VALUES (?,1)');
+  $q->execute([$id]);
+  return $id;
+ }
  public static function list(PDO $db,int $owner):array {
   if($owner<1)throw new DomainException('Administrator login required.',403);
   $q=$db->prepare('SELECT id,recording_type,title,description,game_session_id,status,revision,started_at,ended_at,created_at,updated_at FROM recording_sessions WHERE owner_admin_id=? ORDER BY created_at DESC,id DESC LIMIT 100');$q->execute([$owner]);
