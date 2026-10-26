@@ -114,6 +114,7 @@
   $('prize-package-modal-submit').textContent=options.action||(creating?'Create package':'Confirm');
   $('prize-package-modal-name').value=options.name||'';
   $('prize-package-modal-budget').value='';
+  $('prize-package-modal-phone-camera').checked=true;
   const error=$('prize-package-modal-error');error.hidden=true;error.textContent='';
   return new Promise(resolve=>{
    let settled=false;
@@ -131,7 +132,7 @@
       const total=Object.values(source.config.pools).reduce((n,t)=>n+(t.budgetCents||0),0);
       if(total>budgetCents)throw Error('The package budget must cover the combined budget of all cloned tiers.');
      }
-     done({name,budgetCents});
+     done({name,budgetCents,phoneCameraEnabled:$('prize-package-modal-phone-camera').checked});
     }catch(err){error.hidden=false;error.textContent=err.message;}
    };
    $('prize-package-modal-cancel').onclick=()=>done(null);
@@ -238,7 +239,7 @@
   if(!draft)return;
   creatingPackage=true;$('add-package').disabled=true;
   try{
-   const body={name:draft.name,budgetCents:draft.budgetCents};
+   const body={name:draft.name,budgetCents:draft.budgetCents,phoneCameraEnabled:draft.phoneCameraEnabled};
    if(packageId!=='legacy')body.cloneFrom=packageId;
    const output=await L.api('package_create',{body});
    await reloadPackages(output.package.id);
