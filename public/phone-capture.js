@@ -9,7 +9,7 @@
  const permitted=()=>permission?.active===true&&permission.phoneCameraAllowed===true&&/^[a-f0-9]{32}$/.test(permission.sessionId)&&/^[a-f0-9]{32}$/.test(permission.claimId);
  const authorized=()=>permitted()&&permission.consent===true;
  const randomNonce=()=>crypto.randomUUID?.().replaceAll('-','')||Array.from(crypto.getRandomValues(new Uint8Array(16)),b=>b.toString(16).padStart(2,'0')).join('');
- function cleanupStream(){armed=false;multicamRecording=false;if(recorder&&recorder.state!=='inactive'){recorder.onstop=null;recorder.ondataavailable=null;try{recorder.stop();}catch(_){}}
+ function cleanupStream(){window.dispatchEvent(new Event('lucky:phone-capture-close'));armed=false;multicamRecording=false;if(recorder&&recorder.state!=='inactive'){recorder.onstop=null;recorder.ondataavailable=null;try{recorder.stop();}catch(_){}}
   recorder=null;clearTimeout(recorderTimer);recorderTimer=null;stream?.getTracks().forEach(track=>track.stop());stream=null;
   const live=$('phone-capture-live');if(live){live.pause();live.srcObject=null;live.hidden=true;}
  }
@@ -21,6 +21,12 @@
   $('phone-capture-arm').hidden=mode!=='video'||!!selectedFile||hasStream;
   $('phone-capture-arm').disabled=!authorized()||saving||permission?.phase!=='live';
   $('phone-capture-disarm').hidden=!armed;$('phone-capture-disarm').disabled=saving;
+  $('phone-capture-live-start').hidden=mode!=='video'||!!selectedFile||hasStream;
+  $('phone-capture-live-start').disabled=!authorized()||saving;
+  $('phone-capture-live-stop').hidden=mode!=='video'||!hasStream||recording||armed;
+  $('phone-capture-live-stop').disabled=saving;
+  $('phone-capture-live-record').hidden=mode!=='video'||!hasStream||recording||armed;
+  $('phone-capture-live-record').disabled=!authorized()||saving;
   $('phone-capture-snapshot').hidden=mode!=='photo'||!hasStream;
   $('phone-capture-stop').hidden=!recording;$('phone-capture-stop').disabled=saving;
   $('phone-capture-retake').hidden=!selectedFile;$('phone-capture-retake').disabled=saving;
@@ -32,7 +38,7 @@
  }
  function release(){generation++;cleanupStream();clearPreview();buttons();}
  function close(){release();if(dialog.open)dialog.close();}
- function selectMode(value){if(!allowedTypes[value]||saving)return;release();mode=value;buttons();note(value==='photo'?'Tap Start photo camera, then Take photo.':value==='video'?'Tap Record for a single video, or Arm for multicamera before the host starts recording.':'Tap Record audio to capture up to 60 seconds.');}
+ function selectMode(value){if(!allowedTypes[value]||saving)return;release();mode=value;buttons();note(value==='photo'?'Tap Start photo camera, then Take photo.':value==='video'?'Tap Live preview to see the phone on the desktop without recording; choose Record when ready.':'Tap Record audio to capture up to 60 seconds.');}
  function mediaType(){if(mode==='photo')return'image/jpeg';const choices=mode==='video'?['video/webm;codecs=vp8,opus','video/webm','video/mp4']:['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg'];return choices.find(v=>window.MediaRecorder?.isTypeSupported?.(v))||'';}
  function showPreview(file,durationMs=0){cleanupStream();clearPreview();selectedFile=file;selectedDurationMs=durationMs;nonce=randomNonce();previewUrl=URL.createObjectURL(file);
   const el=$(mode==='photo'?'phone-capture-photo':mode==='video'?'phone-capture-video':'phone-capture-audio');el.src=previewUrl;el.hidden=false;
@@ -57,7 +63,7 @@
   note(coordinated?'● Multicamera recording in progress with the desktop. The host will stop this take.':`● Recording ${mode} (60-second limit). Tap Stop when done.`);
   buttons();
  }
- async function start(arm=false){if(!authorized()||saving)return;
+ async function start(arm=false,previewOnly=false){if(!authorized()||saving)return;
   if(arm&&(mode!=='video'||permission?.phase!=='live'))return fail('Arm a video camera before the desktop starts its next recording.');
   const stamp=++generation;cleanupStream();clearPreview();buttons();
   if(!navigator.mediaDevices?.getUserMedia){fail('Camera or microphone needs HTTPS and a compatible browser. Use the file picker below instead.');return;}
@@ -67,8 +73,10 @@
    if(stamp!==generation||!authorized()||!dialog.open){cleanupStream();return;}
    if(mode==='photo'){$('phone-capture-live').srcObject=stream;$('phone-capture-live').hidden=false;await $('phone-capture-live').play();note('Frame your prize, then tap Take photo.');}
    else{
-    if(mode==='video'){$('phone-capture-live').srcObject=stream;$('phone-capture-live').hidden=false;await $('phone-capture-live').play();}
+    if(mode==='video'){$('phone-capture-live').srcObject=stream;$('phone-capture-live').hidden=false;await $('phone-capture-live').play();
+     window.dispatchEvent(new CustomEvent('lucky:phone-capture-stream',{detail:{mode,stream,consent:true,session:permission.sessionId,claim:permission.claimId}}));}
     if(arm){armed=true;note('Camera armed. Waiting for the host countdown; recording starts when the desktop cameras start.');}
+    else if(previewOnly)note('● Live preview starting on desktop. Record when ready, or Stop live preview to disconnect.');
     else beginMediaRecorder(stamp);
    }
   }catch(e){cleanupStream();fail(`Could not start ${mode}: ${e?.message||'Camera permission denied'}. Check site permissions or use the file picker.`);}
@@ -142,6 +150,9 @@
  document.querySelectorAll('[data-phone-capture-mode]').forEach(button=>button.addEventListener('click',()=>selectMode(button.dataset.phoneCaptureMode)));
  $('phone-capture-close').addEventListener('click',close);dialog.addEventListener('close',release);
  $('phone-capture-start').addEventListener('click',()=>start());$('phone-capture-arm').addEventListener('click',()=>start(true));
+ $('phone-capture-live-start').addEventListener('click',()=>start(false,true));
+ $('phone-capture-live-stop').addEventListener('click',()=>{release();note('Live phone preview stopped.');});
+ $('phone-capture-live-record').addEventListener('click',()=>{if(stream&&!recorder&&authorized())try{beginMediaRecorder(generation);}catch(e){fail(e.message);}});
  $('phone-capture-disarm').addEventListener('click',()=>{release();note('Camera disarmed. No recording captured.');});
  $('phone-capture-snapshot').addEventListener('click',snapshot);$('phone-capture-stop').addEventListener('click',stop);
  $('phone-capture-retake').addEventListener('click',()=>{release();note('Ready to try again.');});$('phone-capture-send').addEventListener('click',upload);
