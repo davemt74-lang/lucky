@@ -6,7 +6,8 @@
  let permission=null,mode='photo',stream=null,recorder=null,recorderTimer=null,selectedFile=null,selectedDurationMs=0,nonce='',previewUrl='',saving=false,generation=0,armed=false,multicamRecording=false;
  const fail=(message)=>{const el=$('phone-capture-status');if(el){el.textContent=message;el.classList.add('platform-error');}};
  const note=(message)=>{const el=$('phone-capture-status');if(el){el.textContent=message;el.classList.remove('platform-error');}};
- const authorized=()=>permission?.active===true&&permission.phoneCameraAllowed===true&&/^[a-f0-9]{32}$/.test(permission.sessionId)&&/^[a-f0-9]{32}$/.test(permission.claimId);
+ const permitted=()=>permission?.active===true&&permission.phoneCameraAllowed===true&&/^[a-f0-9]{32}$/.test(permission.sessionId)&&/^[a-f0-9]{32}$/.test(permission.claimId);
+ const authorized=()=>permitted()&&permission.consent===true;
  const randomNonce=()=>crypto.randomUUID?.().replaceAll('-','')||Array.from(crypto.getRandomValues(new Uint8Array(16)),b=>b.toString(16).padStart(2,'0')).join('');
  function cleanupStream(){armed=false;multicamRecording=false;if(recorder&&recorder.state!=='inactive'){recorder.onstop=null;recorder.ondataavailable=null;try{recorder.stop();}catch(_){}}
   recorder=null;clearTimeout(recorderTimer);recorderTimer=null;stream?.getTracks().forEach(track=>track.stop());stream=null;
@@ -14,6 +15,7 @@
  }
  function clearPreview(){if(previewUrl)URL.revokeObjectURL(previewUrl);previewUrl='';selectedFile=null;selectedDurationMs=0;nonce='';for(const id of ['phone-capture-photo','phone-capture-video','phone-capture-audio']){const el=$(id);if(!el)continue;el.hidden=true;if(el.tagName==='IMG')el.removeAttribute('src');else{el.pause();el.removeAttribute('src');el.load();}}}
  function buttons(){const recording=recorder?.state==='recording',hasStream=!!stream;
+  const consent=$('phone-capture-consent');if(consent){consent.checked=!!permission?.consent;consent.disabled=!permitted()||saving;}
   $('phone-capture-start').hidden=!!selectedFile||hasStream;$('phone-capture-start').disabled=!authorized()||saving;
   $('phone-capture-start').textContent=mode==='photo'?'Start photo camera':mode==='video'?'Record video':'Record audio';
   $('phone-capture-arm').hidden=mode!=='video'||!!selectedFile||hasStream;
@@ -88,12 +90,14 @@
    note(`✓ ${mode} saved to Video Studio · ${result.clip?.id||'Upload complete'}.`);cleanupStream();clearPreview();buttons();
   }catch(e){fail(`${e.message} Your file is still here; tap Send to retry.`);}finally{saving=false;buttons();}
  }
- function open(){if(!authorized()){fail('The host must enable phone camera and approve recording consent first.');return;}
-  if(!dialog.open)dialog.showModal();$('phone-capture-prize').textContent='Current prize proof · Photos, video and audio go to the host Video Studio.';note('Choose a mode, or upload an existing file.');buttons();}
+ function open(){if(!permitted()){fail('The host must enable phone camera for this prize first.');return;}
+  if(!dialog.open)dialog.showModal();$('phone-capture-prize').textContent='Current prize proof · Photos, video and audio go to the host Video Studio.';
+  note(authorized()?'Choose a mode, or upload an existing file.':'Confirm recording consent to activate the capture controls.');buttons();}
  window.addEventListener('lucky:phone-proof-status',event=>{const old=permission;permission=event.detail;
-  if(!authorized()||old&&old.sessionId&&old.claimId&&(old.sessionId!==permission.sessionId||old.claimId!==permission.claimId)){if(dialog.open)close();else release();}
+  if(!permitted()||old&&old.sessionId&&old.claimId&&(old.sessionId!==permission.sessionId||old.claimId!==permission.claimId)){if(dialog.open)close();else release();}
   else if(dialog.open){
-   if(armed&&permission.phase==='recording'){
+   if(!authorized()){cleanupStream();if(!permission.consent)note('Confirm recording consent to activate camera and upload controls.');}
+   if(armed&&authorized()&&permission.phase==='recording'){
     try{beginMediaRecorder(generation,true);}catch(e){cleanupStream();fail('Coordinated recording could not start: '+e.message);}
    }else if(multicamRecording&&recorder?.state==='recording'&&permission.phase!=='recording'){
     stop();
@@ -101,6 +105,9 @@
    buttons();
   }
  });
+ $('phone-capture-consent')?.addEventListener('change',event=>{if(!permitted())return;
+  window.dispatchEvent(new CustomEvent('lucky:phone-proof-consent-request',{detail:{consent:event.target.checked}}));
+  note('Waiting for the host to confirm your recording consent…');});
  document.querySelectorAll('[data-phone-capture-mode]').forEach(button=>button.addEventListener('click',()=>selectMode(button.dataset.phoneCaptureMode)));
  $('phone-capture-close').addEventListener('click',close);dialog.addEventListener('close',release);
  $('phone-capture-start').addEventListener('click',()=>start());$('phone-capture-arm').addEventListener('click',()=>start(true));
