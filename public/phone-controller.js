@@ -19,7 +19,7 @@
   if(arrows){arrows.disabled=!paired||!!currentMovie||!!proofState?.active||mayGoPrize();if(arrows.disabled&&$('phone-arrows-dialog')?.open)$('phone-arrows-dialog').close();}
   // A prize decision or active movie must retain its navigation lock. The
   // independent Camera Studio is otherwise available to any approved phone.
-  const availability={home:mayGoHome(),game:mayGoGame(),prize:mayGoPrize()||claimedPrizes.length>0,camera:paired&&!currentMovie&&!mayGoPrize(),more:paired};
+  const availability={home:mayGoHome(),game:mayGoGame(),prize:mayGoPrize()||claimedPrizes.length>0,camera:paired,more:paired};
   const current=visibleScreen==='phone-dashboard'?'home':visibleScreen==='phone-movie'?'more':mayGoCamera()?'camera':mayGoPrize()?'prize':'game';
   document.querySelectorAll('[data-phone-view]').forEach(button=>{
    const name=button.dataset.phoneView;button.disabled=!availability[name];
