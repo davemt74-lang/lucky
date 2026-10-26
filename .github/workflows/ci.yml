@@ -80,6 +80,7 @@ jobs:
           php tests/v5q29e4c_profiles_contract.php
           php tests/v5q29e4d1_studio_contract.php
           php tests/v5q29e4d1hf2_create_camera_contract.php
+          php tests/v5q29e4d1hf3_phone_camera_contract.php
           php -l api/recording-export.php
           php -l bin/recording-export-worker.php
           php -l lib/RecordingExports.php
