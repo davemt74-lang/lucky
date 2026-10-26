@@ -366,8 +366,9 @@ try {
   $db->beginTransaction();
   try{
    if($action==='package_create'){
+    if(array_key_exists('phoneCameraEnabled',$in)&&!is_bool($in['phoneCameraEnabled']))throw new DomainException('Phone camera setting must be on or off.',422);
     $out=PrizePackages::create($db,$in['name']??'',isset($in['cloneFrom'])?(string)$in['cloneFrom']:null,
-     array_key_exists('budgetCents',$in)?$in['budgetCents']:null,array_key_exists('budgetCents',$in));
+     array_key_exists('budgetCents',$in)?$in['budgetCents']:null,array_key_exists('budgetCents',$in),$in['phoneCameraEnabled']??null);
     audit($db,'package.created',null,['packageId'=>$out['id']]);
    }elseif($action==='package_save'){
     if(array_key_exists('phoneCameraEnabled',$in)&&!is_bool($in['phoneCameraEnabled']))throw new DomainException('Phone camera setting must be on or off.',422);
