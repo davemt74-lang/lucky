@@ -133,7 +133,7 @@
  const mimeFor=kind=>{if(typeof MediaRecorder==='undefined')return '';const formats=kind==='video'?['video/webm;codecs=vp8,opus','video/webm;codecs=vp9,opus','video/webm','video/mp4']:['audio/webm;codecs=opus','audio/webm','audio/mp4'];return formats.find(x=>MediaRecorder.isTypeSupported(x))||'';};
  const extension=type=>type.includes('mp4')?'.mp4':'.webm';
  function stopFeed(id){const f=feeds.get(id);if(!f)return;f.stream.getTracks().forEach(t=>t.stop());f.video.srcObject=null;feeds.delete(id);badge();}
- async function stopAll(){$('proof-stage-timer').hidden=true;if(precountAbort){precountAbort.abort();try{await precountPromise;}catch(_){}}if(sequenceAbort){sequenceAbort.abort();try{await sequencePromise;}catch(_){}}if(recordings.size||audioRecorder)await stopRecording();for(const id of [...feeds.keys()])stopFeed(id);$('camera-grid')?.replaceChildren();clearDrafts();badge();}
+ async function stopAll(){window.dispatchEvent(new Event('lucky:proof-close'));$('proof-stage-timer').hidden=true;if(precountAbort){precountAbort.abort();try{await precountPromise;}catch(_){}}if(sequenceAbort){sequenceAbort.abort();try{await sequencePromise;}catch(_){}}if(recordings.size||audioRecorder)await stopRecording();for(const id of [...feeds.keys()])stopFeed(id);$('camera-grid')?.replaceChildren();clearDrafts();badge();}
  function checkLive(){if(closing)throw Error('Reopen the capture studio to continue.');}
  async function refresh(grant=false){
   checkLive();capabilities();contextReady();
@@ -142,7 +142,8 @@
   const items=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='videoinput');
   const grid=$('camera-grid');const was=new Set(selected());
   if(!was.size){for(const id of (window.LuckyCameraProfiles?.selected(captureGame)||[]))was.add(id);}const connectedIds=new Set(items.map((d,i)=>d.deviceId||`unlabeled-${i}`));for(const id of [...feeds.keys()])if(!connectedIds.has(id))stopFeed(id);grid.replaceChildren();
-  if(!items.length){status('No cameras detected. Plug in a USB camera, allow camera access, then Refresh.',true);return;}
+  window.dispatchEvent(new Event('lucky:cameras-refreshed'));
+  if(!items.length){status('No desktop cameras detected. A paired phone can still stream in this video space.',false);return;}
   items.forEach((d,i)=>{
    const id=d.deviceId||`unlabeled-${i}`,label=clean(savedNames()[id]||d.label||`Camera ${i+1}`);
    const card=document.createElement('section');card.className='camera-source';card.dataset.cameraId=id;
@@ -308,6 +309,7 @@
  }catch(e){status(e.message,true);}}
  function show(s,c,n,angles=[],game='spin-wheel'){captureGame=window.LuckyCameraProfiles?.validGame(game)||'spin-wheel';badge();clearDrafts();selectedPlayback=null;savedPreview=null;replacementId=null;savedVideos=[];capturePhase='live';approvedCount=0;closing=false;session=s||'';claim=c||'';prize=n||'Prize';proofProfile=Array.isArray(angles)?angles:[];drawProofPlan();$('capture-prize-label').textContent=prize;$('capture-open-editor').href='editor.php?session='+encodeURIComponent(session);
   $('capture-consent').checked=false;consentChanged();status(session&&claim?'Live preview ready. Recording requires consent.':'Choose a prize first.');refreshClips();
+  window.dispatchEvent(new CustomEvent('lucky:proof-open',{detail:{session,claim}}));
   // The claim page is the one camera station. Start live previews immediately after the
   // verified claim loads, including games initiated on a paired phone (no browser-local
   // Start Game flag). getUserMedia may show the browser's permission prompt; consent to
