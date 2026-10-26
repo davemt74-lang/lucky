@@ -51,7 +51,7 @@ async def main():
   verify('Connected state shows persistent navigation',await page.locator('#phone-bottom-nav').is_visible())
   verify('Game selected, Dashboard access guarded in More',await page.locator('#phone-bottom-nav [data-phone-view=game]').get_attribute('aria-current')=='page' and await page.locator('#phone-quick-menu [data-phone-view=home]').is_disabled())
   verify('Wheel rendering is decorative',await page.locator('.phone-wheel-visual[aria-hidden=true]').count()==1)
-  verify('Six sticky controls include Mic and center Arrows, not Home',await page.locator('#phone-bottom-nav > button').count()==6 and await page.locator('#phone-bottom-nav #phone-mic-toggle').count()==1 and await page.locator('#phone-bottom-nav > button:nth-child(3)').get_attribute('id')=='phone-arrows-toggle' and await page.locator('#phone-bottom-nav [data-phone-view=home]').count()==0)
+  verify('Six sticky controls include Mic and center Arrows, not Home',await page.locator('#phone-bottom-nav > :is(button,a)').count()==6 and await page.locator('#phone-bottom-nav #phone-mic-toggle').count()==1 and await page.locator('#phone-bottom-nav > button:nth-child(3)').get_attribute('id')=='phone-arrows-toggle' and await page.locator('#phone-bottom-nav [data-phone-view=home]').count()==0)
   verify('Stats follow Spin; Start, Menu and End sit below stats',await page.evaluate("""() => {
    const spin=document.querySelector('#phone-gameplay-shell [data-phone=spin]'),stats=document.querySelector('#phone-game-state'),buttons=document.querySelector('.phone-game-actions');
    return !!(spin.compareDocumentPosition(stats)&Node.DOCUMENT_POSITION_FOLLOWING)&&!!(stats.compareDocumentPosition(buttons)&Node.DOCUMENT_POSITION_FOLLOWING)&&document.querySelectorAll('#phone-gameplay-shell .phone-direction').length===0;
@@ -90,6 +90,7 @@ async def main():
   await page.locator('#phone-prize-offer').wait_for(state='visible',timeout=5000)
   verify('Prize tab active during decision',await page.locator('#phone-bottom-nav [data-phone-view=prize]').get_attribute('aria-current')=='page')
   verify('Arrows disabled during prize decision',await page.locator('#phone-arrows-toggle').is_disabled())
+  verify('Camera Studio is a direct link independent of controller status',await page.locator('#phone-bottom-nav a[data-phone-view=camera][href="camera.php"]').count()==1 and await page.locator('#phone-menu-panel-controls a[data-phone-view=camera][href="camera.php"]').count()==1)
   verify('Dashboard stays locked while independent Camera Studio remains available during claim',await page.locator('#phone-quick-menu [data-phone-view=home]').is_disabled() and await page.locator('#phone-bottom-nav [data-phone-view=camera]').is_enabled())
   verify('Prize card preserves name, tier and value',await page.locator('#phone-offer-name').inner_text()=='Game Night Prize' and await page.locator('#phone-offer-value').inner_text()=='$15.00')
   await page.evaluate("__proof=true;__pending=false;__phase='countdown'")

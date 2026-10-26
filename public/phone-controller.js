@@ -19,10 +19,10 @@
   if(arrows){arrows.disabled=!paired||!!currentMovie||!!proofState?.active||mayGoPrize();if(arrows.disabled&&$('phone-arrows-dialog')?.open)$('phone-arrows-dialog').close();}
   // A prize decision or active movie must retain its navigation lock. The
   // independent Camera Studio is otherwise available to any approved phone.
-  const availability={home:mayGoHome(),game:mayGoGame(),prize:mayGoPrize()||claimedPrizes.length>0,camera:paired,more:paired};
+  const availability={home:mayGoHome(),game:mayGoGame(),prize:mayGoPrize()||claimedPrizes.length>0,camera:true,more:paired};
   const current=visibleScreen==='phone-dashboard'?'home':visibleScreen==='phone-movie'?'more':mayGoCamera()?'camera':mayGoPrize()?'prize':'game';
   document.querySelectorAll('[data-phone-view]').forEach(button=>{
-   const name=button.dataset.phoneView;button.disabled=!availability[name];
+   const name=button.dataset.phoneView;if(name!=='camera')button.disabled=!availability[name];
    const selected=current===name&&availability[name];button.classList.toggle('is-active',selected);
    if(selected)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');
   });
@@ -416,19 +416,17 @@
  $('phone-arrows-close').onclick=closeArrows;
  $('phone-arrows-dialog').addEventListener('close',()=>{$('phone-arrows-toggle').setAttribute('aria-expanded','false');$('phone-arrows-toggle').classList.remove('is-active');});
   document.querySelectorAll('[data-phone-menu-tab]').forEach(button=>button.addEventListener('click',()=>{if(!button.disabled)setMenuTab(button.dataset.phoneMenuTab);}));
- document.querySelectorAll('[data-phone-view]').forEach(button=>button.addEventListener('click',()=>{
+ document.querySelectorAll('[data-phone-view]').forEach(button=>{if(button.dataset.phoneView==='camera')return;button.addEventListener('click',()=>{
   const target=button.dataset.phoneView;
    if(target==='more'){openMenu();return;}
    if(target==='prize'&&!mayGoPrize()&&claimedPrizes.length){openMenu('claims');return;}
   closeMenu();if(button.disabled)return;
   if(target==='home'){if(!mayGoHome()){message('Finish the active game or proof before returning home.',true);return;}
    dashboardRequested=true;show('phone-dashboard');void loadDashboard();return;}
-  if(target==='camera'&&!mayGoCamera()){location.assign('camera.php');return;}
-  if(target==='camera'&&mayGoCamera()&&proofState.phoneCameraAllowed&&proofState.consent){window.LuckyPhoneCapture?.open();return;}
-  if(target==='game'&&mayGoGame()||target==='prize'&&mayGoPrize()||target==='camera'&&mayGoCamera()){
+  if(target==='game'&&mayGoGame()||target==='prize'&&mayGoPrize()){
    show('phone-controls');if(game)updateGame(game);updateProof(proofState);
   }
- }));
+ });});
  $('phone-movie-play').onclick=()=>movieControl('play');
  $('phone-movie-pause').onclick=()=>movieControl('pause');
  $('phone-movie-stop').onclick=()=>movieControl('stop');
