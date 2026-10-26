@@ -25,13 +25,13 @@
   video:'catalog-record-video',photo:'catalog-record-photo',audio:'catalog-record-audio',
   maxCameras:'catalog-record-max',countdownSeconds:'catalog-record-countdown'};
  function recordingValues(){const out={};for(const [name,id] of Object.entries(captureInputs)){
-  const control=$(id);out[name]=control.type==='checkbox'?control.checked:Number(control.value);
+  const control=$(id);if(!control)continue;out[name]=control.type==='checkbox'?control.checked:Number(control.value);
  }return out;}
  function fillRecording(value={}){const fallback={multicameraEnabled:true,phoneCameraEnabled:true,video:true,photo:true,audio:true,maxCameras:4,countdownSeconds:3};
   for(const [name,id] of Object.entries(captureInputs)){const control=$(id),chosen=value[name]??fallback[name];
-   if(control.type==='checkbox')control.checked=!!chosen;else control.value=chosen;
+   if(!control)continue;if(control.type==='checkbox')control.checked=!!chosen;else control.value=chosen;
   }
-  $('catalog-record-max').disabled=!$('catalog-record-multicam').checked;
+  if($('catalog-record-max')&&$('catalog-record-multicam'))$('catalog-record-max').disabled=!$('catalog-record-multicam').checked;
  }
  function splashValues(){return {intro:{title:$('intro-title').value.trim(),subtitle:$('intro-subtitle').value.trim(),trackId:$('intro-track').value,
   volume:Number($('intro-volume').value),announcement:$('intro-announcement').checked},
@@ -120,7 +120,7 @@
     await api('game_catalog_save',{body});await reload(selected);note('Game profile and splash settings saved.');}
   catch(e){note(e.message,true);}
  };
- $('catalog-record-multicam').onchange=()=>{$('catalog-record-max').disabled=!$('catalog-record-multicam').checked;};
+ if($('catalog-record-multicam'))$('catalog-record-multicam').onchange=()=>{$('catalog-record-max').disabled=!$('catalog-record-multicam').checked;};
  document.querySelectorAll('[data-game-art]').forEach(input=>input.onchange=async()=>{
   const file=input.files?.[0],slot=input.dataset.gameArt;if(!file||!selected)return;
   if(file.size>6*1024*1024){note('Artwork must be 6MB or less.',true);input.value='';return;}
