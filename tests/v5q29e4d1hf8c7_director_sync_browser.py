@@ -13,7 +13,7 @@ async def main():
     mock = """
       window.offline = true;
       Object.defineProperty(navigator,'onLine',{configurable:true,get(){return !window.offline;}});
-      window.uploads = [];
+      window.uploads = [];window.recorderStarts=0;window.deferCameraStops=false;
       window.Lucky = {getMe:async()=>({csrf:'csrf-test'})};
       window.fetch = async(url,opts)=>{
         if (!String(url).includes('api/recording-host.php')) throw Error('Wrong API');
@@ -27,20 +27,21 @@ async def main():
       class TestRecorder{
         static isTypeSupported(){return true;}
         constructor(s,o){this.stream=s;this.mimeType='video/webm';this.state='inactive';}
-        start(){this.state='recording';}
+        start(){this.state='recording';window.recorderStarts++;}
         stop(){
           if(this.state!=='recording')return;
           this.state='inactive';
           this.ondataavailable?.({data:new Blob([new Uint8Array(400)],{type:'video/webm'})});
-          this.onstop?.();
+          if(window.deferCameraStops)setTimeout(()=>this.onstop?.(),40);
+          else this.onstop?.();
         }
       }
       window.MediaRecorder=TestRecorder;
       window.LuckyCameraDirector={
-        recording:false,
+        recording:false,stops:0,
         state(){return {recording:this.recording};},
         startExport(meta){this.recording=true;this.meta=meta;this.start=Date.now();return true;},
-        stopExport(){if(!this.recording)return;this.recording=false;
+        stopExport(){if(!this.recording)return;this.stops++;this.recording=false;
           window.dispatchEvent(new CustomEvent('lucky:director-program-captured',{detail:{
             ...this.meta,startMs:this.start,endMs:Date.now(),
             blob:new Blob([new Uint8Array(300)],{type:'video/webm'})
@@ -89,6 +90,17 @@ async def main():
         await page.evaluate("window.offline=false;window.dispatchEvent(new Event('online'))")
         await page.wait_for_timeout(350)
         assert await page.evaluate("window.uploads.length") == 0, "Successful upload must be removed from persistent queue"
+        # Manual Program recording must not be terminated by an unrelated group take.
+        await page.evaluate("window.offline=true;LuckyCameraDirector.recording=true")
+        await page.evaluate("""([s,t])=>window.dispatchEvent(new CustomEvent('lucky:director-take-start',{detail:{recordingSession:s,takeId:t}}))""", [SESSION, TAKE])
+        await page.evaluate("""([s,t])=>window.dispatchEvent(new CustomEvent('lucky:director-take-stop',{detail:{recordingSession:s,takeId:t}}))""", [SESSION, TAKE])
+        assert await page.evaluate("LuckyCameraDirector.recording && LuckyCameraDirector.stops===0"), "Group stop must preserve independent Program recording"
+        await page.evaluate("LuckyCameraDirector.recording=false;window.deferCameraStops=true")
+        # A prior camera recorder can finish after a replacement take starts.
+        await page.evaluate("""([s,t])=>window.dispatchEvent(new CustomEvent('lucky:director-take-start',{detail:{recordingSession:s,takeId:t}}))""", [SESSION, TAKE])
+        await page.evaluate("""([s,t])=>window.dispatchEvent(new CustomEvent('lucky:director-take-start',{detail:{recordingSession:s,takeId:t}}))""", [SESSION, 'c'*32])
+        await page.wait_for_function('window.recorderStarts>=3')
+        assert await page.locator('.director-source-rec').count() == 1, "New take must resume local recording after delayed previous onstop"
         assert not errors, errors
         print("HF8C7 DIRECTOR SYNC BROWSER: 9/9")
         await browser.close()

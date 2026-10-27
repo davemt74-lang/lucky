@@ -5,7 +5,7 @@
  if(!studio)return;
  const MAX_BYTES=75*1024*1024,MAX_MS=150000;
  const pendingMemory=new Map(),cameras=new Map();
- let current=null,flushing=false,programTimer=null;
+ let current=null,flushing=false,programTimer=null,ownedProgramTake='';
  const status=document.createElement('p');
  status.id='director-sync-status';status.className='mini-label director-sync-status';
  status.setAttribute('role','status');status.textContent='Director originals are saved privately to the selected recording session.';
@@ -103,14 +103,14 @@
   recorder.ondataavailable=e=>{if(e.data?.size){pieces.push(e.data);total+=e.data.size;if(total>=MAX_BYTES&&recorder.state==='recording')recorder.stop();}};
   recorder.onerror=()=>message('Camera '+source.label+' encountered a capture error. Saved segments will retry.');
   recorder.onstop=()=>{
-   clearTimeout(entry.timer);cameras.delete(source.id);mark(source.id,false);
+   clearTimeout(entry.timer);
+   if(cameras.get(source.id)===entry){cameras.delete(source.id);mark(source.id,false);}
    const ended=Date.now(),blob=new Blob(pieces,{type:recorder.mimeType||'video/webm'});
    void queue(blob,{...take,sourceKey:source.id,sourceName:source.label||'Desktop Camera',startMs:started,endMs:ended});
-   // Segment a long take; never restart a removed or disconnected camera.
-   if(current?.takeId===take.takeId){
-    const connected=window.LuckyDirectorStudio?.cameras?.().find(c=>c.id===source.id);
-    if(connected)startCamera(connected,take);
-   }
+   // A previous take may finish while a new one starts. Resume the currently
+   // authorized take, never the old one, and preserve the old clip's metadata.
+   if(current){const connected=window.LuckyDirectorStudio?.cameras?.().find(c=>c.id===source.id);
+    if(connected)startCamera(connected,current);}
   };
   try{recorder.start(1000);entry.timer=setTimeout(()=>{if(recorder.state==='recording')recorder.stop();},MAX_MS);}
   catch(e){cameras.delete(source.id);mark(source.id,false);message('Camera recording failed: '+e.message);}
@@ -120,6 +120,7 @@
   if(window.LuckyCameraDirector?.state?.().recording)return;
   const started=window.LuckyCameraDirector?.startExport?.({...take,sourceKey:'program',sourceName:'Program Output'});
   if(started){
+   ownedProgramTake=take.takeId;
    clearTimeout(programTimer);programTimer=setTimeout(()=>window.LuckyCameraDirector?.stopExport?.(),MAX_MS);
   }else{
    message('Desktop cameras are recording. Select and Take a source to Program to include the edited output.');
@@ -129,7 +130,9 @@
   const prior=current;current=null;
   clearTimeout(programTimer);programTimer=null;
   for(const entry of cameras.values())if(entry.recorder.state==='recording')entry.recorder.stop();
-  if(prior)window.LuckyCameraDirector?.stopExport?.();
+  // Never stop a manually started Program export that this take did not own.
+  if(prior&&ownedProgramTake===prior.takeId)window.LuckyCameraDirector?.stopExport?.();
+  ownedProgramTake='';
   if(prior)message('Take stopped. Completed originals are queued for secure upload.');
   void flush();
  }
@@ -155,8 +158,9 @@
  window.addEventListener('lucky:director-program-captured',event=>{
   const d=event.detail||{};
   if(!/^[a-f0-9]{32}$/.test(d.session||'')||!/^[a-f0-9]{32}$/.test(d.takeId||''))return;
+  if(ownedProgramTake===d.takeId)ownedProgramTake='';
   void queue(d.blob,{...d,startMs:d.startMs,endMs:d.endMs});
-  if(current?.takeId===d.takeId)queueMicrotask(()=>startProgram(current));
+  if(current)queueMicrotask(()=>startProgram(current));
  });
  window.addEventListener('online',()=>void flush());
  window.addEventListener('pageshow',()=>void flush());
