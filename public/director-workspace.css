@@ -4,6 +4,10 @@ body.director-studio-page>.shell,body.director-studio-page .shell{max-width:none
 body.director-studio-page .shell>.header{display:none}
 body.director-studio-page .footer{padding:9px 4px;font-size:9px}
 body.director-studio-page .director-studio-shell{max-width:none;padding:10px 0 2px;display:block}
+.director-studio-page .camera-source .director-camera-state{display:inline-flex;align-items:center;margin-left:auto;padding:3px 8px;border:1px solid #287a69;border-radius:99px;background:#123b33;color:#92f1c7;font-size:10px;font-weight:800}
+.director-studio-page .camera-source[data-status=recording] .director-camera-state{border-color:#ad3549;background:#4a1b29;color:#ffb5bd}
+.director-studio-page .camera-source[data-status=offline] .director-camera-state{border-color:#657184;background:#283547;color:#b3bfd1}
+.director-studio-page .camera-source .director-camera-name{min-width:0;width:100%;padding:6px 9px;font-size:12px;border:1px solid #395774;border-radius:7px;background:#0b1c30;color:#e9f5ff}
 .director-workspace{--dw-border:#28405a;--dw-surface:#0c1b2c;--dw-text:#ebf3ff;border:1px solid #26354b;border-radius:12px;background:linear-gradient(145deg,#07111f,#0b1b2b);color:var(--dw-text);min-width:0;box-shadow:0 16px 60px #0005}
 .director-workspace-top{display:flex;align-items:center;gap:clamp(12px,2vw,26px);padding:10px 15px;min-height:64px;border-bottom:1px solid var(--dw-border);border-radius:12px 12px 0 0;background:#091525;position:relative;z-index:40}
 .director-workspace-brand{display:flex;align-items:center;gap:11px;min-width:0}
