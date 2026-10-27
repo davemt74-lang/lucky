@@ -87,6 +87,9 @@ async def main():
         await test('Timeline contains only real media grouped into source lanes',
                    await page.locator('.director-workspace-lane').count() == 2 and
                    await page.locator('.director-workspace-timeline-clip').count() == 2)
+        await test('Director clip deep-link carries the exact media asset and session',
+                   await page.locator('.director-workspace-timeline-clip').first.get_attribute('href') ==
+                   f'recording-editor.php?session={A}&asset={"d"*32}')
         await page.evaluate("window.mockMedia.push({id:'g'.repeat(32),source_id:'b'.repeat(32),take_id:'f'.repeat(32),kind:'video',title:'Second take same camera',duration_ms:6000,start_offset_ms:0})")
         await page.evaluate('LuckyDirectorWorkspace.refreshTimeline()')
         await page.wait_for_function("document.querySelectorAll('.director-workspace-timeline-clip').length===3")
