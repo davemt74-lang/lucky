@@ -5,8 +5,15 @@
 #tab-recordings .recording-library-heading h3{margin:0}
 #tab-recordings #recording-library-count{color:#9bb9d5;font-size:12px}
 #tab-recordings .recordings-list{grid-template-columns:repeat(auto-fill,minmax(min(100%,265px),1fr));gap:12px}
-#tab-recordings .recording-list-item{display:grid;align-content:start;gap:9px;min-height:125px;background:#11283f;padding:15px;transition:background .15s,border-color .15s}
+#tab-recordings .recording-session-card{display:flex;flex-direction:column;min-width:0;border:1px solid #425d78;border-radius:13px;background:#11283f;overflow:hidden}
+#tab-recordings .recording-list-item{display:grid;align-content:start;gap:9px;min-height:125px;border:0;border-radius:0;background:transparent;padding:15px;transition:background .15s,border-color .15s}
 #tab-recordings .recording-list-item:hover{background:#1c3752;border-color:#e3b874}
+#tab-recordings .recording-session-card:has(.recording-list-item[aria-pressed=true]){border-color:#eec47f}
+#tab-recordings .recording-session-card .recording-list-item[aria-pressed=true]{background:#29344a}
+#tab-recordings .recording-card-actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:auto;padding:10px 12px;border-top:1px solid #314c65}
+#tab-recordings .recording-card-actions .btn{flex:1;min-width:115px;text-align:center;font-size:11px;padding:8px 9px}
+#tab-recordings .recording-library-empty{grid-column:1/-1;border:1px dashed #4c718e;border-radius:12px;padding:28px;text-align:center;color:#c1d5e8}
+#tab-recordings .recording-library-empty p{margin:0 0 12px}
 #tab-recordings .recording-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
 #tab-recordings .recording-card-name{font-size:15px;line-height:1.35}
 #tab-recordings .recording-card-status{border:1px solid #54708b;border-radius:99px;padding:3px 7px;text-transform:uppercase;letter-spacing:.05em;font-size:9px;white-space:nowrap;color:#c6d9ec;font-weight:800}
@@ -22,4 +29,6 @@
 .recording-new-dialog .recording-new-modal-head h2{margin:2px 0;font-size:23px}
 .recording-new-dialog .recordings-modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:12px}
 .recording-new-dialog .platform-form{margin-top:14px}
+#tab-recordings .recordings-filters{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media(max-width:760px){#tab-recordings .recordings-filters{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:600px){.recording-new-dialog{padding:13px;max-height:95dvh}.recording-new-dialog .recordings-new-grid{grid-template-columns:minmax(0,1fr)}.recording-new-dialog .recordings-modal-actions .btn{flex:1}}
