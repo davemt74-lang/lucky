@@ -13,6 +13,8 @@ $db=new PDO('mysql:host=127.0.0.1;port=3306;dbname=lucky_test;charset=utf8mb4','
 foreach(MigrationSql::statements((string)file_get_contents(__DIR__.'/../lib/schema.sql')) as $sql)$db->exec($sql);
 foreach(MigrationSql::statements((string)file_get_contents(__DIR__.'/../lib/migrations/v5q_claim_media.sql')) as $sql)$db->exec($sql);
 foreach(MigrationSql::statements((string)file_get_contents(__DIR__.'/../lib/migrations/v5q29e4d1hf8b_director_live.sql')) as $sql)$db->exec($sql);
+foreach(['v5q29e1_recording_sessions.sql','v5q29e4d1hf8c4_director_recordings.sql'] as $migration)
+ foreach(MigrationSql::statements((string)file_get_contents(__DIR__.'/../lib/migrations/'.$migration)) as $sql)$db->exec($sql);
 $session=bin2hex(random_bytes(16));$claim=bin2hex(random_bytes(16));$host=0;
 $sdp="v=0\r\no=- 1 1 IN IP4 127.0.0.1\r\ns=-\r\nt=0 0\r\na=recvonly\r\n";
 try{

@@ -33,7 +33,8 @@ if(($_SERVER['REQUEST_METHOD']??'')==='POST'){
    'lib/migrations/v5q29e4c_recording_profiles.sql',
    'lib/migrations/v5q29e4d1hf7_phone_live.sql',
    'lib/migrations/v5q29e4d1hf8b_director_live.sql',
-   'lib/migrations/v5q29e4d1hf8c2_director_scenes.sql'
+   'lib/migrations/v5q29e4d1hf8c2_director_scenes.sql',
+   'lib/migrations/v5q29e4d1hf8c4_director_recordings.sql'
   ];
   foreach($migrationFiles as $migrationFile){
    foreach(MigrationSql::statements(sql($migrationFile)) as $statement)$db->exec($statement);

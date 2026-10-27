@@ -9,6 +9,7 @@ shellStart('Admin Studio','admin','admin-studio-page');
  <nav class="platform-admin-tabs" aria-label="Admin Studio sections">
   <button type="button" data-tab="games"><span class="admin-nav-symbol" aria-hidden="true">▦</span> Game catalog</button>
   <button type="button" data-tab="cameras"><span class="admin-nav-symbol" aria-hidden="true">▣</span> Cameras</button>
+  <a href="director.php" class="admin-director-nav"><span class="admin-nav-symbol" aria-hidden="true">◉</span> Camera Director</a>
   <button type="button" data-tab="prizes" class="selected" aria-current="page"><span class="admin-nav-symbol" aria-hidden="true">✦</span> Prizes & budgets</button>
   <button type="button" data-tab="music"><span class="admin-nav-symbol" aria-hidden="true">♫</span> Music library</button>
   <button type="button" data-tab="sessions"><span class="admin-nav-symbol" aria-hidden="true">▣</span> Game sessions</button>

@@ -79,7 +79,7 @@
  }
  async function publish(){
   if(busy||active)return;
-  if(!proof){status('Open a prize-proof session first.',true);return;}
+  if(!proof){status('Open a recording session before publishing.',true);return;}
   if(!$('director-publish-consent').checked){status('Confirm participant/content broadcast permission before publishing.',true);return;}
   const visibility=selectedVisibility();
   if(visibility==='public'&&!$('director-publish-public-ack').checked){status('Confirm that anyone may view this public broadcast.',true);return;}
@@ -120,6 +120,13 @@
   proof=/^[a-f0-9]{32}$/.test(d.session||'')&&/^[a-f0-9]{32}$/.test(d.claim||'')?{session:d.session,claim:d.claim}:null;
   $('director-publish-consent').checked=false;$('director-publish-public-ack').checked=false;visibilityUi();refresh();
  });
+ window.addEventListener('lucky:director-studio-open',e=>{
+  void stop(true);
+  const id=String(e.detail?.recordingSession||'');
+  proof=/^[a-f0-9]{32}$/.test(id)?{recordingSession:id}:null;
+  $('director-publish-consent').checked=false;$('director-publish-public-ack').checked=false;visibilityUi();refresh();
+ });
+ window.addEventListener('lucky:director-studio-close',()=>{proof=null;void stop(true);refresh();});
  window.addEventListener('lucky:proof-close',()=>{proof=null;void stop(true);refresh();});
  window.addEventListener('lucky:director-program-ended',()=>{if(active){status('The Program camera was disconnected; Live View is ending.',true);void stop(true);}});
  window.addEventListener('pagehide',()=>{proof=null;void stop(true);});

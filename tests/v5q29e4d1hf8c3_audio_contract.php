@@ -17,5 +17,5 @@ audioCheck(str_contains($mixer,'audioOutput?.stream.getAudioTracks()[0]')&&str_c
 audioCheck(str_contains($mixer,'exportStream=programStream(false)')&&str_contains($mixer,'codecs=vp8,opus')&&str_contains($mixer,'codecs=vp8'),'Export records audio when available and remains video-only when silent');
 audioCheck(str_contains($publisher,'for(const track of stream.getTracks())peer.addTrack(track,stream)'),'Live View publishes Program audio with video');
 audioCheck(str_contains($viewer,"peer.addTransceiver('audio'")&&str_contains($live,'director-view-sound')&&str_contains($viewer,'view.muted=!view.muted'),'Viewer receives audio and explicitly unmutes');
-audioCheck(str_contains($page,'camera-director.js?v=5q29e4d1hf8c3')&&str_contains($live,'director-view.js?v=5q29e4d1hf8c3')&&str_contains($layout,'platform.css?v=5q29e4d1hf8c3')&&str_contains($css,'#director-view-sound'),'Release assets cache-busted together');
+audioCheck(str_contains($page,'camera-director.js?v=5q29e4d1hf8c3')&&str_contains($live,'director-view.js?v=5q29e4d1hf8c3')&&(str_contains($layout,'platform.css?v=5q29e4d1hf8c3')||str_contains($layout,'platform.css?v=5q29e4d1hf8c4'))&&str_contains($css,'#director-view-sound'),'Release assets cache-busted together');
 echo "HF8C3 PROGRAM AUDIO CONTRACT: 13/13\n";
