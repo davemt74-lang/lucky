@@ -260,7 +260,9 @@ jobs:
             # Runner images have multiple APT source formats. The old
             # single-file replacement left Azure mirrors active and exhausted
             # the 20-minute encode job timeout during dependency downloads.
-            for source in /etc/apt/sources.list /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources; do
+            # GitHub's ubuntu-24.04 image also uses mirror+file:/etc/apt/apt-mirrors.txt.
+            # If that mirrorlist still targets Azure, apt-get ignores rewritten .sources URLs.
+            for source in /etc/apt/apt-mirrors.txt /etc/apt/sources.list /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources; do
               [[ -f "$source" ]] || continue
               sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g; s|https://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' "$source"
             done
