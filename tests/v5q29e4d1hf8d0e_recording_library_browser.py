@@ -21,7 +21,7 @@ async def main():
        {id:'%s',title:'Campaign take',type:'production',status:'draft',createdAt:'2026-10-26',profile:{}},
        {id:'%s',title:'Family archive',type:'general',status:'completed',createdAt:'2026-10-22',profile:{}}];
       window.fetch=async(url,opts={})=>{
-       const parsed=new URL(url,location.href),act=parsed.searchParams.get('action'),body=opts.body?JSON.parse(opts.body):{};
+       const parsed=new URL(url,'https://lucky.test/'),act=parsed.searchParams.get('action'),body=opts.body?JSON.parse(opts.body):{};
        let result={ok:true};
        if(act==='list')result.sessions=window.sessions;
        if(act==='create'){
