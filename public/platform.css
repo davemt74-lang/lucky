@@ -1384,3 +1384,9 @@ body.game-fullwidth .header{position:relative;z-index:60}
 .director-public-item{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:18px;border:1px solid #527393;border-radius:12px;background:#152e48;color:#d4f3ff;text-decoration:none}
 .director-public-item strong{color:#ff9da4}
 .director-public-item:hover,.director-public-item:focus-visible{border-color:#ffc268;background:#1c3e5c}
+
+/* HF8C1: clip library and studio transitions in the existing Director. */
+.director-clip-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:10px 12px;background:#091c30;border:1px solid #304a69;border-radius:10px}
+.director-clip-toolbar .mini-label{margin:0;line-height:1.5;color:#c7d9e9}
+.director-clip-toolbar #director-clip-status{flex:1 1 260px}
+.director-clip-toolbar .btn{padding:8px 12px;font-size:12px;white-space:nowrap}
