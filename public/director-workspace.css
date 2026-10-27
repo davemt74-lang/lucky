@@ -4,9 +4,13 @@ body.director-studio-page>.shell,body.director-studio-page .shell{max-width:none
 body.director-studio-page .header{height:60px;gap:18px}
 body.director-studio-page .footer{padding:9px 4px;font-size:9px}
 body.director-studio-page .director-studio-shell{max-width:none;padding:10px 0 2px;display:block}
-.director-workspace{--dw-border:#28405a;--dw-surface:#0c1b2c;--dw-text:#ebf3ff;border:1px solid #26354b;border-radius:12px;background:linear-gradient(145deg,#07111f,#0b1b2b);color:var(--dw-text);min-width:0;overflow:hidden;box-shadow:0 16px 60px #0005}
-.director-workspace-top{display:flex;align-items:center;gap:clamp(12px,2vw,26px);padding:10px 15px;min-height:64px;border-bottom:1px solid var(--dw-border);background:#091525}
-.director-workspace-brand{display:flex;align-items:center;gap:11px;min-width:215px}
+.director-workspace{--dw-border:#28405a;--dw-surface:#0c1b2c;--dw-text:#ebf3ff;border:1px solid #26354b;border-radius:12px;background:linear-gradient(145deg,#07111f,#0b1b2b);color:var(--dw-text);min-width:0;box-shadow:0 16px 60px #0005}
+.director-workspace-top{display:flex;align-items:center;gap:clamp(12px,2vw,26px);padding:10px 15px;min-height:64px;border-bottom:1px solid var(--dw-border);border-radius:12px 12px 0 0;background:#091525;position:relative;z-index:40}
+.director-workspace-brand{display:flex;align-items:center;gap:11px;min-width:0}
+.director-workspace-back{white-space:nowrap;padding:8px 11px;font-size:11px}
+#director-workspace-main-brand .brand{font-size:14px;gap:8px}
+#director-workspace-main-brand .brand .logo{width:37px;height:37px;font-size:21px;border-radius:10px}
+.director-workspace-title{border-left:1px solid #344660;padding-left:12px}
 .director-workspace-mark{width:38px;height:38px;display:grid;place-items:center;border-radius:10px;background:linear-gradient(145deg,#fff0a4,#efab5f);color:#122238;font-size:23px}
 .director-workspace-brand .mini-label{font-size:8px;color:#8eabc8;letter-spacing:.13em;margin:0}
 .director-workspace-brand h1{font-size:clamp(17px,1.6vw,24px);letter-spacing:-.025em;margin:0;white-space:nowrap}
@@ -15,6 +19,9 @@ body.director-studio-page .director-studio-shell{max-width:none;padding:10px 0 2
 .director-workspace-signal{width:8px;height:8px;border-radius:50%;background:#49de9b;box-shadow:0 0 0 4px #40c69c18;flex:none}
 #director-workspace-camera-count{white-space:nowrap;background:#162940;border-radius:99px;padding:5px 9px;color:#8fb7d7;font-size:10px}
 .director-workspace-actions{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px}
+#director-workspace-account{flex:none;margin-left:5px}
+#director-workspace-account .account-menu{margin:0}
+#director-workspace-account .account-dropdown{right:0;left:auto}
 .director-workspace-actions>.btn,.director-workspace-actions .director-export>.btn{padding:9px 13px;min-height:37px;font-size:11px}
 .director-workspace-actions .director-export{padding:0;border:0;display:flex;gap:7px}
 .director-workspace-actions #director-export-stop{border-color:#994450;color:#ffd4d4}
@@ -107,7 +114,7 @@ body.director-studio-page .director-studio-shell{max-width:none;padding:10px 0 2
 @media(min-width:1900px){.director-workspace-content{padding:14px 20px;gap:14px}.director-workspace-multiview #camera-grid{gap:14px}.director-workspace-body{grid-template-columns:84px minmax(0,1fr)}}
 @media(max-width:1100px){.director-workspace-top{flex-wrap:wrap}.director-workspace-brand{min-width:0}.director-workspace-session-indicator{order:3;flex-basis:100%}.director-workspace-actions{margin-left:auto}.director-workspace-multiview #camera-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:700px){body.director-studio-page .shell{padding:0 7px}body.director-studio-page .header{height:55px}.director-workspace-top{padding:8px}.director-workspace-actions{gap:5px}.director-workspace-actions>.btn,.director-workspace-actions .director-export>.btn{padding:7px 9px;font-size:10px}.director-workspace-body{display:block}.director-workspace-rail{display:flex;flex-direction:row;overflow-x:auto;gap:4px;border-right:0;border-bottom:1px solid #2b4560;padding:4px}.director-workspace-rail button{min-width:68px;min-height:49px;font-size:9px}.director-workspace-rail button span{font-size:17px}.director-workspace-content{padding:7px;gap:8px}.director-workspace-outputs .director-monitors{grid-template-columns:1fr;gap:8px}#director-workspace-switcher .director-toolbar label{flex-basis:100%;max-width:none}.director-workspace-multiview #camera-grid{gap:7px;padding:7px}.director-workspace-drawer{width:min(400px,100%);right:0;top:0;bottom:0}.director-workspace-timeline>header{align-items:flex-start;flex-wrap:wrap}}
-@media(max-width:410px){.director-workspace-multiview #camera-grid{grid-template-columns:1fr}.director-workspace-multiview header span{display:none}.director-workspace-actions #director-export-stop{display:none}}
+@media(max-width:410px){.director-workspace-multiview #camera-grid{grid-template-columns:1fr}.director-workspace-multiview header span{display:none}}
 
 /* HF8C7: visible director recording and queued upload state. */
 .director-sync-status{padding:.55rem .75rem;margin:.5rem 0;border:1px solid var(--border, #364454);border-radius:.55rem;background:rgba(33,53,76,.34)}
