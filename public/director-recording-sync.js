@@ -5,12 +5,23 @@
  if(!studio)return;
  const MAX_BYTES=75*1024*1024,MAX_MS=150000;
  const pendingMemory=new Map(),cameras=new Map();
- let current=null,flushing=false,programTimer=null,ownedProgramTake='';
+ let current=null,flushing=false,programTimer=null,ownedProgramTake='',lastError='';
  const status=document.createElement('p');
  status.id='director-sync-status';status.className='mini-label director-sync-status';
  status.setAttribute('role','status');status.textContent='Director originals are saved privately to the selected recording session.';
  document.getElementById('director-studio-take-status')?.after(status);
  const message=s=>{status.textContent=s;};
+ const recovery=document.createElement('section');recovery.id='director-sync-recovery';recovery.className='director-sync-recovery';
+ recovery.setAttribute('aria-label','Recording recovery');
+ const health=document.createElement('p');health.id='director-sync-health';health.setAttribute('role','status');
+ const retry=document.createElement('button');retry.type='button';retry.id='director-sync-retry';retry.className='btn btn-outline';retry.textContent='Retry pending uploads';
+ recovery.append(health,retry);status.after(recovery);
+ async function refreshHealth(){
+  const pending=(await list()).length,connected=window.LuckyDirectorStudio?.cameras?.().length||0;
+  const recording=cameras.size,network=navigator.onLine===false?'Offline':'Online';
+  health.textContent=`${network} · ${connected} camera${connected===1?'':'s'} connected · ${recording} recording · ${pending} upload${pending===1?'':'s'} pending`+(lastError?' · '+lastError:'');
+  retry.disabled=flushing||pending===0||navigator.onLine===false;
+ }
  const random=()=>crypto.randomUUID?.().replaceAll('-','')||Array.from(crypto.getRandomValues(new Uint8Array(16)),b=>b.toString(16).padStart(2,'0')).join('');
  const dbPromise=typeof indexedDB==='undefined'?Promise.resolve(null):new Promise(resolve=>{
   try{
@@ -26,6 +37,7 @@
    const tx=db.transaction('pending','readwrite');tx.objectStore('pending').put(record);
    tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
   });}catch(_){pendingMemory.set(record.nonce,record);message('Local storage unavailable; keep this tab open until upload finishes.');}
+  void refreshHealth();
  }
  async function list(){
   const db=await dbPromise,rows=[...pendingMemory.values()];
@@ -44,7 +56,7 @@
   });}catch(_){/* Retry will be idempotent after next page load. */}
  }
  async function flush(){
-  if(flushing||navigator.onLine===false)return;flushing=true;
+  if(flushing||navigator.onLine===false){void refreshHealth();return;}flushing=true;void refreshHealth();
   try{
    const items=await list();if(!items.length)return;
    const csrf=(await window.Lucky.getMe()).csrf;
@@ -58,14 +70,15 @@
      const data=await response.json().catch(()=>({}));
      if(!response.ok||!data.ok)throw Error(data.error||'Upload failed ('+response.status+').');
      await drop(item.nonce);
+     lastError='';
      window.dispatchEvent(new Event('lucky:director-uploads-updated'));
      void window.LuckyDirectorWorkspace?.refreshTimeline?.();
      void window.LuckyCameraDirector?.refreshClips?.();
      message('Director original saved to this recording session. '+(await list()).length+' pending.');
-    }catch(e){message('Director originals remain queued: '+e.message+'. Upload retries automatically.');break;}
+    }catch(e){lastError='Upload retry needed';message('Director originals remain queued: '+e.message+'. Upload retries automatically.');break;}
    }
-  }catch(e){message('Waiting to upload originals: '+e.message);}
-  finally{flushing=false;}
+  }catch(e){lastError='Upload retry needed';message('Waiting to upload originals: '+e.message);}
+  finally{flushing=false;void refreshHealth();}
  }
  function mark(camera,on){
   const card=document.querySelectorAll('.camera-source');
@@ -74,6 +87,7 @@
    if(on&&!badge){badge=document.createElement('span');badge.className='director-source-rec';badge.textContent='● REC';node.append(badge);}
    if(!on)badge?.remove();
   }
+  void refreshHealth();
  }
  async function queue(blob,{session,takeId,sourceKey,sourceName,startMs,endMs,clockOffsetMs}){
   if(!blob?.size)return;
@@ -83,7 +97,7 @@
    recordedEndMs:Math.round(endMs+clockOffsetMs),
    clockOffsetMs:Math.round(clockOffsetMs),
    durationMs:Math.max(0,Math.round(endMs-startMs))};
-  await persist(record);message('Director original queued for private upload ('+(blob.size/1048576).toFixed(1)+' MB).');
+  await persist(record);message('Director original queued for private upload ('+(blob.size/1048576).toFixed(1)+' MB).');void refreshHealth();
   void flush();
  }
  function preferredType(){
@@ -150,6 +164,7 @@
  });
  window.addEventListener('lucky:director-studio-close',stopCurrent);
  window.addEventListener('lucky:cameras-refreshed',()=>{
+  void refreshHealth();
   if(!current)return;
   const sources=window.LuckyDirectorStudio?.cameras?.()||[];
   for(const [id,entry] of cameras)if(!sources.some(source=>source.id===id)&&entry.recorder.state==='recording')entry.recorder.stop();
@@ -162,8 +177,12 @@
   void queue(d.blob,{...d,startMs:d.startMs,endMs:d.endMs});
   if(current)queueMicrotask(()=>startProgram(current));
  });
+ retry.addEventListener('click',()=>void flush());
  window.addEventListener('online',()=>void flush());
+ window.addEventListener('offline',()=>void refreshHealth());
  window.addEventListener('pageshow',()=>void flush());
- setInterval(()=>void flush(),15000);
+ setInterval(()=>{void flush();void refreshHealth();},15000);
+ window.LuckyDirectorRecovery={refresh:refreshHealth,retry:flush};
+ void refreshHealth();
  void flush();
 })();
