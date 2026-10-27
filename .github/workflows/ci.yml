@@ -249,6 +249,7 @@ jobs:
           python tests/v5q29e4d1hf8c5_recording_live_browser.py
           python tests/v5q29e4d1hf8c6_workspace_browser.py
           python tests/v5q29e4d1hf8c7_director_sync_browser.py
+          python tests/v5q29e4d1hf8d0e_recording_library_browser.py
           python tests/v5q29e4d1hf5_proof_camera_browser.py
           python tests/v5q29d_multicamera_browser.py
           python tests/v5q29a_timeline_browser.py
