@@ -113,7 +113,7 @@ async def main():
         await page.evaluate('cameraPresent=true;devicechangeHandler()')
         await page.locator('#director-studio-reconnect').click()
         await page.wait_for_function('LuckyDirectorStudio.state().cameras===1')
-        await page.wait_for_function("document.querySelector('#director-studio-reconnect').hidden")
+        await page.wait_for_function("!document.querySelector('#director-studio-add-camera').disabled")
         check('One-click reconnect restores the same camera after unplug', await page.evaluate("permissionCalls===3 && LuckyDirectorStudio.cameras()[0].id==='cam_mock-camera'"))
         await page.evaluate("rows[1].status='completed'")
         await page.locator('#director-studio-refresh').click()
