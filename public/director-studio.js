@@ -6,6 +6,14 @@
  const idOk=id=>/^[a-f0-9]{32}$/.test(id||'');
  const grid=$('camera-grid'),selector=$('director-studio-session'),devices=$('director-studio-camera');
  const connected=new Map();let sessions=[],active='',epoch=0,refreshTimer=null,busy=false,opening=false;
+ const rememberedMemory=new Map();
+ const rememberedKey=id=>'lucky-director-cameras:'+id;
+ const remembered=()=>{let rows=rememberedMemory.get(active)||[];try{rows=JSON.parse(sessionStorage.getItem(rememberedKey(active))||JSON.stringify(rows));}catch(_){/* Opaque origins and private windows can block storage. */}return Array.isArray(rows)?rows.filter(x=>x&&typeof x.deviceId==='string'&&typeof x.name==='string').slice(0,4):[];};
+ function keepRemembered(rows){if(!active)return;rememberedMemory.set(active,rows);try{sessionStorage.setItem(rememberedKey(active),JSON.stringify(rows));}catch(_){/* Still recoverable in this tab. */}}
+ function saveRemembered(){if(!active)return;keepRemembered([...connected.values()].filter(s=>s.enumeratedId).map(s=>({deviceId:s.enumeratedId,name:s.label})));}
+ const reconnect=document.createElement('button');reconnect.type='button';reconnect.className='btn btn-outline';reconnect.id='director-studio-reconnect';reconnect.hidden=true;reconnect.textContent='Reconnect previous cameras';
+ $('director-studio-add-camera').after(reconnect);
+ function reconnectHint(){reconnect.hidden=!active||!remembered().some(item=>![...connected.values()].some(s=>s.enumeratedId===item.deviceId));}
  let csrf='',take=null,takeBusy=false,startNonce='',startTitle='',reportedTake='',takeStartedAt=0;
  const status=(message,error=false)=>{const node=$('director-studio-status');node.textContent=message;node.classList.toggle('is-error',error);};
  const cameraStatus=(message,error=false)=>{const node=$('director-studio-device-status');node.textContent=message;node.classList.toggle('is-error',error);};
@@ -69,6 +77,7 @@
   active='';epoch++;window.dispatchEvent(new Event('lucky:director-studio-close'));
   stopCameras();take=null;reportedTake='';takeBusy=false;startNonce='';startTitle='';takeButtons();
   takeStartedAt=0;renderTakeClock();
+  reconnectHint();
  }
  async function syncSession(version){
   if(version!==epoch||!active)return;
@@ -111,6 +120,7 @@
   window.dispatchEvent(new CustomEvent('lucky:director-studio-open',{detail:{recordingSession:id}}));
   try{const url=new URL(location.href);url.searchParams.set('recording',id);history.replaceState(null,'',url);}catch(_){/* embedded test/doc context */}
   status('● Director connected to '+row.title+' · '+row.status+'. Preview is private until you explicitly publish Program.');
+  reconnectHint();
   try{
    await syncSession(version);
    if(version===epoch&&active)refreshTimer=setInterval(()=>void syncSession(version),5000);
@@ -158,19 +168,19 @@
    // browser-generated track IDs.
    const known=new Set(list.map(d=>d.deviceId));
    for(const [key,source] of connected){
-    if(source.enumeratedId&&!known.has(source.enumeratedId))removeCamera(key);
+    if(source.enumeratedId&&!known.has(source.enumeratedId))removeCamera(key,false);
    }
    cameraIndicators();
   }catch(_){/* Camera names require browser permission. */}
  }
- async function addCamera(){
+ async function addCamera(desiredId='',desiredName=''){
   if(!active){cameraStatus('Open a recording session before adding cameras.',true);return;}
   if(connected.size>=4){cameraStatus('Four desktop sources are supported. Remove one before adding another.',true);return;}
   if(!navigator.mediaDevices?.getUserMedia){cameraStatus('Camera access requires HTTPS or localhost.',true);return;}
   if(busy)return;busy=true;$('director-studio-add-camera').disabled=true;
   const requestedSession=active,requestedEpoch=epoch;
   try{
-   const requested=devices.value;
+   const requested=desiredId||devices.value;
    const stream=await navigator.mediaDevices.getUserMedia({video:requested?{deviceId:{exact:requested}}:true,audio:false});
    if(!active||active!==requestedSession||epoch!==requestedEpoch){stream.getTracks().forEach(track=>track.stop());return;}
    // Prefer the enumerated device the host explicitly selected. Browser track
@@ -180,29 +190,43 @@
    // A stable device-scoped id lets saved scenes find this camera after reload.
    const id='cam_'+(key.replace(/[^A-Za-z0-9_-]/g,'').slice(0,58)||track.id.slice(0,58));
    const card=document.createElement('section');card.className='camera-source';card.dataset.cameraId=id;
-   const label=document.createElement('strong');label.textContent=track?.label||'Desktop camera '+(connected.size+1);
+   const label=document.createElement('strong');label.textContent=desiredName||track?.label||'Desktop camera '+(connected.size+1);
    const state=document.createElement('span');state.className='director-camera-state';state.setAttribute('role','status');state.textContent='● LIVE';
    const rename=document.createElement('input');rename.type='text';rename.className='director-camera-name';rename.maxLength=60;rename.setAttribute('aria-label','Camera name');rename.value=label.textContent;
-   rename.addEventListener('change',()=>{const name=rename.value.trim().slice(0,60);if(!name){rename.value=label.textContent;return;}label.textContent=name;const source=connected.get(key);if(source)source.label=name;window.dispatchEvent(new Event('lucky:cameras-refreshed'));});
+   rename.addEventListener('change',()=>{const name=rename.value.trim().slice(0,60);if(!name){rename.value=label.textContent;return;}label.textContent=name;const source=connected.get(key);if(source)source.label=name;saveRemembered();window.dispatchEvent(new Event('lucky:cameras-refreshed'));});
    const video=document.createElement('video');video.autoplay=true;video.playsInline=true;video.muted=true;video.srcObject=stream;
    const remove=document.createElement('button');remove.className='btn btn-outline';remove.type='button';remove.textContent='Remove';remove.addEventListener('click',()=>removeCamera(key));
    card.append(label,state,video,rename,remove);grid.append(card);connected.set(key,{stream,card,id,label:label.textContent,indicator:state,enumeratedId:requested||''});
-   track?.addEventListener('ended',()=>removeCamera(key),{once:true});
-   await video.play().catch(()=>{});await scanDevices();cameraIndicators();window.dispatchEvent(new Event('lucky:cameras-refreshed'));
+   track?.addEventListener('ended',()=>removeCamera(key,false),{once:true});
+   // Some device/driver combinations leave play() pending indefinitely even
+   // after getUserMedia succeeds. Preview playback must not hold the reconnect
+   // workflow's busy lock or block capture/session controls.
+   saveRemembered();void video.play().catch(()=>{});await scanDevices();cameraIndicators();window.dispatchEvent(new Event('lucky:cameras-refreshed'));reconnectHint();
    cameraStatus(connected.size+' desktop camera'+(connected.size===1?'':'s')+' connected. Phone uploads sync through the selected recording session.');
   }catch(e){cameraStatus('Camera not added: '+e.message,true);}
   finally{busy=false;$('director-studio-add-camera').disabled=false;}
  }
- function removeCamera(key){
+ function removeCamera(key,forget=true){
   const source=connected.get(key);if(!source)return;
-  connected.delete(key);source.stream.getTracks().forEach(track=>track.stop());source.card.remove();
+  connected.delete(key);
+  // Notify the recording bridge while tracks are still live so MediaRecorder
+  // can finalize the outgoing take before the browser tears down the stream.
   window.dispatchEvent(new Event('lucky:cameras-refreshed'));
+  source.stream.getTracks().forEach(track=>track.stop());source.card.remove();
+  if(forget)keepRemembered(remembered().filter(item=>item.deviceId!==source.enumeratedId));
+  reconnectHint();
   cameraStatus(connected.size+' desktop camera'+(connected.size===1?'':'s')+' connected.');
  }
- function stopCameras(){for(const key of [...connected.keys()])removeCamera(key);}
+ function stopCameras(){for(const key of [...connected.keys()])removeCamera(key,false);}
  $('director-studio-open').addEventListener('click',()=>void openSession());
  $('director-studio-refresh').addEventListener('click',()=>void refreshSessions());
  $('director-studio-add-camera').addEventListener('click',()=>void addCamera());
+ reconnect.addEventListener('click',async()=>{
+  if(!active||busy)return;
+  const missing=remembered().filter(item=>![...connected.values()].some(source=>source.enumeratedId===item.deviceId));
+  for(const item of missing){if(!active||connected.size>=4)break;await addCamera(item.deviceId,item.name);}
+  reconnectHint();
+ });
  $('director-studio-stop-cameras').addEventListener('click',stopCameras);
  navigator.mediaDevices?.addEventListener?.('devicechange',()=>void scanDevices());
  $('director-studio-take-start').addEventListener('click',()=>void startTake());

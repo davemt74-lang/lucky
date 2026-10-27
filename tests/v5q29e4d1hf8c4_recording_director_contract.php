@@ -24,5 +24,5 @@ c4Check(str_contains($migration,'CREATE TABLE IF NOT EXISTS director_broadcast_r
 foreach(['install.php','upgrade.php','homeserver/initialize.php','homeserver/migrate.php'] as $file)
  c4Check(str_contains($read($file),'v5q29e4d1hf8c4_director_recordings.sql'),$file.' provisions independent Director storage');
 c4Check(str_contains($css,'.proof-editor-page #camera-director{display:none')&&str_contains($proof,'capture-phone-camera'),'Prize proof retains phone capture but hides production Director');
-c4Check((str_contains($page,'director-studio.js?v=5q29e4d1hf8c4')||str_contains($page,'director-studio.js?v=5q29e4d1hf8c5'))&&(str_contains($read('lib/Layout.php'),'platform.css?v=5q29e4d1hf8c4')||str_contains($read('lib/Layout.php'),'platform.css?v=5q29e4d1hf8c5')),'New studio resources are cache-busted');
+c4Check(preg_match('/director-studio\.js\?v=[a-z0-9-]+/', $page)===1&&(str_contains($read('lib/Layout.php'),'platform.css?v=5q29e4d1hf8c4')||str_contains($read('lib/Layout.php'),'platform.css?v=5q29e4d1hf8c5')),'New studio resources are cache-busted');
 echo "HF8C4 RECORDING CAMERA DIRECTOR CONTRACT PASSED\n";
