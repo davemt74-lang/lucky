@@ -37,6 +37,9 @@ if(($_SERVER['REQUEST_METHOD']??'')==='POST'){
   foreach($migrationFiles as $migrationFile){
    foreach(MigrationSql::statements(sql($migrationFile)) as $statement)$db->exec($statement);
   }
+  // HF8C0: preserve private-by-default for all existing broadcasts.
+  if(!$db->query("SHOW COLUMNS FROM director_broadcasts LIKE 'visibility'")->fetch())
+   $db->exec("ALTER TABLE director_broadcasts ADD COLUMN visibility VARCHAR(12) NOT NULL DEFAULT 'private' AFTER token_hash");
   PrizePublicationMigration::ensure($db);
   require_once __DIR__.'/lib/PrizePackages.php';
   PrizePackages::ensureBudgetColumn($db);
