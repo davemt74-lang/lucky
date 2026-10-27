@@ -6,7 +6,7 @@
  const idOk=id=>/^[a-f0-9]{32}$/.test(id||'');
  const grid=$('camera-grid'),selector=$('director-studio-session'),devices=$('director-studio-camera');
  const connected=new Map();let sessions=[],active='',epoch=0,refreshTimer=null,busy=false,opening=false;
- let csrf='',take=null,takeBusy=false,startNonce='',startTitle='',reportedTake='';
+ let csrf='',take=null,takeBusy=false,startNonce='',startTitle='',reportedTake='',takeStartedAt=0;
  const status=(message,error=false)=>{const node=$('director-studio-status');node.textContent=message;node.classList.toggle('is-error',error);};
  const cameraStatus=(message,error=false)=>{const node=$('director-studio-device-status');node.textContent=message;node.classList.toggle('is-error',error);};
  const random=()=>crypto.randomUUID?.().replaceAll('-','')||
@@ -16,6 +16,19 @@
   $('director-studio-take-stop').disabled=!active||!take||takeBusy;
  }
  const takeStatus=(message,error=false)=>{const node=$('director-studio-take-status');node.textContent=message;node.classList.toggle('is-error',error);};
+ const parseStartedAt=value=>{
+  if(!value)return 0;
+  const normalized=String(value).trim().replace(' ','T');
+  const timestamp=Date.parse(/[zZ]|[+-]\d\d:\d\d$/.test(normalized)?normalized:normalized+'Z');
+  return Number.isFinite(timestamp)?timestamp:0;
+ };
+ function renderTakeClock(){
+  const clock=$('director-studio-record-clock');if(!clock)return;
+  clock.hidden=!take;
+  if(!take)return;
+  const elapsed=Math.max(0,Math.floor((Date.now()-(takeStartedAt||Date.now()))/1000));
+  clock.textContent=`● REC ${String(Math.floor(elapsed/3600)).padStart(2,'0')}:${String(Math.floor(elapsed%3600/60)).padStart(2,'0')}:${String(elapsed%60).padStart(2,'0')}`;
+ }
  async function request(action,query={},method='GET'){
   const opts={method,credentials:'same-origin',cache:'no-store'};
   const params=new URLSearchParams({action});
@@ -48,6 +61,7 @@
   if(refreshTimer){clearInterval(refreshTimer);refreshTimer=null;}
   active='';epoch++;window.dispatchEvent(new Event('lucky:director-studio-close'));
   stopCameras();take=null;reportedTake='';takeBusy=false;startNonce='';startTitle='';takeButtons();
+  takeStartedAt=0;renderTakeClock();
  }
  async function syncSession(version){
   if(version!==epoch||!active)return;
@@ -59,6 +73,9 @@
     closeSession();status('The recording was completed. Reopen an active recording to direct and broadcast.',true);return;
    }
    take=(data.takes||[]).find(t=>t.status==='recording')||null;
+   if(take){takeStartedAt=parseStartedAt(take.started_at||take.startedAt)||takeStartedAt||Date.now();}
+   else takeStartedAt=0;
+   renderTakeClock();
    if(take){startNonce='';startTitle='';}
     if(take?.id!==reportedTake){
      if(reportedTake)window.dispatchEvent(new CustomEvent('lucky:director-take-stop',{detail:{recordingSession:active,takeId:reportedTake}}));
@@ -101,7 +118,7 @@
     const result=await request('take_start',{id,title:startTitle,nonce:startNonce},'POST');
     const after=Date.now();
    if(version!==epoch||active!==id)return;
-   startNonce='';startTitle='';take=result.take;reportedTake=take.id;
+   startNonce='';startTitle='';take=result.take;reportedTake=take.id;takeStartedAt=Date.now();renderTakeClock();
     window.dispatchEvent(new CustomEvent('lucky:director-take-start',{detail:{recordingSession:id,takeId:take.id,clockOffsetMs:Number(result.serverTimeMs||after)-Math.round((before+after)/2)}}));
     takeStatus('● TAKE STARTED · Desktop cameras and Program are now recording; phones observe host commands through polling.');
    await syncSession(version);
@@ -115,7 +132,7 @@
    await request('take_stop',{id,takeId},'POST');
    if(version!==epoch||active!==id)return;
    window.dispatchEvent(new CustomEvent('lucky:director-take-stop',{detail:{recordingSession:id,takeId}}));
-    reportedTake='';take=null;takeStatus('■ TAKE STOPPED · Desktop and Program originals are queuing for upload; armed phones will finish theirs.');
+    reportedTake='';take=null;takeStartedAt=0;renderTakeClock();takeStatus('■ TAKE STOPPED · Desktop and Program originals are queuing for upload; armed phones will finish theirs.');
    await syncSession(version);
   }catch(e){if(version===epoch)takeStatus('Stop take: '+e.message+'. You can retry safely.',true);}
   finally{if(version===epoch){takeBusy=false;takeButtons();}}
@@ -170,6 +187,7 @@
  $('director-studio-take-start').addEventListener('click',()=>void startTake());
  $('director-studio-take-stop').addEventListener('click',()=>void stopTake());
  window.addEventListener('pagehide',()=>{closeSession();stopCameras();});
+ setInterval(renderTakeClock,1000);
  takeButtons();void refreshSessions();void scanDevices();
  window.LuckyDirectorStudio={state:()=>({recordingSession:active,cameras:connected.size,activeTake:take?.id||null}),cameras:()=>[...connected.values()].map(({stream,id,label})=>({stream,id,label})),open:id=>{selector.value=id;return openSession();}};
 })();
