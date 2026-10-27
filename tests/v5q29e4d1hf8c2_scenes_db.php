@@ -36,7 +36,7 @@ try{
  for($i=1;$i<16;$i++)DirectorScenes::save($db,$session,$claim,$host,array_replace($row,['name'=>'Scene '.$i]));
  assertScene(count(DirectorScenes::listing($db,$session,$claim,$host))===16,'Scene limit allows 16 scoped presets');
  assertScene(sceneReject(static fn()=>DirectorScenes::save($db,$session,$claim,$host,array_replace($row,['name'=>'Overflow']))),'17th scene rejected');
- assertScene(sceneReject(static fn()=>DirectorScenes::remove($db,$session,$claim,$host+10,$saved['id']))),'Different administrator cannot remove a scene');
+ assertScene(sceneReject(static fn()=>DirectorScenes::remove($db,$session,$claim,$host+10,$saved['id'])),'Different administrator cannot remove a scene');
  DirectorScenes::remove($db,$session,$claim,$host,$saved['id']);
  assertScene(count(DirectorScenes::listing($db,$session,$claim,$host))===15,'Owner can remove scene without affecting others');
  $db->prepare('UPDATE controller_proof_state SET is_open=0,updated_at=UTC_TIMESTAMP() WHERE session_id=?')->execute([$session]);
