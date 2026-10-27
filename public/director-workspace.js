@@ -214,7 +214,7 @@
     for (const item of items) {
      const offset=Math.max(0,Number(item.start_offset_ms)||0),length=Math.max(1000,Number(item.duration_ms)||5000);
      const clip=el('a','director-workspace-timeline-clip',item.title||item.kind.toUpperCase());
-     clip.href='recording-editor.php?session='+encodeURIComponent(id);
+     clip.href='recording-editor.php?'+new URLSearchParams({session:id,asset:item.id});
      clip.style.left=(offset/extent*100).toFixed(3)+'%';
      clip.style.width=Math.max(1,Math.min(100-offset/extent*100,length/extent*100)).toFixed(3)+'%';
      const takeRow=takes.get(item.take_id);
