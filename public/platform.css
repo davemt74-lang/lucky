@@ -1372,3 +1372,15 @@ body.game-fullwidth .header{position:relative;z-index:60}
 #director-view-watermark{position:absolute;top:18px;left:18px;background:#a21b30;color:#fff;padding:7px 12px;border-radius:7px;font-size:12px;font-weight:900;letter-spacing:.13em;pointer-events:none}
 #director-view-status{text-align:center;padding:16px;font-weight:700;color:#c0e8f7}
 #director-view-status.is-error,#director-live-status.is-error{color:#ff9f9f}
+
+/* HF8C0: explicit visibility selection and public read-only broadcast directory. */
+#director-public-ack-label[hidden]{display:none!important}
+.director-visibility{border-bottom:1px solid #31475d;padding-bottom:11px}
+.director-visibility .mini-label{flex:2 1 280px;align-self:center;line-height:1.45}
+#director-public-directory{max-width:800px;margin:5vh auto;padding:20px;background:#101f32;border:1px solid #3c5a76;border-radius:16px}
+#director-public-directory h1{font-size:clamp(24px,3vw,36px);margin:0 0 10px}
+#director-public-directory p{color:#c1d7e9;line-height:1.5}
+.director-public-list{display:grid;gap:12px;margin:20px 0}
+.director-public-item{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:18px;border:1px solid #527393;border-radius:12px;background:#152e48;color:#d4f3ff;text-decoration:none}
+.director-public-item strong{color:#ff9da4}
+.director-public-item:hover,.director-public-item:focus-visible{border-color:#ffc268;background:#1c3e5c}
