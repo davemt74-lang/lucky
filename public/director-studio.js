@@ -5,7 +5,7 @@
  if(!$('director-studio-session'))return;
  const idOk=id=>/^[a-f0-9]{32}$/.test(id||'');
  const grid=$('camera-grid'),selector=$('director-studio-session'),devices=$('director-studio-camera');
- const connected=new Map();let sessions=[],active='',epoch=0,refreshTimer=null,busy=false;
+ const connected=new Map();let sessions=[],active='',epoch=0,refreshTimer=null,busy=false,opening=false;
  let csrf='',take=null,takeBusy=false,startNonce='',startTitle='',reportedTake='';
  const status=(message,error=false)=>{const node=$('director-studio-status');node.textContent=message;node.classList.toggle('is-error',error);};
  const cameraStatus=(message,error=false)=>{const node=$('director-studio-device-status');node.textContent=message;node.classList.toggle('is-error',error);};
@@ -36,10 +36,12 @@
    selector.replaceChildren(new Option(sessions.length?'Choose a recording session':'No recording sessions yet',''));
    for(const session of sessions)selector.add(new Option(session.title+' · '+session.type+' · '+session.status,session.id));
    const wanted=new URL(location.href).searchParams.get('recording');
-   selector.value=sessions.some(s=>s.id===before)?before:sessions.some(s=>s.id===active)?active:sessions.some(s=>s.id===wanted)?wanted:'';
-   if(!active&&idOk(wanted)&&selector.value===wanted)void openSession();
+   const exists=id=>sessions.some(s=>s.id===id&&s.status!=='completed'&&s.status!=='archived');
+   selector.value=exists(active)?active:exists(before)?before:exists(wanted)?wanted:'';
+   if(active&&!exists(active)){closeSession();status('This recording session is no longer available for capture. Choose another session.',true);return;}
+   if(!active&&!opening&&idOk(wanted)&&selector.value===wanted)void openSession();
    if(!sessions.length)status('No recording sessions yet. Create one under Admin → Recording Sessions.');
-   else if(!active)status('Choose a recording session and click Open recording session.');
+   else if(!active&&!opening&&!selector.value)status('Choose a recording session and click Open recording session.');
   }catch(e){status(e.message,true);}
  }
  function closeSession(){
@@ -53,7 +55,7 @@
    const data=await request('detail',{id:active});if(version!==epoch)return;
    const s=data.session||{};
    if(!idOk(s.id)){closeSession();status('The selected recording session is unavailable.',true);return;}
-   if(s.status==='completed'){
+   if(s.status==='completed'||s.status==='archived'){
     closeSession();status('The recording was completed. Reopen an active recording to direct and broadcast.',true);return;
    }
    take=(data.takes||[]).find(t=>t.status==='recording')||null;
@@ -73,16 +75,21 @@
   }catch(e){if(version===epoch)status('Recording session sync: '+e.message,true);}
  }
  async function openSession(){
+  if(opening)return;
   const id=selector.value;
   if(!idOk(id)){status('Choose an existing recording session.',true);return;}
   const row=sessions.find(s=>s.id===id);if(!row){status('Refresh the recording list and choose a valid session.',true);return;}
-  if(row.status==='completed'){status('Completed recordings are read-only. Choose a draft or active session.',true);return;}
+  if(row.status==='completed'||row.status==='archived'){status('Completed or archived recordings are read-only. Choose a draft or active session.',true);return;}
+  if(active===id){await syncSession(epoch);return;}
+  opening=true;
   closeSession();active=id;const version=epoch;
   window.dispatchEvent(new CustomEvent('lucky:director-studio-open',{detail:{recordingSession:id}}));
   try{const url=new URL(location.href);url.searchParams.set('recording',id);history.replaceState(null,'',url);}catch(_){/* embedded test/doc context */}
   status('● Director connected to '+row.title+' · '+row.status+'. Preview is private until you explicitly publish Program.');
-  await syncSession(version);
-  if(version===epoch)refreshTimer=setInterval(()=>void syncSession(version),5000);
+  try{
+   await syncSession(version);
+   if(version===epoch&&active)refreshTimer=setInterval(()=>void syncSession(version),5000);
+  }finally{opening=false;}
  }
  async function startTake(){
   if(!active||take||takeBusy)return;
