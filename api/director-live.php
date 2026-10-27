@@ -15,8 +15,8 @@ try{
   if($method==='POST')assertCsrf();
   if($action==='publish'&&$method==='POST'){
    if(($data['consent']??false)!==true)throw new DomainException('Confirm explicit Program publishing consent.',403);
-   $out=DirectorBroadcast::start($db,(string)($data['session']??''),(string)($data['claim']??''),$host);
-   audit($db,'camera_director.publish',(string)$data['session'],['broadcast'=>$out['id']]);success($out,201);
+   $out=DirectorBroadcast::start($db,(string)($data['session']??''),(string)($data['claim']??''),$host,(string)($data['visibility']??'private'),($data['public_ack']??false)===true);
+   audit($db,'camera_director.publish',(string)$data['session'],['broadcast'=>$out['id'],'visibility'=>$out['visibility']]);success($out,201);
   }
   if($action==='host_list'&&$method==='GET')success(['offers'=>DirectorBroadcast::offersForHost($db,(string)($data['id']??''),$host)]);
   if($action==='answer'&&$method==='POST'){
@@ -26,6 +26,7 @@ try{
    DirectorBroadcast::stop($db,(string)($data['id']??''),$host);audit($db,'camera_director.stop');success(['stopped'=>true]);
   }
  }else{
+  if($action==='public_list'&&$method==='GET')success(['broadcasts'=>DirectorBroadcast::publicList($db)]);
   $id=(string)($data['id']??'');$key=(string)($data['key']??'');
   if($action==='watch'&&$method==='GET')success(DirectorBroadcast::watch($db,$id,$key));
   if($action==='offer'&&$method==='POST'){
