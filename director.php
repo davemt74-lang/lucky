@@ -5,7 +5,7 @@ if(!installed()){header('Location: install.php');exit;}
 if(!isAdmin()){header('Location: login.php');exit;}
 shellStart('Camera Director','admin','director-studio-page');
 ?>
-<link rel="stylesheet" href="public/director-workspace.css?v=hf8c7">
+<link rel="stylesheet" href="public/director-workspace.css?v=hf8c8">
 <main class="director-studio-shell">
  <header class="director-studio-heading"><div><p class="mini-label">ADMIN · PRODUCTION STUDIO</p><h1>Camera Director</h1><p>Direct your recording-session cameras, saved clips, graphics, Program audio and Live View from one place. No game or prize claim is required.</p></div><div class="director-studio-links"><a class="btn btn-outline" href="admin.php?tab=recordings">Recording sessions</a><a class="btn btn-outline" href="live-view.php" target="_blank" rel="noopener noreferrer">Open Live View ↗</a></div></header>
  <section class="director-studio-session surface" aria-label="Recording session selection"><div class="director-toolbar"><label>Recording session<select id="director-studio-session" aria-label="Recording session"><option value="">Loading recording sessions…</option></select></label><button id="director-studio-open" type="button" class="btn btn-primary">Open recording session</button><button id="director-studio-refresh" type="button" class="btn btn-outline">↻ Refresh sessions</button></div><p id="director-studio-status" class="voice-status" role="status" aria-live="polite">Select a recording session to begin. Create one in Admin → Recording Sessions if needed.</p><p class="mini-label">Program output, saved scenes and loaded clips belong to the selected recording session. Switching sessions ends the current broadcast and releases its Program sources.</p></section>
@@ -31,6 +31,6 @@ shellStart('Camera Director','admin','director-studio-page');
 <script src="public/director-publish.js?v=5q29e4d1hf8c4" defer></script>
 <script src="public/recording-live-host.js?v=5q29e4d1hf8c5" defer></script>
 <script src="public/director-studio.js?v=5q29e4d1hf8c5" defer></script>
-<script src="public/director-workspace.js?v=hf8c7" defer></script>
+<script src="public/director-workspace.js?v=hf8c8" defer></script>
 <script src="public/director-recording-sync.js?v=hf8c7" defer></script>
 <?php shellEnd(); ?>
