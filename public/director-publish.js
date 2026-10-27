@@ -1,4 +1,4 @@
-/* HF8B: explicit, private Program-only Live View publisher. */
+/* HF8C0: host chooses public directory or private invitation; Program-only output. */
 (() => {
  'use strict';
  const $=id=>document.getElementById(id);
@@ -6,6 +6,12 @@
  const ICE={iceServers:[{urls:'stun:stun.l.google.com:19302'}]};
  let proof=null,active=null,stream=null,csrf='',timer=null,epoch=0,busy=false;
  const peers=new Map();
+ function selectedVisibility(){return $('director-broadcast-visibility').value==='public'?'public':'private';}
+ function visibilityUi(){
+  const isPublic=selectedVisibility()==='public';
+  $('director-public-ack-label').hidden=!isPublic;
+  $('director-visibility-explanation').textContent=isPublic?'Public: anyone can view this Program on the Live View page, without signing in. Up to 8 concurrent viewers.':'Private: only people with the invitation link can join. Up to 8 concurrent viewers.';
+ }
  const status=(message,error=false)=>{const node=$('director-live-status');node.textContent=message;node.classList.toggle('is-error',error);};
  function refresh(){
   $('director-publish').disabled=busy||!!active||!proof;
@@ -13,6 +19,8 @@
   $('director-live-badge').textContent=active?'● ON AIR':'OFF AIR';
   $('director-live-badge').classList.toggle('is-live',!!active);
   $('director-live-link').hidden=!active;
+  $('director-broadcast-visibility').disabled=busy||!!active;
+  $('director-publish-public-ack').disabled=!!active;
  }
  async function request(action,data={},method='GET',auth=true){
   const params=new URLSearchParams({action});
@@ -71,18 +79,22 @@
   if(busy||active)return;
   if(!proof){status('Open a prize-proof session first.',true);return;}
   if(!$('director-publish-consent').checked){status('Confirm participant/content broadcast permission before publishing.',true);return;}
+  const visibility=selectedVisibility();
+  if(visibility==='public'&&!$('director-publish-public-ack').checked){status('Confirm that anyone may view this public broadcast.',true);return;}
   if(!window.RTCPeerConnection){status('Live View requires a WebRTC-capable browser.',true);return;}
   const mix=window.LuckyCameraDirector?.programStream?.();
   if(!mix?.getVideoTracks().length){status('Take a live source to Program before publishing.',true);return;}
   busy=true;refresh();
   try{
    csrf=(await Lucky.getMe()).csrf;
-   const result=await request('publish',{...proof,consent:true},'POST');
-   stream=mix;active={id:result.id,key:result.key};
+   const result=await request('publish',{...proof,consent:true,visibility,public_ack:visibility==='public'&&$('director-publish-public-ack').checked},'POST');
+   stream=mix;active={id:result.id,key:result.key,visibility};
    const url=new URL('live-view.php',document.baseURI);
-   url.searchParams.set('id',result.id);url.searchParams.set('key',result.key);
+   url.searchParams.set('id',result.id);
+   if(visibility==='private')url.searchParams.set('key',result.key);
    $('director-live-url').value=url.href;$('director-open-live').href=url.href;
-   status('● Live View is publishing Program. Share the private link only with intended viewers.');
+   $('director-live-link-label').textContent=visibility==='public'?'Public Live View link':'Private Live View invitation';
+   status(visibility==='public'?'● PUBLIC · Program is on Live View for anyone to watch (8 viewers max).':'● PRIVATE · Program is live. Share this invitation only with intended viewers.');
    void poll(active.id,++epoch);
   }catch(e){mix.getTracks().forEach(t=>t.stop());status('Unable to publish: '+e.message,true);}
   finally{busy=false;refresh();}
@@ -95,17 +107,20 @@
   if(!silent)status('Program is OFF AIR. Existing Live View invitations have been revoked.');
   if(was){try{await request('stop',{id:was.id},'POST');}catch(e){if(!silent)status('Broadcast closed locally; server invitation expires automatically if unreachable: '+e.message,true);}}
  }
+ $('director-broadcast-visibility').addEventListener('change',()=>{if(selectedVisibility()!=='public')$('director-publish-public-ack').checked=false;visibilityUi();});
+ $('director-publish-consent').addEventListener('change',()=>{if(active&&!$('director-publish-consent').checked)void stop();});
+ $('director-publish-public-ack').addEventListener('change',()=>{if(active&&active.visibility==='public'&&!$('director-publish-public-ack').checked)void stop();});
  $('director-publish').addEventListener('click',()=>void publish());
  $('director-unpublish').addEventListener('click',()=>void stop());
  window.addEventListener('lucky:proof-open',e=>{
   void stop(true);
   const d=e.detail||{};
   proof=/^[a-f0-9]{32}$/.test(d.session||'')&&/^[a-f0-9]{32}$/.test(d.claim||'')?{session:d.session,claim:d.claim}:null;
-  $('director-publish-consent').checked=false;refresh();
+  $('director-publish-consent').checked=false;$('director-publish-public-ack').checked=false;visibilityUi();refresh();
  });
  window.addEventListener('lucky:proof-close',()=>{proof=null;void stop(true);refresh();});
  window.addEventListener('lucky:director-program-ended',()=>{if(active){status('The Program camera was disconnected; Live View is ending.',true);void stop(true);}});
  window.addEventListener('pagehide',()=>{proof=null;void stop(true);});
- refresh();
- window.LuckyDirectorPublisher={publish,stop,state:()=>({onAir:!!active,viewerConnections:peers.size})};
+ visibilityUi();refresh();
+ window.LuckyDirectorPublisher={publish,stop,state:()=>({onAir:!!active,visibility:active?.visibility||null,viewerConnections:peers.size})};
 })();
