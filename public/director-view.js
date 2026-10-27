@@ -1,9 +1,10 @@
-/* HF8C0: private bearer invite or public directory; view only the mixed Program track. */
+/* HF8C3: public/private read-only Program video and mixed audio viewer. */
 (() => {
  'use strict';
  const id=document.body.dataset.broadcastId||'',key=document.body.dataset.broadcastKey||'';
  const view=document.getElementById('director-view-video'),info=document.getElementById('director-view-status');
- let peer=null,alive=true;
+ let peer=null,alive=true,fallbackStream=null;
+ const sound=document.getElementById('director-view-sound');
  const state=(message,error=false)=>{info.textContent=message;info.classList.toggle('is-error',error);};
  const ICE={iceServers:[{urls:'stun:stun.l.google.com:19302'}]};
  async function request(action,fields={},method='GET'){
@@ -32,7 +33,16 @@
   const viewer=Array.from(crypto.getRandomValues(new Uint8Array(16)),x=>x.toString(16).padStart(2,'0')).join('');
   peer=new RTCPeerConnection(ICE);
   peer.addTransceiver('video',{direction:'recvonly'});
-  peer.ontrack=e=>{view.srcObject=e.streams[0]||new MediaStream([e.track]);void view.play().catch(()=>{});state('● LIVE · Camera Director Program');};
+  peer.addTransceiver('audio',{direction:'recvonly'});
+  peer.ontrack=e=>{
+   if(e.streams?.[0]){view.srcObject=e.streams[0];}
+   else{
+    if(!fallbackStream)fallbackStream=new MediaStream();
+    if(!fallbackStream.getTracks().some(track=>track.id===e.track.id))fallbackStream.addTrack(e.track);
+    view.srcObject=fallbackStream;
+   }
+   void view.play().catch(()=>{});state('● LIVE · Camera Director Program');
+  };
   peer.onconnectionstatechange=()=>{
    if(peer.connectionState==='failed'||peer.connectionState==='disconnected')state('Feed interrupted. Reload the Live View link to reconnect.',true);
    if(peer.connectionState==='connected')state('● LIVE · Camera Director Program');
@@ -50,7 +60,17 @@
   // Poll only the authenticated publication status, so revocation blanks stale video immediately.
   while(alive){await new Promise(resolve=>setTimeout(resolve,3500));if(!alive)return;await request('watch',{id,key});}
  }
- function stop(){alive=false;try{peer?.close();}catch(_){}view.srcObject=null;}
+ function stop(){alive=false;try{peer?.close();}catch(_){}if(view)view.srcObject=null;fallbackStream=null;}
+ sound?.addEventListener('click',()=>{
+  if(!view)return;
+  view.muted=!view.muted;
+  sound.textContent=view.muted?'🔇 Enable sound':'🔊 Mute sound';
+  sound.setAttribute('aria-pressed',String(!view.muted));
+  if(!view.muted)void view.play().catch(()=>{
+   view.muted=true;sound.textContent='🔇 Enable sound';sound.setAttribute('aria-pressed','false');
+   state('Tap Enable sound again if this browser blocks audio autoplay.',true);
+  });
+ });
  async function listPublic(){
   const root=document.getElementById('director-public-list');
   if(!root)return;
