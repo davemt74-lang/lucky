@@ -75,9 +75,14 @@ async def main():
         await page.wait_for_timeout(500)
         assert await page.locator(".director-source-rec").count() == 0, "Recording status must clear"
         assert await page.evaluate("window.uploads.length") == 0, "Offline capture must not upload"
+        await page.wait_for_function("document.querySelector('#director-sync-health').textContent.includes('2 uploads pending')")
+        assert await page.locator('#director-sync-retry').is_disabled(), "Offline retry must remain disabled"
         await page.reload(wait_until="load")
-        await page.evaluate("window.offline=false;window.dispatchEvent(new Event('online'))")
+        await page.evaluate("window.offline=false;LuckyDirectorRecovery.refresh()")
+        await page.wait_for_function("!document.querySelector('#director-sync-retry').disabled")
+        await page.locator('#director-sync-retry').click()
         await page.wait_for_function("window.uploads.length === 2", timeout=12000)
+        await page.wait_for_function("document.querySelector('#director-sync-health').textContent.includes('0 uploads pending')")
         uploaded = await page.evaluate("""window.uploads.map(x=>({
             source:x.record.sourceKey,session:x.record.session,take:x.record.takeId,
             type:x.record.media.type,token:x.token,offset:x.record.clockOffsetMs
@@ -102,7 +107,7 @@ async def main():
         await page.wait_for_function('window.recorderStarts>=3')
         assert await page.locator('.director-source-rec').count() == 1, "New take must resume local recording after delayed previous onstop"
         assert not errors, errors
-        print("HF8C7 DIRECTOR SYNC BROWSER: 9/9")
+        print("HF8D0I DIRECTOR RECOVERY BROWSER: 13/13")
         await browser.close()
 
 
