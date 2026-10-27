@@ -12,6 +12,8 @@ $db=new PDO('mysql:host=127.0.0.1;port=3306;dbname=lucky_test;charset=utf8mb4','
  PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC,PDO::ATTR_EMULATE_PREPARES=>false]);
 foreach(MigrationSql::statements((string)file_get_contents(__DIR__.'/../lib/schema.sql')) as $sql)$db->exec($sql);
 foreach(MigrationSql::statements((string)file_get_contents(__DIR__.'/../lib/migrations/v5q_claim_media.sql')) as $sql)$db->exec($sql);
+foreach(['v5q29e1_recording_sessions.sql','v5q29e4d1hf8c4_director_recordings.sql'] as $migration)
+ foreach(MigrationSql::statements((string)file_get_contents(__DIR__.'/../lib/migrations/'.$migration)) as $sql)$db->exec($sql);
 // Existing installations upgrade in place; this test also checks the column after fresh schema.
 publicCheck((bool)$db->query("SHOW COLUMNS FROM director_broadcasts LIKE 'visibility'")->fetch(),'Fresh schema has private-by-default visibility');
 $session=bin2hex(random_bytes(16));$claim=bin2hex(random_bytes(16));$host=0;

@@ -96,6 +96,12 @@
   proof=/^[a-f0-9]{32}$/.test(d.session||'')&&/^[a-f0-9]{32}$/.test(d.claim||'')?{session:d.session,claim:d.claim}:null;
   render();void load();
  });
+ window.addEventListener('lucky:director-studio-open',e=>{
+  close();const id=String(e.detail?.recordingSession||'');
+  proof=/^[a-f0-9]{32}$/.test(id)?{recordingSession:id}:null;
+  render();void load();
+ });
+ window.addEventListener('lucky:director-studio-close',close);
  window.addEventListener('lucky:proof-close',close);
  window.addEventListener('pagehide',close);
  buttons();

@@ -6,7 +6,7 @@ require_once __DIR__.'/../lib/SchemaGuard.php';
 headerSecurity();header('Referrer-Policy: no-referrer');header('X-Robots-Tag: noindex, nofollow');
 try{
  if(!installed())throw new DomainException('Install Lucky Game Hub first.',503);
- $db=db();SchemaGuard::require($db,['controller_proof_state','director_broadcasts','director_viewers'],'Camera Director Live View');
+ $db=db();SchemaGuard::require($db,['controller_proof_state','director_broadcasts','director_viewers','director_broadcast_recordings'],'Camera Director Live View');
  $method=(string)($_SERVER['REQUEST_METHOD']??'GET');$action=(string)($_GET['action']??'');
  if(!in_array($method,['GET','POST'],true))throw new DomainException('Unsupported method.',405);
  $data=$method==='POST'?jsonInput():$_GET;
@@ -15,8 +15,11 @@ try{
   if($method==='POST')assertCsrf();
   if($action==='publish'&&$method==='POST'){
    if(($data['consent']??false)!==true)throw new DomainException('Confirm explicit Program publishing consent.',403);
-   $out=DirectorBroadcast::start($db,(string)($data['session']??''),(string)($data['claim']??''),$host,(string)($data['visibility']??'private'),($data['public_ack']??false)===true);
-   audit($db,'camera_director.publish',(string)$data['session'],['broadcast'=>$out['id'],'visibility'=>$out['visibility']]);success($out,201);
+   $recording=(string)($data['recordingSession']??'');
+   $out=$recording!==''?
+    DirectorBroadcast::startRecording($db,$recording,$host,(string)($data['visibility']??'private'),($data['public_ack']??false)===true):
+    DirectorBroadcast::start($db,(string)($data['session']??''),(string)($data['claim']??''),$host,(string)($data['visibility']??'private'),($data['public_ack']??false)===true);
+   audit($db,'camera_director.publish',$recording!==''?$recording:(string)($data['session']??''),['broadcast'=>$out['id'],'visibility'=>$out['visibility'],'scope'=>$recording!==''?'recording':'proof']);success($out,201);
   }
   if($action==='host_list'&&$method==='GET')success(['offers'=>DirectorBroadcast::offersForHost($db,(string)($data['id']??''),$host)]);
   if($action==='answer'&&$method==='POST'){

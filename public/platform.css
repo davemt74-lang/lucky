@@ -603,6 +603,8 @@ body.admin-studio-page .platform-admin-tabs button{display:flex;align-items:cent
 body.admin-studio-page .platform-admin-tabs button.selected{color:#ffdfaa;background:#2a3d59;border:1px solid #a88d58}
 body.admin-studio-page .platform-admin-tabs button:hover{background:#283b56}
 body.admin-studio-page .platform-admin-tabs button:focus-visible{outline:2px solid #fbd695;outline-offset:1px}
+body.admin-studio-page .platform-admin-tabs a.admin-director-nav{display:flex;align-items:center;gap:10px;min-height:44px;padding:11px 12px;text-align:left;font-size:12px;font-weight:720;line-height:1.3;color:#e1edfd;background:#17354c;border:1px solid #3d7888;border-radius:10px;text-decoration:none}
+body.admin-studio-page .platform-admin-tabs a.admin-director-nav:hover,body.admin-studio-page .platform-admin-tabs a.admin-director-nav:focus-visible{background:#245471;border-color:#8bc9c8}
 body.admin-studio-page .admin-nav-symbol{display:inline-grid;place-items:center;width:22px;color:#f8d08a;font-size:18px}
 body.admin-studio-page .admin-console-sidebar-footer{margin-top:auto;border-top:1px solid #334762;padding:13px 10px;display:grid;gap:12px;font-size:11px;color:#bacce2}
 body.admin-studio-page .admin-console-workspace{min-width:0}
@@ -1418,6 +1420,20 @@ body.game-fullwidth .header{position:relative;z-index:60}
 .director-audio #director-host-mic{flex:0 1 auto}
 #director-view-sound{position:absolute;bottom:18px;left:18px;z-index:3;min-height:40px;color:#ecf6ff;background:#122b42df;border:1px solid #5f8fad}
 #director-view-sound:focus-visible{outline:3px solid #77e1d5;outline-offset:3px}
+/* HF8C4: direct Admin Camera Director, separate from prize capture. */
+.director-studio-shell{max-width:1640px;margin:auto;padding:clamp(12px,2vw,26px);display:grid;gap:18px}
+.director-studio-heading{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px}
+.director-studio-heading h1{font-size:clamp(28px,3vw,42px);margin:2px 0 8px}.director-studio-heading p{max-width:800px;line-height:1.5;margin:0;color:#c2d7ea}
+.director-studio-links{display:flex;gap:10px;flex-wrap:wrap}
+.director-studio-session,.director-studio-inputs{padding:14px;border-radius:14px;display:grid;gap:10px}
+.director-studio-session .director-toolbar label,.director-studio-inputs .director-toolbar label{min-width:min(100%,280px)}
+.director-studio-session .director-toolbar select,.director-studio-inputs .director-toolbar select{width:100%;min-height:43px;padding:8px;background:#0a1d31;border:1px solid #527491;color:#f5f9fe;border-radius:9px}
+.director-studio-inputs .camera-grid{display:flex;flex-wrap:wrap;gap:12px;min-height:10px}
+.director-studio-inputs .camera-source{flex:1 1 260px;max-width:420px;min-width:210px;display:grid;gap:8px;background:#08182b;border:1px solid #3a5773;border-radius:12px;padding:10px}
+.director-studio-inputs .camera-source video{width:100%;aspect-ratio:16/9;background:#050b15;border-radius:8px;object-fit:contain}
+.director-studio-inputs .camera-source strong{color:#e8f3ff}
+.proof-editor-page #camera-director{display:none!important}
+@media(max-width:650px){.director-studio-shell{padding:10px}.director-studio-links{width:100%}.director-studio-links>a{flex:1}}
 .director-scene-list{display:grid;gap:8px}
 .director-scene-item{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;background:#142b43;border:1px solid #3d5f82;border-radius:9px;padding:10px 12px}
 .director-scene-detail{display:grid;gap:4px;min-width:180px;flex:1 1 250px;overflow-wrap:anywhere}

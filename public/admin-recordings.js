@@ -33,6 +33,10 @@
   let link=$('recording-open-editor');if(!link){link=el('a','✂ Edit multicamera timeline','btn btn-primary');link.id='recording-open-editor';
    link.style.display='inline-flex';link.style.marginBottom='12px';$('recording-selected-details').after(link);}
   link.href='recording-editor.php?session='+encodeURIComponent(s.id);
+  let director=$('recording-open-director');if(!director){director=el('a','◉ Open Camera Director','btn btn-outline');director.id='recording-open-director';
+   director.style.display='inline-flex';director.style.margin='0 0 12px 10px';link.after(director);}
+  director.href='director.php?recording='+encodeURIComponent(s.id);
+  director.hidden=s.status==='completed';
   const p=s.profile||{},capture=p.capture||{};
   const location=p.location?' · '+p.location:'';const tags=(p.tags||[]).map(t=>'#'+t).join(' ');
   $('recording-selected-details').textContent=`${s.type.replace('_',' ')} · ${s.status==='completed'?'COMPLETED · no longer available on phone controllers':s.status==='draft'?'DRAFT · activate below to allow approved phones':'ACTIVE · available to approved phones when capture is enabled'} · ${s.gameSessionId?'Game '+s.gameSessionId.slice(0,8):'Independent recording'}${location}${tags?' · '+tags:''} · ${(capture.multicameraEnabled?'Multi':'Single')}-camera (max ${capture.maxCameras||1}) · ${['video','photo','audio'].filter(k=>capture[k]).join('/')}`;

@@ -8,7 +8,7 @@
  const WIDTH=1280,HEIGHT=720,MAX_BYTES=80*1024*1024;
  const state={preview:'',program:'',transition:null,recording:false,active:false,programGraphics:{text:'',sticker:''},audioMuted:false,audioVolume:100};
  let recorder=null,parts=[],bytes=0,frame=0,lastOptions='',exportStream=null,download=null,exportStarted=0;
- const clips=new Map();let proof=null,clipVersion=0,lastClipLoad=0;
+ const clips=new Map();let proof=null,recording=null,clipVersion=0,lastClipLoad=0;
  let audioContext=null,audioOutput=null,hostMicrophone=null,lastAudioCheck=0;
  const audioChannels=new Map();
  const info=(message,error=false)=>{const node=$('director-status');node.textContent=message;node.classList.toggle('is-error',error);};
@@ -138,16 +138,23 @@
   void clip.video.play().catch(()=>info('Select the clip again to allow playback in this browser.',true));
  }
  async function loadClips(force=false){
-  const context=proof;if(!context||!state.active)return;
+  const context=recording?{recordingSession:recording}:proof;if(!context||!state.active)return;
   if(!force&&Date.now()-lastClipLoad<4500)return;
   lastClipLoad=Date.now();const version=clipVersion;
   try{
-   const r=await fetch('api/claim-media.php?action=list&session='+encodeURIComponent(context.session),{credentials:'same-origin',cache:'no-store'});
-   const data=await r.json();if(!r.ok||!data.ok)throw Error(data.error||'Unable to list saved proof clips.');
-   if(version!==clipVersion||!proof||proof.claim!==context.claim)return;
+   const inRecording=!!context.recordingSession;
+   const path=inRecording?'api/recording-sessions.php?action=media_list&id='+encodeURIComponent(context.recordingSession):
+    'api/claim-media.php?action=list&session='+encodeURIComponent(context.session);
+   const r=await fetch(path,{credentials:'same-origin',cache:'no-store'});
+   const data=await r.json();if(!r.ok||!data.ok)throw Error(data.error||'Unable to list saved clips.');
+   if(version!==clipVersion||(inRecording?recording!==context.recordingSession:proof?.claim!==context.claim))return;
    const allowed=new Set();
-   for(const c of (data.clips||[]).filter(c=>c.kind==='video'&&c.claimId===context.claim).slice(0,40)){
-    if(!/^[a-f0-9]{32}$/.test(c.id||'')||c.src!=='api/claim-media.php?action=stream&id='+c.id)continue;
+   const items=inRecording?(data.media||[]).filter(c=>c.kind==='video'&&String(c.mime||'').startsWith('video/')).slice(-40)
+    .map(c=>({...c,src:'api/recording-media.php?id='+c.id,trimStartMs:0,trimEndMs:0,durationMs:c.duration_ms||0})):
+    (data.clips||[]).filter(c=>c.kind==='video'&&c.claimId===context.claim).slice(0,40);
+   for(const c of items){
+    if(!/^[a-f0-9]{32}$/.test(c.id||'')||!((inRecording&&c.src==='api/recording-media.php?id='+c.id)||
+      (!inRecording&&c.src==='api/claim-media.php?action=stream&id='+c.id)))continue;
     const id='clip:'+c.id;allowed.add(id);
     const start=Math.max(0,Number(c.trimStartMs||0)/1000);
     const requestedEnd=Number(c.trimEndMs||0)/1000;
@@ -169,6 +176,7 @@
    }
    for(const id of [...clips.keys()])if(!allowed.has(id))discardClip(id);
    $('director-clip-count').textContent=String(clips.size);
+   $('director-clip-status').textContent=clips.size+' saved '+(inRecording?'recording-session':'proof')+' video clip'+(clips.size===1?'':'s')+' available in Preview and Program.';
    lastOptions='';sync();
   }catch(e){if(version===clipVersion&&$('director-clip-status'))$('director-clip-status').textContent='Saved clip list unavailable: '+e.message;}
  }
@@ -322,7 +330,7 @@
   }catch(e){state.recording=false;exportStream?.getTracks().forEach(track=>track.stop());exportStream=null;info(e.message,true);return false;}
  }
  function close(){
-  state.active=false;state.preview='';state.program='';state.transition=null;state.programGraphics={text:'',sticker:''};proof=null;clipVersion++;
+  state.active=false;state.preview='';state.program='';state.transition=null;state.programGraphics={text:'',sticker:''};proof=null;recording=null;clipVersion++;
   $('director-host-mic').disabled=true;
   for(const id of [...clips.keys()])discardClip(id);
   $('director-clip-count').textContent='0';lastOptions='';stopExport();resetAudio();sync();labels();
@@ -352,6 +360,13 @@
   $('director-host-mic').disabled=!state.active;
   sync();labels();void loadClips(true);
  });
+ window.addEventListener('lucky:director-studio-open',e=>{
+  close();const id=String(e.detail?.recordingSession||'');
+  if(/^[a-f0-9]{32}$/.test(id)){recording=id;state.active=true;}
+  $('director-host-mic').disabled=!state.active;
+  sync();labels();void loadClips(true);
+ });
+ window.addEventListener('lucky:director-studio-close',close);
  window.addEventListener('lucky:proof-close',close);
  window.addEventListener('lucky:proof-review',()=>void loadClips());
  window.addEventListener('lucky:cameras-refreshed',sync);
@@ -359,7 +374,7 @@
  window.addEventListener('pagehide',()=>{close();observer.disconnect();cancelAnimationFrame(frame);if(download)URL.revokeObjectURL(download);});
  preview.width=program.width=WIDTH;preview.height=program.height=HEIGHT;
  sync();labels();frame=requestAnimationFrame(paint);
- window.LuckyCameraDirector={sources:()=>sources().map(({id,label})=>({id,label})),select,take,startExport,stopExport,programStream,
+ window.LuckyCameraDirector={sources:()=>sources().map(({id,label})=>({id,label})),select,take,startExport,stopExport,programStream,refreshClips:()=>loadClips(true),
   audioState:()=>({muted:state.audioMuted,volume:state.audioVolume,microphone:!!hostMicrophone,
    source:state.program,activeChannel:state.program.startsWith('camera:')?'host-mic':state.program,
    channels:[...audioChannels.keys()],hasAudioTrack:!!audioOutput?.stream.getAudioTracks().length}),
