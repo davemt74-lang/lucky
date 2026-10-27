@@ -1,0 +1,110 @@
+/* HF8C6 Camera Director: immersive video-first production console. */
+body.director-studio-page{background:#080f1d}
+body.director-studio-page>.shell,body.director-studio-page .shell{max-width:none;padding:0 18px}
+body.director-studio-page .header{height:60px;gap:18px}
+body.director-studio-page .footer{padding:9px 4px;font-size:9px}
+body.director-studio-page .director-studio-shell{max-width:none;padding:10px 0 2px;display:block}
+.director-workspace{--dw-border:#28405a;--dw-surface:#0c1b2c;--dw-text:#ebf3ff;border:1px solid #26354b;border-radius:12px;background:linear-gradient(145deg,#07111f,#0b1b2b);color:var(--dw-text);min-width:0;overflow:hidden;box-shadow:0 16px 60px #0005}
+.director-workspace-top{display:flex;align-items:center;gap:clamp(12px,2vw,26px);padding:10px 15px;min-height:64px;border-bottom:1px solid var(--dw-border);background:#091525}
+.director-workspace-brand{display:flex;align-items:center;gap:11px;min-width:215px}
+.director-workspace-mark{width:38px;height:38px;display:grid;place-items:center;border-radius:10px;background:linear-gradient(145deg,#fff0a4,#efab5f);color:#122238;font-size:23px}
+.director-workspace-brand .mini-label{font-size:8px;color:#8eabc8;letter-spacing:.13em;margin:0}
+.director-workspace-brand h1{font-size:clamp(17px,1.6vw,24px);letter-spacing:-.025em;margin:0;white-space:nowrap}
+.director-workspace-session-indicator{display:flex;align-items:center;gap:9px;min-width:0;font-size:11px;color:#c8d9ec;font-weight:700;flex:1}
+.director-workspace-session-indicator #director-workspace-session-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.director-workspace-signal{width:8px;height:8px;border-radius:50%;background:#49de9b;box-shadow:0 0 0 4px #40c69c18;flex:none}
+#director-workspace-camera-count{white-space:nowrap;background:#162940;border-radius:99px;padding:5px 9px;color:#8fb7d7;font-size:10px}
+.director-workspace-actions{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px}
+.director-workspace-actions>.btn,.director-workspace-actions .director-export>.btn{padding:9px 13px;min-height:37px;font-size:11px}
+.director-workspace-actions .director-export{padding:0;border:0;display:flex;gap:7px}
+.director-workspace-actions #director-export-stop{border-color:#994450;color:#ffd4d4}
+.director-workspace-actions #director-export-start:not(:disabled){background:#642c36;border-color:#d9525e;color:#ffe2e0}
+.director-workspace-body{display:grid;grid-template-columns:75px minmax(0,1fr);position:relative;min-width:0}
+.director-workspace-rail{display:flex;flex-direction:column;gap:2px;padding:11px 5px;background:#0a182a;border-right:1px solid var(--dw-border)}
+.director-workspace-rail button{min-height:58px;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;background:transparent;border:1px solid transparent;border-radius:9px;color:#a7bcd0;font-size:10px;line-height:1.2;padding:7px 3px;font-weight:750}
+.director-workspace-rail button span{font-size:21px;font-weight:700;line-height:1}
+.director-workspace-rail button:hover,.director-workspace-rail button[aria-expanded=true]{color:#ffcf86;background:#182a40;border-color:#385b76}
+.director-workspace-content{min-width:0;display:grid;gap:11px;padding:12px;align-content:start}
+.director-workspace-outputs{min-width:0;display:grid;gap:7px}
+.director-workspace-outputs .director-monitors{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.director-workspace-outputs .director-monitor{border:2px solid #248c91;border-radius:8px;background:#020b17;box-shadow:0 0 0 1px #12545e50}
+.director-workspace-outputs .director-program-monitor{border-color:#bd394a;box-shadow:0 0 0 1px #631a2a70}
+.director-workspace-outputs .director-monitor-head{background:#102136;color:#e5f3ff;padding:7px 10px}
+.director-workspace-outputs .director-monitor:not(.director-program-monitor) .director-monitor-head strong{color:#68ece4}
+.director-workspace-outputs .director-program-monitor .director-monitor-head strong{color:#ff777e}
+.director-workspace-outputs .director-monitor canvas{width:100%;aspect-ratio:16/9;object-fit:contain;background:#020a17}
+#director-workspace-switcher>.director-toolbar{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;margin:0}
+#director-workspace-switcher .director-toolbar label{flex:1 1 200px;max-width:380px;display:flex;align-items:center;gap:9px;font-size:11px}
+#director-workspace-switcher select{min-height:35px;padding:6px 10px;min-width:0}
+#director-workspace-switcher .director-toolbar button{min-height:36px;padding:8px 15px}
+#director-workspace-switcher #director-cut{min-width:105px;background:#f7c274;color:#182439}
+.director-workspace-multiview,.director-workspace-timeline{border:1px solid var(--dw-border);border-radius:10px;background:#0c1b2d;min-width:0;overflow:hidden}
+.director-workspace-multiview>header,.director-workspace-timeline>header{padding:9px 11px;display:flex;justify-content:space-between;gap:10px;align-items:center;border-bottom:1px solid #273e54;background:#11253a}
+.director-workspace-multiview header>div,.director-workspace-timeline header>div{display:flex;align-items:center;flex-wrap:wrap;gap:10px;min-width:0}
+.director-workspace-multiview h2,.director-workspace-timeline h2{font-size:13px;letter-spacing:.04em;text-transform:uppercase;margin:0;color:#dbeaff}
+.director-workspace-multiview header span,.director-workspace-timeline header span{font-size:10px;color:#91abc4}
+.director-workspace-multiview header .btn,.director-workspace-timeline .btn{padding:7px 11px;font-size:10px;min-height:31px}
+.director-workspace-multiview #camera-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:0;padding:10px;background:#081523;min-height:110px;align-items:stretch}
+.director-workspace-multiview #camera-grid:empty:after{content:'No live camera inputs connected. Open a recording session, then use Cameras to add a desktop device or arm a paired phone.';grid-column:1/-1;display:grid;place-items:center;min-height:110px;color:#91adbf;font-size:12px;text-align:center;padding:14px;border:1px dashed #3b5c75;border-radius:7px}
+.director-workspace-multiview #camera-grid>.camera-source{width:100%;min-width:0;max-width:none;display:grid;align-content:start;gap:5px;padding:6px;border:1px solid #3c5f7a;border-radius:8px;background:#091b2e;overflow:hidden}
+.director-workspace-multiview #camera-grid>.camera-source[role=button]{cursor:pointer}
+.director-workspace-multiview #camera-grid>.camera-source.is-cued{border-color:#36d9d1;box-shadow:0 0 0 1px #27b9b7}
+.director-workspace-multiview #camera-grid>.camera-source.is-program{border-color:#f05a66;box-shadow:0 0 0 1px #cf344f}
+.director-workspace-multiview #camera-grid>.camera-source.is-cued.is-program{box-shadow:inset 0 0 0 2px #36d9d1,0 0 0 1px #f05a66}
+.director-workspace-multiview #camera-grid>.camera-source video{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;max-height:none;border-radius:5px;background:#020a14}
+.director-workspace-multiview #camera-grid>.camera-source strong{font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#d7e8f9}
+.director-workspace-multiview #camera-grid>.camera-source>.btn{padding:6px 9px;min-height:27px;font-size:10px}
+#director-workspace-phone-note{padding:0 10px 8px}
+#director-workspace-phone-note #director-studio-phone-status{border:0;background:transparent;color:#91b2c3;padding:4px 0 0;font-size:10px;margin:0}
+.director-workspace-timeline-actions{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.director-workspace-timeline-actions a[aria-disabled=true]{opacity:.5}
+#director-workspace-take{padding:8px 10px;border-bottom:1px solid #203a50}
+#director-workspace-take .director-studio-session{border:0;background:none;border-radius:0;padding:0;box-shadow:none;display:grid;gap:6px}
+#director-workspace-take .director-toolbar{align-items:center;gap:7px}
+#director-workspace-take .director-toolbar label{flex:1 1 180px;min-width:180px;font-size:11px}
+#director-workspace-take .director-toolbar input{min-height:35px;padding:7px 10px}
+#director-workspace-take .director-toolbar .btn{min-height:35px;padding:7px 12px}
+#director-workspace-take #director-studio-take-status{padding:5px 8px;font-size:10px;min-height:0;background:none;border:none}
+#director-workspace-take .mini-label{display:none}
+.director-workspace-timeline-scroll{min-height:96px;max-height:245px;overflow:auto;background:#0a1829}
+#director-workspace-timeline-lanes{min-width:530px;padding:8px 10px;display:grid;gap:6px}
+.director-workspace-ruler{display:flex;justify-content:space-between;padding-left:140px;color:#89a4ba;font-size:9px;font-variant-numeric:tabular-nums}
+.director-workspace-lane{display:grid;grid-template-columns:128px minmax(0,1fr);gap:12px;min-height:27px;align-items:center}
+.director-workspace-lane-label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#c3d5e6;font-size:10px;font-weight:750}
+.director-workspace-lane-track{background:repeating-linear-gradient(90deg,#152f45 0,#152f45 1px,#0b2033 1px,#0b2033 25%);border:1px solid #28445b;border-radius:5px;height:25px;position:relative;overflow:hidden}
+.director-workspace-timeline-clip{position:absolute;top:2px;bottom:2px;min-width:6px;border-radius:4px;border:1px solid #6693eb;color:#f6fbff;background:#325caa;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;padding:1px 5px;font-size:9px;font-weight:800}
+.director-workspace-lane-track[data-kind=audio] .director-workspace-timeline-clip{background:#196e69;border-color:#50c0b4}
+.director-workspace-lane-track[data-kind=photo] .director-workspace-timeline-clip{background:#715196;border-color:#a687c6}
+.director-workspace-timeline-clip:hover,.director-workspace-timeline-clip:focus-visible{filter:brightness(1.35);color:white}
+.director-workspace-timeline-foot{margin:0;padding:6px 10px;border-top:1px solid #1e354b;color:#7f9ab2;font-size:10px}
+.director-workspace-empty{color:#9db9cd;font-size:12px;padding:12px 4px;margin:0;text-align:center}
+.director-workspace-status{display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0;border-top:1px solid #263f52;padding:0 2px 3px}
+.director-workspace-status .voice-status{margin:0;padding:6px 8px;min-height:0;background:none;border:0;color:#9abcca;font-size:10px}
+#director-workspace-onair{border:1px solid #5b6d86;border-radius:100px;padding:4px 9px;white-space:nowrap;font-size:10px;font-weight:850;color:#9eafc6}
+#director-workspace-onair.is-live{background:#742433;border-color:#f06a77;color:#ffe1e2}
+.director-workspace-drawer-backdrop{position:absolute;inset:0;z-index:12;background:transparent}
+.director-workspace-drawer{position:absolute;right:0;top:0;bottom:0;width:min(400px,calc(100% - 75px));max-height:100%;z-index:13;border-left:1px solid #47728d;background:#0d1d30;box-shadow:-18px 8px 54px #000b;display:flex;flex-direction:column;overflow:hidden}
+.director-workspace-drawer>header{display:flex;justify-content:space-between;align-items:center;gap:12px;border-bottom:1px solid #2d4b65;padding:14px 17px}
+.director-workspace-drawer>header h2{font-size:21px;margin:0;color:#f5d392}
+.director-workspace-drawer>header .mini-label{margin:0 0 4px;color:#8ca8bd}
+#director-workspace-close{background:#21334b;color:#dff2fd;border:1px solid #41647c;width:35px;height:35px;border-radius:8px;font-size:16px}
+.director-workspace-drawer-scroll{overflow:auto;overscroll-behavior:contain;padding:14px;min-height:0;flex:1}
+.director-workspace-drawer-scroll>[data-director-content]:not([hidden]){display:grid;gap:12px}
+.director-workspace-drawer-scroll .surface,.director-workspace-drawer-scroll .director-scenes,.director-workspace-drawer-scroll .director-broadcast,.director-workspace-drawer-scroll .director-audio{border:0;box-shadow:none;border-radius:0;background:none;padding:0}
+.director-workspace-drawer-scroll .director-toolbar{align-items:stretch;flex-direction:column;gap:9px}
+.director-workspace-drawer-scroll .director-toolbar label,.director-workspace-drawer-scroll .director-graphics label{min-width:0;flex-basis:auto;width:100%}
+.director-workspace-drawer-scroll .director-toolbar .btn,.director-workspace-drawer-scroll .director-links .btn{width:100%}
+.director-workspace-drawer-scroll .director-studio-links{display:grid;grid-template-columns:1fr;gap:8px}
+.director-workspace-drawer-scroll .director-studio-links>a{width:100%}
+.director-workspace-drawer-scroll .director-graphics{display:grid;grid-template-columns:1fr;gap:12px}
+.director-workspace-drawer-scroll .director-scenes>header{align-items:flex-start}
+.director-workspace-drawer-scroll .director-scenes .director-toolbar{flex-direction:column}
+.director-workspace-drawer-scroll .director-broadcast .director-visibility{display:grid;gap:8px}
+.director-workspace-drawer-scroll .director-broadcast .director-toolbar{flex-direction:column}
+.director-workspace-drawer-scroll #director-live-url{width:100%}
+.director-workspace-drawer-scroll h3{margin:4px 0;color:#f4d28e}
+.director-workspace-drawer-scroll p{font-size:12px;color:#a5c0d7;line-height:1.6}
+@media(min-width:1900px){.director-workspace-content{padding:14px 20px;gap:14px}.director-workspace-multiview #camera-grid{gap:14px}.director-workspace-body{grid-template-columns:84px minmax(0,1fr)}}
+@media(max-width:1100px){.director-workspace-top{flex-wrap:wrap}.director-workspace-brand{min-width:0}.director-workspace-session-indicator{order:3;flex-basis:100%}.director-workspace-actions{margin-left:auto}.director-workspace-multiview #camera-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){body.director-studio-page .shell{padding:0 7px}body.director-studio-page .header{height:55px}.director-workspace-top{padding:8px}.director-workspace-actions{gap:5px}.director-workspace-actions>.btn,.director-workspace-actions .director-export>.btn{padding:7px 9px;font-size:10px}.director-workspace-body{display:block}.director-workspace-rail{display:flex;flex-direction:row;overflow-x:auto;gap:4px;border-right:0;border-bottom:1px solid #2b4560;padding:4px}.director-workspace-rail button{min-width:68px;min-height:49px;font-size:9px}.director-workspace-rail button span{font-size:17px}.director-workspace-content{padding:7px;gap:8px}.director-workspace-outputs .director-monitors{grid-template-columns:1fr;gap:8px}#director-workspace-switcher .director-toolbar label{flex-basis:100%;max-width:none}.director-workspace-multiview #camera-grid{gap:7px;padding:7px}.director-workspace-drawer{width:min(400px,100%);right:0;top:0;bottom:0}.director-workspace-timeline>header{align-items:flex-start;flex-wrap:wrap}}
+@media(max-width:410px){.director-workspace-multiview #camera-grid{grid-template-columns:1fr}.director-workspace-multiview header span{display:none}.director-workspace-actions #director-export-stop{display:none}}

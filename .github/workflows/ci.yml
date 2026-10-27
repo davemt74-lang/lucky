@@ -92,6 +92,7 @@ jobs:
           php tests/v5q29e4d1hf8c3_audio_contract.php
           php tests/v5q29e4d1hf8c4_recording_director_contract.php
           php tests/v5q29e4d1hf8c5_recording_live_contract.php
+          php tests/v5q29e4d1hf8c6_workspace_contract.php
           php -l api/recording-export.php
           php -l bin/recording-export-worker.php
           php -l lib/RecordingExports.php
@@ -242,6 +243,7 @@ jobs:
           python tests/v5q29e4d1hf8c3_audio_browser.py
           python tests/v5q29e4d1hf8c4_recording_director_browser.py
           python tests/v5q29e4d1hf8c5_recording_live_browser.py
+          python tests/v5q29e4d1hf8c6_workspace_browser.py
           python tests/v5q29e4d1hf5_proof_camera_browser.py
           python tests/v5q29d_multicamera_browser.py
           python tests/v5q29a_timeline_browser.py
