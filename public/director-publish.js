@@ -79,7 +79,7 @@
  }
  async function publish(){
   if(busy||active)return;
-  if(!proof){status('Open a prize-proof session first.',true);return;}
+  if(!proof){status('Open a recording session before publishing.',true);return;}
   if(!$('director-publish-consent').checked){status('Confirm participant/content broadcast permission before publishing.',true);return;}
   const visibility=selectedVisibility();
   if(visibility==='public'&&!$('director-publish-public-ack').checked){status('Confirm that anyone may view this public broadcast.',true);return;}

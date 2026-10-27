@@ -76,7 +76,9 @@
    const requested=devices.value;
    const stream=await navigator.mediaDevices.getUserMedia({video:requested?{deviceId:{exact:requested}}:true,audio:false});
    if(!active||active!==requestedSession||epoch!==requestedEpoch){stream.getTracks().forEach(track=>track.stop());return;}
-   const track=stream.getVideoTracks()[0],key=track?.getSettings?.().deviceId||requested||track?.id||'';
+   // Prefer the enumerated device the host explicitly selected. Browser track
+   // settings may report a transient internal id (especially for virtual cameras).
+   const track=stream.getVideoTracks()[0],key=requested||track?.getSettings?.().deviceId||track?.id||'';
    if(connected.has(key)){stream.getTracks().forEach(t=>t.stop());cameraStatus('This camera is already connected.');return;}
    // A stable device-scoped id lets saved scenes find this camera after reload.
    const id='cam_'+(key.replace(/[^A-Za-z0-9_-]/g,'').slice(0,58)||track.id.slice(0,58));

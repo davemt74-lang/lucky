@@ -9,7 +9,7 @@ $layout=file_get_contents($root.'/lib/Layout.php');
 clipsCheck(str_contains($page,'director-refresh-clips')&&str_contains($page,'director-clip-count'),'Saved proof clips visible in Camera Director');
 clipsCheck(str_contains($js,'api/claim-media.php?action=list')&&str_contains($js,"credentials:'same-origin'"),'Clips sourced through authenticated existing proof media endpoint');
 clipsCheck(str_contains($js,"c.kind==='video'&&c.claimId===context.claim"),'Only current prize video clips can be cued');
-clipsCheck(str_contains($js,"c.src!=='api/claim-media.php?action=stream&id='+c.id"),'Untrusted external media URLs are rejected');
+clipsCheck(str_contains($js,"c.src==='api/claim-media.php?action=stream&id='+c.id")&&str_contains($js,"c.src==='api/recording-media.php?id='+c.id"),'Untrusted external media URLs are rejected for both source types');
 clipsCheck(str_contains($js,'const clips=new Map()')&&str_contains($js,"id='clip:'+c.id"),'Recorded clips share one source selector with live cameras');
 clipsCheck(str_contains($js,'trimStartMs')&&str_contains($js,'trimEndMs')&&str_contains($js,'current.end-.04'),'Published playback honors clip trim start and end');
 clipsCheck(str_contains($js,"['cut','fade','wipe','dip']")&&str_contains($js,'programCtx.clip()'),'Program supports cut, fade, wipe and dip transitions');

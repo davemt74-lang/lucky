@@ -4,6 +4,7 @@
  const $=id=>document.getElementById(id);
  if(!$('director-scene-list'))return;
  let proof=null,scenes=[],epoch=0,busy=false,csrf='';
+ const scope=()=>proof?.recordingSession?'recording session':'proof';
  const status=(message,error=false)=>{const n=$('director-scene-status');n.textContent=message;n.classList.toggle('is-error',error);};
  const available=id=>!!window.LuckyCameraDirector?.sources?.().some(s=>s.id===id);
  const selected=()=>window.LuckyCameraDirector?.state?.().preview||'';
@@ -22,7 +23,7 @@
   return out;
  }
  function cue(scene){
-  if(!proof||!available(scene.source)){status('Scene source offline or outside the active proof.',true);return false;}
+  if(!proof||!available(scene.source)){status('Scene source offline or outside the active '+scope()+'.',true);return false;}
   if(!window.LuckyCameraDirector.select(scene.source))return false;
   $('director-overlay-text').value=scene.title;
   $('director-overlay-sticker').value=scene.sticker;
@@ -78,14 +79,14 @@
    await request('save',{...context,name,source,transition:$('director-scene-transition').value,
     title:$('director-overlay-text').value.trim().slice(0,100),sticker:$('director-overlay-sticker').value},'POST');
    if(version!==epoch)return;
-   await load();if(version===epoch)status('Saved '+name+' to this proof.');
+   await load();if(version===epoch)status('Saved '+name+' to this '+scope()+'.');
   }catch(e){if(version===epoch)status('Save failed: '+e.message,true);}
   finally{busy=false;buttons();}
  }
  function close(){
   proof=null;epoch++;scenes=[];csrf='';busy=false;
   $('director-scene-name').value='';$('director-scene-transition').value='cut';
-  render();status('Open a proof to load scenes.');
+  render();status('Open a recording session to load production scenes.');
  }
  $('director-scene-save').addEventListener('click',()=>void save());
  $('director-scene-refresh').addEventListener('click',()=>void load());
