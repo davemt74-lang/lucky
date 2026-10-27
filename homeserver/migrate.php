@@ -13,7 +13,8 @@ foreach(MigrationSql::statements(sql('lib/migrations/v5q26_movie_preview.sql')) 
 foreach(['v5q29e1_recording_sessions.sql','v5q29e2_phone_camera.sql',
          'v5q29e3_multicamera_coordination.sql','v5q29e4a_multicamera_timeline.sql',
          'v5q29e4b_multicamera_exports.sql','v5q29e4c_recording_profiles.sql',
-         'v5q29e4d1hf8c4_director_recordings.sql'] as $migration)
+         'v5q29e4d1hf8c4_director_recordings.sql',
+         'v5q29e4d1hf8c5_recording_live.sql'] as $migration)
  foreach(MigrationSql::statements(sql('lib/migrations/'.$migration)) as $statement)$db->exec($statement);
 foreach(['recording_sessions','recording_takes','recording_sources','recording_assets',
          'recording_phone_permissions','recording_media_files','recording_camera_arms',

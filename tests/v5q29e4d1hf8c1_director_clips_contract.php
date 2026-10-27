@@ -15,5 +15,5 @@ clipsCheck(str_contains($js,'trimStartMs')&&str_contains($js,'trimEndMs')&&str_c
 clipsCheck(str_contains($js,"['cut','fade','wipe','dip']")&&str_contains($js,'programCtx.clip()'),'Program supports cut, fade, wipe and dip transitions');
 clipsCheck(str_contains($page,'director-wipe')&&str_contains($page,'director-dip'),'Operator has explicit Wipe and Dip controls');
 clipsCheck(str_contains($js,"window.addEventListener('lucky:proof-close',close)")&&str_contains($js,'for(const id of [...clips.keys()])discardClip(id)'),'Proof close releases prerecorded sources');
-clipsCheck((str_contains($layout,'platform.css?v=5q29e4d1hf8c1')||str_contains($layout,'platform.css?v=5q29e4d1hf8c2')||str_contains($layout,'platform.css?v=5q29e4d1hf8c3')||str_contains($layout,'platform.css?v=5q29e4d1hf8c4'))&&str_contains($css,'.director-clip-toolbar'),'CSS and script release assets are versioned');
+clipsCheck((str_contains($layout,'platform.css?v=5q29e4d1hf8c1')||str_contains($layout,'platform.css?v=5q29e4d1hf8c2')||str_contains($layout,'platform.css?v=5q29e4d1hf8c3')||str_contains($layout,'platform.css?v=5q29e4d1hf8c4')||str_contains($layout,'platform.css?v=5q29e4d1hf8c5'))&&str_contains($css,'.director-clip-toolbar'),'CSS and script release assets are versioned');
 echo "HF8C1 CAMERA DIRECTOR CLIPS CONTRACT: 10/10\n";

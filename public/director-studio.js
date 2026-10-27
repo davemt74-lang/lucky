@@ -6,10 +6,25 @@
  const idOk=id=>/^[a-f0-9]{32}$/.test(id||'');
  const grid=$('camera-grid'),selector=$('director-studio-session'),devices=$('director-studio-camera');
  const connected=new Map();let sessions=[],active='',epoch=0,refreshTimer=null,busy=false;
+ let csrf='',take=null,takeBusy=false,startNonce='',startTitle='';
  const status=(message,error=false)=>{const node=$('director-studio-status');node.textContent=message;node.classList.toggle('is-error',error);};
  const cameraStatus=(message,error=false)=>{const node=$('director-studio-device-status');node.textContent=message;node.classList.toggle('is-error',error);};
- async function request(action,query={}){
-  const response=await fetch('api/recording-sessions.php?'+new URLSearchParams({action,...query}),{credentials:'same-origin',cache:'no-store'});
+ const random=()=>crypto.randomUUID?.().replaceAll('-','')||
+  Array.from(crypto.getRandomValues(new Uint8Array(16)),b=>b.toString(16).padStart(2,'0')).join('');
+ function takeButtons(){
+  $('director-studio-take-start').disabled=!active||!!take||takeBusy;
+  $('director-studio-take-stop').disabled=!active||!take||takeBusy;
+ }
+ const takeStatus=(message,error=false)=>{const node=$('director-studio-take-status');node.textContent=message;node.classList.toggle('is-error',error);};
+ async function request(action,query={},method='GET'){
+  const opts={method,credentials:'same-origin',cache:'no-store'};
+  const params=new URLSearchParams({action});
+  if(method==='GET')for(const [key,value] of Object.entries(query))params.set(key,String(value));
+  else{
+   if(!csrf)csrf=(await Lucky.getMe()).csrf;
+   opts.headers={'Content-Type':'application/json','X-CSRF-Token':csrf};opts.body=JSON.stringify(query);
+  }
+  const response=await fetch('api/recording-sessions.php?'+params,opts);
   const data=await response.json().catch(()=>({}));if(!response.ok||!data.ok)throw Error(data.error||'Recording sessions are unavailable.');
   return data;
  }
@@ -30,7 +45,7 @@
  function closeSession(){
   if(refreshTimer){clearInterval(refreshTimer);refreshTimer=null;}
   active='';epoch++;window.dispatchEvent(new Event('lucky:director-studio-close'));
-  stopCameras();
+  stopCameras();take=null;takeBusy=false;startNonce='';startTitle='';takeButtons();
  }
  async function syncSession(version){
   if(version!==epoch||!active)return;
@@ -41,6 +56,13 @@
    if(s.status==='completed'){
     closeSession();status('The recording was completed. Reopen an active recording to direct and broadcast.',true);return;
    }
+   take=(data.takes||[]).find(t=>t.status==='recording')||null;
+   if(take){startNonce='';startTitle='';}takeButtons();
+   const devices=await request('camera_devices',{id:active}).catch(()=>({devices:[]}));
+   if(version!==epoch)return;
+   const armed=(devices.devices||[]).filter(d=>d.armed&&d.online);
+   takeStatus(take?'● RECORDING · Take '+(take.take_index||take.index||'')+' · '+armed.length+' armed phone'+(armed.length===1?'':'s')+'. Stop the group take to upload and review originals.':
+    'Ready to start a synchronized take · '+armed.length+' armed phone'+(armed.length===1?'':'s')+'. Open Camera Studio on each approved phone and tap Arm for host.');
    $('director-studio-media-status').textContent=(data.assets||[]).length+' recording assets · '+(data.takes||[]).length+' grouped takes · '+(data.sources||[]).length+' registered sources. Director clips refresh automatically.';
    void window.LuckyCameraDirector?.refreshClips?.();
   }catch(e){if(version===epoch)status('Recording session sync: '+e.message,true);}
@@ -56,6 +78,30 @@
   status('● Director connected to '+row.title+' · '+row.status+'. Preview is private until you explicitly publish Program.');
   await syncSession(version);
   if(version===epoch)refreshTimer=setInterval(()=>void syncSession(version),5000);
+ }
+ async function startTake(){
+  if(!active||take||takeBusy)return;
+  const id=active,version=epoch,title=$('director-studio-take-title').value.trim()||'Camera Director Take';
+  if(title.length>120){takeStatus('Take name is limited to 120 characters.',true);return;}
+  if(!startNonce){startNonce=random();startTitle=title;}takeBusy=true;takeButtons();
+  try{
+   const result=await request('take_start',{id,title:startTitle,nonce:startNonce},'POST');
+   if(version!==epoch||active!==id)return;
+   startNonce='';startTitle='';take=result.take;takeStatus('● TAKE STARTED · Phones observe host commands through their recording-session polling.');
+   await syncSession(version);
+  }catch(e){if(version===epoch)takeStatus('Start take: '+e.message+'. Retrying will use the same request token.',true);}
+  finally{if(version===epoch){takeBusy=false;takeButtons();}}
+ }
+ async function stopTake(){
+  if(!active||!take||takeBusy)return;
+  const id=active,version=epoch,takeId=take.id;takeBusy=true;takeButtons();
+  try{
+   await request('take_stop',{id,takeId},'POST');
+   if(version!==epoch||active!==id)return;
+   take=null;takeStatus('■ TAKE STOPPED · Armed phones will finish their files and upload the originals automatically.');
+   await syncSession(version);
+  }catch(e){if(version===epoch)takeStatus('Stop take: '+e.message+'. You can retry safely.',true);}
+  finally{if(version===epoch){takeBusy=false;takeButtons();}}
  }
  async function scanDevices(){
   if(!navigator.mediaDevices?.enumerateDevices)return;
@@ -104,7 +150,9 @@
  $('director-studio-refresh').addEventListener('click',()=>void refreshSessions());
  $('director-studio-add-camera').addEventListener('click',()=>void addCamera());
  $('director-studio-stop-cameras').addEventListener('click',stopCameras);
+ $('director-studio-take-start').addEventListener('click',()=>void startTake());
+ $('director-studio-take-stop').addEventListener('click',()=>void stopTake());
  window.addEventListener('pagehide',()=>{closeSession();stopCameras();});
- void refreshSessions();void scanDevices();
- window.LuckyDirectorStudio={state:()=>({recordingSession:active,cameras:connected.size}),open:id=>{selector.value=id;return openSession();}};
+ takeButtons();void refreshSessions();void scanDevices();
+ window.LuckyDirectorStudio={state:()=>({recordingSession:active,cameras:connected.size,activeTake:take?.id||null}),open:id=>{selector.value=id;return openSession();}};
 })();
