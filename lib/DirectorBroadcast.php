@@ -21,18 +21,20 @@ final class DirectorBroadcast {
   $q->execute([$session,$claim,$host]);
   if(!$q->fetchColumn())throw new DomainException('Open the current proof and accept recording consent before publishing.',403);
  }
- public static function start(PDO $db,string $session,string $claim,int $host):array {
+ public static function start(PDO $db,string $session,string $claim,int $host,string $visibility='private',bool $publicAck=false):array {
+  if(!in_array($visibility,['private','public'],true))throw new DomainException('Invalid broadcast visibility.',422);
+  if($visibility==='public'&&!$publicAck)throw new DomainException('Confirm that anyone may watch this public broadcast.',403);
   self::proof($db,$session,$claim,$host);
   $id=bin2hex(random_bytes(16));$key=token();
   // A new publish replaces any previously issued token for this proof session.
   $db->beginTransaction();
   try{
    $db->prepare('DELETE FROM director_broadcasts WHERE session_id=?')->execute([$session]);
-   $db->prepare('INSERT INTO director_broadcasts(id,session_id,claim_id,host_admin_id,token_hash,updated_at) VALUES (?,?,?,?,?,UTC_TIMESTAMP())')
-    ->execute([$id,$session,$claim,$host,hash('sha256',$key)]);
+   $db->prepare('INSERT INTO director_broadcasts(id,session_id,claim_id,host_admin_id,token_hash,visibility,updated_at) VALUES (?,?,?,?,?,?,UTC_TIMESTAMP())')
+    ->execute([$id,$session,$claim,$host,hash('sha256',$key),$visibility]);
    $db->commit();
   }catch(Throwable $e){$db->rollBack();throw $e;}
-  return ['id'=>$id,'key'=>$key];
+  return ['id'=>$id,'key'=>$visibility==='private'?$key:'','visibility'=>$visibility];
  }
  private static function host(PDO $db,string $broadcast,int $host):array {
   self::id($broadcast);
@@ -43,22 +45,36 @@ final class DirectorBroadcast {
   return $row;
  }
  private static function viewer(PDO $db,string $id,string $key):array {
-  self::id($id);self::key($key);
+  self::id($id);
   $q=$db->prepare('SELECT b.*,p.is_open,p.consent_ack,p.host_admin_id AS current_host,p.claim_id AS current_claim,p.updated_at AS proof_updated
     FROM director_broadcasts b JOIN controller_proof_state p ON p.session_id=b.session_id
     WHERE b.id=? AND b.updated_at>UTC_TIMESTAMP()-INTERVAL 14 SECOND');
   $q->execute([$id]);$row=$q->fetch(PDO::FETCH_ASSOC);
-  if(!$row||!hash_equals((string)$row['token_hash'],hash('sha256',$key))||
-   (int)$row['is_open']!==1||(int)$row['consent_ack']!==1||
+  if(!$row||(int)$row['is_open']!==1||(int)$row['consent_ack']!==1||
    (int)$row['current_host']!==(int)$row['host_admin_id']||
    (string)$row['current_claim']!==(string)$row['claim_id']||
    strtotime((string)$row['proof_updated'].' UTC')<time()-12)
-   throw new DomainException('The private Program feed is not live or your viewing invitation is no longer valid.',403);
+   throw new DomainException('The Program feed is not live or you do not have permission to view it.',403);
+  if((string)$row['visibility']!=='public'){
+   self::key($key);
+   if(!hash_equals((string)$row['token_hash'],hash('sha256',$key)))
+    throw new DomainException('This private Live View invitation is invalid.',403);
+  }
   return $row;
  }
  public static function watch(PDO $db,string $id,string $key):array {
-  self::viewer($db,$id,$key);
-  return ['live'=>true,'maxViewers'=>self::MAX_VIEWERS];
+  $broadcast=self::viewer($db,$id,$key);
+  return ['live'=>true,'visibility'=>$broadcast['visibility'],'maxViewers'=>self::MAX_VIEWERS];
+ }
+ /** Public directory never exposes a private id, invitation token, session or claim. */
+ public static function publicList(PDO $db):array {
+  $q=$db->query("SELECT b.id FROM director_broadcasts b
+   JOIN controller_proof_state p ON p.session_id=b.session_id
+   WHERE b.visibility='public' AND b.updated_at>UTC_TIMESTAMP()-INTERVAL 14 SECOND
+    AND p.is_open=1 AND p.consent_ack=1 AND p.host_admin_id=b.host_admin_id
+    AND p.claim_id=b.claim_id AND p.updated_at>UTC_TIMESTAMP()-INTERVAL 12 SECOND
+   ORDER BY b.created_at DESC LIMIT 24");
+  return array_map(static fn($row)=>['id'=>(string)$row['id']],$q->fetchAll(PDO::FETCH_ASSOC));
  }
  public static function offer(PDO $db,string $id,string $key,string $viewer,string $sdp):void {
   self::viewer($db,$id,$key);self::id($viewer);PhoneLiveSignaling::sdp($sdp,'offer');
