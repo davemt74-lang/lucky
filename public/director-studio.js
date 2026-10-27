@@ -198,7 +198,10 @@
    const remove=document.createElement('button');remove.className='btn btn-outline';remove.type='button';remove.textContent='Remove';remove.addEventListener('click',()=>removeCamera(key));
    card.append(label,state,video,rename,remove);grid.append(card);connected.set(key,{stream,card,id,label:label.textContent,indicator:state,enumeratedId:requested||''});
    track?.addEventListener('ended',()=>removeCamera(key,false),{once:true});
-   saveRemembered();await video.play().catch(()=>{});await scanDevices();cameraIndicators();window.dispatchEvent(new Event('lucky:cameras-refreshed'));reconnectHint();
+   // Some device/driver combinations leave play() pending indefinitely even
+   // after getUserMedia succeeds. Preview playback must not hold the reconnect
+   // workflow's busy lock or block capture/session controls.
+   saveRemembered();void video.play().catch(()=>{});await scanDevices();cameraIndicators();window.dispatchEvent(new Event('lucky:cameras-refreshed'));reconnectHint();
    cameraStatus(connected.size+' desktop camera'+(connected.size===1?'':'s')+' connected. Phone uploads sync through the selected recording session.');
   }catch(e){cameraStatus('Camera not added: '+e.message,true);}
   finally{busy=false;$('director-studio-add-camera').disabled=false;}
