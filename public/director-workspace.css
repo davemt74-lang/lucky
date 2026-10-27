@@ -1,7 +1,7 @@
 /* HF8C6 Camera Director: immersive video-first production console. */
 body.director-studio-page{background:#080f1d}
 body.director-studio-page>.shell,body.director-studio-page .shell{max-width:none;padding:0 18px}
-body.director-studio-page .header{height:60px;gap:18px}
+body.director-studio-page .shell>.header{display:none}
 body.director-studio-page .footer{padding:9px 4px;font-size:9px}
 body.director-studio-page .director-studio-shell{max-width:none;padding:10px 0 2px;display:block}
 .director-workspace{--dw-border:#28405a;--dw-surface:#0c1b2c;--dw-text:#ebf3ff;border:1px solid #26354b;border-radius:12px;background:linear-gradient(145deg,#07111f,#0b1b2b);color:var(--dw-text);min-width:0;box-shadow:0 16px 60px #0005}
