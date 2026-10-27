@@ -103,6 +103,7 @@ async def run_director(browser, checks):
         "takeWrites[0].id==='a'.repeat(32)&&takeWrites[0].title==='Concert angle 1'&&/^[a-f0-9]{32}$/.test(takeWrites[0].nonce)"), checks)
     await page.wait_for_function("!document.getElementById('director-studio-record-clock').hidden")
     await page.wait_for_timeout(1100)
+    print('CLOCK_DEBUG', await page.evaluate("(()=>{const c=document.getElementById('director-studio-record-clock');return {hidden:c.hidden,text:c.textContent};})()"), flush=True)
     await check('Active grouped take displays advancing recording clock', await page.evaluate(
         "(()=>{const c=document.getElementById('director-studio-record-clock');return !c.hidden&&c.textContent.startsWith('● REC ')&&!c.textContent.includes('NaN')&&c.textContent!=='● REC 00:00:00';})()"), checks)
     await page.locator('#director-studio-take-stop').click()
