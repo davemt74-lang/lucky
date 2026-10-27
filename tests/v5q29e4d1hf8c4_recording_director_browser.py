@@ -14,7 +14,7 @@ async def main():
     scripts = [(ROOT / 'public' / name).read_text().replace('</script', '<\\/script')
                for name in ('camera-director.js', 'director-scenes.js', 'director-publish.js', 'director-studio.js')]
     prelude = r"""
-    window.permissionCalls=0;window.sceneWrites=[];window.broadcastWrites=[];window.sceneData=[];
+    window.permissionCalls=0;window.sceneWrites=[];window.broadcastWrites=[];window.sceneData=[];window.cameraPresent=true;window.mockTake=null;
     const a='a'.repeat(32),b='b'.repeat(32),clip='d'.repeat(32);
     const rows=[{id:a,title:'Birthday live event',type:'live_event',status:'active'},
                 {id:b,title:'Production shoot',type:'production',status:'draft'}];
@@ -27,7 +27,9 @@ async def main():
       if(url.pathname.endsWith('/recording-sessions.php')){
         if(action==='list')result={ok:true,sessions:rows};
         else if(action==='detail')result={ok:true,session:rows.find(x=>x.id===url.searchParams.get('id')),
-          takes:[],sources:[],assets:[]};
+          takes:window.mockTake?[window.mockTake]:[],sources:[],assets:[]};
+        else if(action==='take_start'){window.mockTake={id:'9'.repeat(32),status:'recording',take_index:1,started_at:'2026-10-27 18:00:00'};result={ok:true,take:window.mockTake,serverTimeMs:Date.now()};}
+        else if(action==='take_stop'){window.mockTake=null;result={ok:true};}
         else if(action==='media_list')result={ok:true,media:url.searchParams.get('id')===a?
           [{id:clip,title:'Uploaded phone shot',kind:'video',mime:'video/webm',duration_ms:9000}]:[]};
       }else if(url.pathname.endsWith('/director-scenes.php')){
@@ -40,7 +42,8 @@ async def main():
       return {ok:true,status:200,json:async()=>result};
     };
     Object.defineProperty(navigator,'mediaDevices',{configurable:true,value:{
-      enumerateDevices:async()=>[{kind:'videoinput',deviceId:'mock-camera',label:'Test Webcam'}],
+      enumerateDevices:async()=>window.cameraPresent?[{kind:'videoinput',deviceId:'mock-camera',label:'Test Webcam'}]:[],
+      addEventListener:(name,fn)=>{if(name==='devicechange')window.devicechangeHandler=fn;},
       getUserMedia:async constraints=>{window.permissionCalls++;window.requestedConstraints=constraints;
         const canvas=document.createElement('canvas');canvas.width=64;canvas.height=36;return canvas.captureStream(15);}
     }});
@@ -68,6 +71,16 @@ async def main():
         await page.locator('#director-studio-add-camera').click()
         await page.wait_for_function('LuckyDirectorStudio.state().cameras===1')
         check('Local camera video is permission-gated and mic stays off', await page.evaluate('permissionCalls===1 && requestedConstraints.audio===false'))
+        check('Connected camera displays LIVE state', await page.locator('.camera-source[data-status="connected"] .director-camera-state').inner_text() == '● LIVE')
+        await page.locator('.director-camera-name').fill('Stage left')
+        await page.locator('.director-camera-name').press('Tab')
+        check('Camera can be named without reacquiring permission', await page.evaluate("LuckyDirectorStudio.cameras()[0].label==='Stage left' && permissionCalls===1"))
+        await page.locator('#director-studio-take-start').click()
+        await page.wait_for_function("document.querySelector('.camera-source').dataset.status==='recording'")
+        check('Group take activates red REC indicator', await page.locator('.camera-source .director-camera-state').inner_text() == '● REC')
+        await page.locator('#director-studio-take-stop').click()
+        await page.wait_for_function("document.querySelector('.camera-source').dataset.status==='connected'")
+        check('Stopping take restores LIVE state', await page.locator('.camera-source .director-camera-state').inner_text() == '● LIVE')
         await page.locator('#director-studio-open').click()
         check('Reopening the same session keeps live cameras connected', await page.evaluate("LuckyDirectorStudio.state().cameras===1 && permissionCalls===1"))
         await page.locator('#director-studio-refresh').click()
@@ -90,6 +103,12 @@ async def main():
         await page.wait_for_function("LuckyDirectorStudio.state().recordingSession==='b'.repeat(32)")
         check('Switching sessions ends prior broadcast and Program', await page.evaluate("!LuckyDirectorPublisher.state().onAir && !LuckyCameraDirector.state().program"))
         check('Switching recording sessions releases local camera permission', await page.evaluate('LuckyDirectorStudio.state().cameras===0'))
+        await page.locator('#director-studio-camera').select_option('mock-camera')
+        await page.locator('#director-studio-add-camera').click()
+        await page.wait_for_function('LuckyDirectorStudio.state().cameras===1')
+        await page.evaluate('cameraPresent=false;devicechangeHandler()')
+        await page.wait_for_function('LuckyDirectorStudio.state().cameras===0')
+        check('Unplugged enumerated camera is released without another permission prompt', await page.evaluate('permissionCalls===2 && LuckyDirectorStudio.state().cameras===0'))
         await page.evaluate("rows[1].status='completed'")
         await page.locator('#director-studio-refresh').click()
         check('Completed sessions immediately close capture controls', await page.evaluate("LuckyDirectorStudio.state().recordingSession===''"))
