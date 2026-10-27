@@ -93,6 +93,9 @@ jobs:
           php tests/v5q29e4d1hf8c4_recording_director_contract.php
           php tests/v5q29e4d1hf8c5_recording_live_contract.php
           php tests/v5q29e4d1hf8c6_workspace_contract.php
+          php tests/v5q29e4d1hf8c7_director_sync_contract.php
+          php -l lib/RecordingHostMedia.php
+          php -l api/recording-host.php
           php -l api/recording-export.php
           php -l bin/recording-export-worker.php
           php -l lib/RecordingExports.php
@@ -141,6 +144,7 @@ jobs:
           php tests/v5q29e4d1hf8c2_scenes_db.php
           php tests/v5q29e4d1hf8c4_recording_director_db.php
           php tests/v5q29e4d1hf8c5_recording_live_db.php
+          php tests/v5q29e4d1hf8c7_director_sync_db.php
           php tests/v5q29e1_recording_sessions_db.php
           php tests/v5q29e2_phone_camera_db.php
           php tests/v5q29e3_multicamera_db.php
@@ -244,6 +248,7 @@ jobs:
           python tests/v5q29e4d1hf8c4_recording_director_browser.py
           python tests/v5q29e4d1hf8c5_recording_live_browser.py
           python tests/v5q29e4d1hf8c6_workspace_browser.py
+          python tests/v5q29e4d1hf8c7_director_sync_browser.py
           python tests/v5q29e4d1hf5_proof_camera_browser.py
           python tests/v5q29d_multicamera_browser.py
           python tests/v5q29a_timeline_browser.py

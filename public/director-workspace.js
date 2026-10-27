@@ -191,7 +191,7 @@
     rows.get(label).push(item);
    }
    timelineRoot.replaceChildren();
-   if (!media.length) {emptyTimeline('No uploaded media yet. Start a grouped take, then wait for phones to upload their originals.');timelineSummary.textContent=`${(detail.takes||[]).length} take(s) · 0 uploaded clips`;return;}
+   if (!media.length) {emptyTimeline('No uploaded media yet. Start a grouped take; desktop, Program and approved phone originals upload to these tracks.');timelineSummary.textContent=`${(detail.takes||[]).length} take(s) · 0 uploaded clips`;return;}
    const extent=Math.max(10000,...media.map(a=>Math.max(0,Number(a.start_offset_ms)||0)+Math.max(1000,Number(a.duration_ms)||5000)));
    const ruler=el('div','director-workspace-ruler');
    ruler.append(el('span','','00:00'));
