@@ -11,6 +11,13 @@
  const cameraStatus=(message,error=false)=>{const node=$('director-studio-device-status');node.textContent=message;node.classList.toggle('is-error',error);};
  const random=()=>crypto.randomUUID?.().replaceAll('-','')||
   Array.from(crypto.getRandomValues(new Uint8Array(16)),b=>b.toString(16).padStart(2,'0')).join('');
+ function cameraIndicators(){
+  for(const source of connected.values()){
+   const healthy=source.stream.getVideoTracks().some(track=>track.readyState==='live');
+   source.card.dataset.status=healthy?(take?'recording':'connected'):'offline';
+   source.indicator.textContent=healthy?(take?'● REC':'● LIVE'):'○ OFFLINE';
+  }
+ }
  function takeButtons(){
   $('director-studio-take-start').disabled=!active||!!take||takeBusy;
   $('director-studio-take-stop').disabled=!active||!take||takeBusy;
@@ -76,6 +83,7 @@
    if(take){takeStartedAt=parseStartedAt(take.started_at||take.startedAt)||takeStartedAt||Date.now();}
    else takeStartedAt=0;
    renderTakeClock();
+   cameraIndicators();
    if(take){startNonce='';startTitle='';}
     if(take?.id!==reportedTake){
      if(reportedTake)window.dispatchEvent(new CustomEvent('lucky:director-take-stop',{detail:{recordingSession:active,takeId:reportedTake}}));
@@ -119,6 +127,7 @@
     const after=Date.now();
    if(version!==epoch||active!==id)return;
    startNonce='';startTitle='';take=result.take;reportedTake=take.id;takeStartedAt=Date.now();renderTakeClock();
+   cameraIndicators();
     window.dispatchEvent(new CustomEvent('lucky:director-take-start',{detail:{recordingSession:id,takeId:take.id,clockOffsetMs:Number(result.serverTimeMs||after)-Math.round((before+after)/2)}}));
     takeStatus('● TAKE STARTED · Desktop cameras and Program are now recording; phones observe host commands through polling.');
    await syncSession(version);
@@ -132,7 +141,7 @@
    await request('take_stop',{id,takeId},'POST');
    if(version!==epoch||active!==id)return;
    window.dispatchEvent(new CustomEvent('lucky:director-take-stop',{detail:{recordingSession:id,takeId}}));
-    reportedTake='';take=null;takeStartedAt=0;renderTakeClock();takeStatus('■ TAKE STOPPED · Desktop and Program originals are queuing for upload; armed phones will finish theirs.');
+    reportedTake='';take=null;takeStartedAt=0;renderTakeClock();cameraIndicators();takeStatus('■ TAKE STOPPED · Desktop and Program originals are queuing for upload; armed phones will finish theirs.');
    await syncSession(version);
   }catch(e){if(version===epoch)takeStatus('Stop take: '+e.message+'. You can retry safely.',true);}
   finally{if(version===epoch){takeBusy=false;takeButtons();}}
@@ -144,6 +153,14 @@
    const before=devices.value;devices.replaceChildren(new Option(list.length?'Default camera':'No camera found',''));
    list.forEach((d,i)=>devices.add(new Option(d.label||'Camera '+(i+1),d.deviceId)));
    if(list.some(d=>d.deviceId===before))devices.value=before;
+   // Device unplug events do not consistently end tracks in every browser.
+   // Remove only cameras linked to a known enumerated device, never anonymous
+   // browser-generated track IDs.
+   const known=new Set(list.map(d=>d.deviceId));
+   for(const [key,source] of connected){
+    if(source.enumeratedId&&!known.has(source.enumeratedId))removeCamera(key);
+   }
+   cameraIndicators();
   }catch(_){/* Camera names require browser permission. */}
  }
  async function addCamera(){
@@ -164,11 +181,14 @@
    const id='cam_'+(key.replace(/[^A-Za-z0-9_-]/g,'').slice(0,58)||track.id.slice(0,58));
    const card=document.createElement('section');card.className='camera-source';card.dataset.cameraId=id;
    const label=document.createElement('strong');label.textContent=track?.label||'Desktop camera '+(connected.size+1);
+   const state=document.createElement('span');state.className='director-camera-state';state.setAttribute('role','status');state.textContent='● LIVE';
+   const rename=document.createElement('input');rename.type='text';rename.className='director-camera-name';rename.maxLength=60;rename.setAttribute('aria-label','Camera name');rename.value=label.textContent;
+   rename.addEventListener('change',()=>{const name=rename.value.trim().slice(0,60);if(!name){rename.value=label.textContent;return;}label.textContent=name;const source=connected.get(key);if(source)source.label=name;window.dispatchEvent(new Event('lucky:cameras-refreshed'));});
    const video=document.createElement('video');video.autoplay=true;video.playsInline=true;video.muted=true;video.srcObject=stream;
    const remove=document.createElement('button');remove.className='btn btn-outline';remove.type='button';remove.textContent='Remove';remove.addEventListener('click',()=>removeCamera(key));
-   card.append(label,video,remove);grid.append(card);connected.set(key,{stream,card,id,label:label.textContent});
+   card.append(label,state,video,rename,remove);grid.append(card);connected.set(key,{stream,card,id,label:label.textContent,indicator:state,enumeratedId:requested||''});
    track?.addEventListener('ended',()=>removeCamera(key),{once:true});
-   await video.play().catch(()=>{});await scanDevices();window.dispatchEvent(new Event('lucky:cameras-refreshed'));
+   await video.play().catch(()=>{});await scanDevices();cameraIndicators();window.dispatchEvent(new Event('lucky:cameras-refreshed'));
    cameraStatus(connected.size+' desktop camera'+(connected.size===1?'':'s')+' connected. Phone uploads sync through the selected recording session.');
   }catch(e){cameraStatus('Camera not added: '+e.message,true);}
   finally{busy=false;$('director-studio-add-camera').disabled=false;}
@@ -184,6 +204,7 @@
  $('director-studio-refresh').addEventListener('click',()=>void refreshSessions());
  $('director-studio-add-camera').addEventListener('click',()=>void addCamera());
  $('director-studio-stop-cameras').addEventListener('click',stopCameras);
+ navigator.mediaDevices?.addEventListener?.('devicechange',()=>void scanDevices());
  $('director-studio-take-start').addEventListener('click',()=>void startTake());
  $('director-studio-take-stop').addEventListener('click',()=>void stopTake());
  window.addEventListener('pagehide',()=>{closeSession();stopCameras();});
