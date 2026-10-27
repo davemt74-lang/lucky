@@ -6,9 +6,11 @@
  const idOk=id=>/^[a-f0-9]{32}$/.test(id||'');
  const grid=$('camera-grid'),selector=$('director-studio-session'),devices=$('director-studio-camera');
  const connected=new Map();let sessions=[],active='',epoch=0,refreshTimer=null,busy=false,opening=false;
+ const rememberedMemory=new Map();
  const rememberedKey=id=>'lucky-director-cameras:'+id;
- const remembered=()=>{try{return JSON.parse(sessionStorage.getItem(rememberedKey(active))||'[]').filter(x=>x&&typeof x.deviceId==='string'&&typeof x.name==='string').slice(0,4);}catch(_){return [];}};
- function saveRemembered(){if(!active)return;try{sessionStorage.setItem(rememberedKey(active),JSON.stringify([...connected.values()].filter(s=>s.enumeratedId).map(s=>({deviceId:s.enumeratedId,name:s.label}))));}catch(_){/* Private browsing may deny session storage. */}}
+ const remembered=()=>{let rows=rememberedMemory.get(active)||[];try{rows=JSON.parse(sessionStorage.getItem(rememberedKey(active))||JSON.stringify(rows));}catch(_){/* Opaque origins and private windows can block storage. */}return Array.isArray(rows)?rows.filter(x=>x&&typeof x.deviceId==='string'&&typeof x.name==='string').slice(0,4):[];};
+ function keepRemembered(rows){if(!active)return;rememberedMemory.set(active,rows);try{sessionStorage.setItem(rememberedKey(active),JSON.stringify(rows));}catch(_){/* Still recoverable in this tab. */}}
+ function saveRemembered(){if(!active)return;keepRemembered([...connected.values()].filter(s=>s.enumeratedId).map(s=>({deviceId:s.enumeratedId,name:s.label})));}
  const reconnect=document.createElement('button');reconnect.type='button';reconnect.className='btn btn-outline';reconnect.id='director-studio-reconnect';reconnect.hidden=true;reconnect.textContent='Reconnect previous cameras';
  $('director-studio-add-camera').after(reconnect);
  function reconnectHint(){reconnect.hidden=!active||!remembered().some(item=>![...connected.values()].some(s=>s.enumeratedId===item.deviceId));}
@@ -208,7 +210,7 @@
   // can finalize the outgoing take before the browser tears down the stream.
   window.dispatchEvent(new Event('lucky:cameras-refreshed'));
   source.stream.getTracks().forEach(track=>track.stop());source.card.remove();
-  if(forget){try{sessionStorage.setItem(rememberedKey(active),JSON.stringify(remembered().filter(item=>item.deviceId!==source.enumeratedId)));}catch(_){/* Storage is optional. */}}
+  if(forget)keepRemembered(remembered().filter(item=>item.deviceId!==source.enumeratedId));
   reconnectHint();
   cameraStatus(connected.size+' desktop camera'+(connected.size===1?'':'s')+' connected.');
  }
