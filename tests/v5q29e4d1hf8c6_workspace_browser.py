@@ -33,7 +33,7 @@ async def main():
     """
     html = ('<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">'
             '<style>' + css + '</style></head><body class="director-studio-page">'
-            '<div class="shell"><main>' + markup.group(0) + '</main></div>'
+            '<div class="shell"><header class="header"><a class="brand">Lucky Games</a></header><main>' + markup.group(0) + '</main></div>'
             '<script>' + mock + '</script><script>' + script + '</script></body></html>')
     checks = []
 
@@ -52,6 +52,9 @@ async def main():
         await test('Redesign retains original Program canvas and Preview canvas',
                    await page.locator('#director-workspace-monitors #director-preview').count() == 1 and
                    await page.locator('#director-workspace-monitors #director-program').count() == 1)
+        await test('Standalone Camera Director removes the site-wide Lucky Games masthead',
+                   await page.locator('.shell > .header').count() == 0 and
+                   await page.locator('.director-workspace-brand h1').inner_text() == 'Camera Director')
         await test('Live compositor root remains connected to the document',
                    await page.evaluate("document.querySelector('#camera-director').isConnected"))
         box = await page.locator('#director-workspace-monitors').bounding_box()
