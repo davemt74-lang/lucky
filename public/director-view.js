@@ -1,4 +1,4 @@
-/* HF8B: authorized viewer receives only the mixed Program WebRTC video track. */
+/* HF8C0: private bearer invite or public directory; view only the mixed Program track. */
 (() => {
  'use strict';
  const id=document.body.dataset.broadcastId||'',key=document.body.dataset.broadcastKey||'';
@@ -26,7 +26,7 @@
   });
  }
  async function connect(){
-  if(!/^[a-f0-9]{32}$/.test(id)||!/^[a-f0-9]{48}$/.test(key))throw Error('Open a current private Live View invitation from Camera Director.');
+  if(!/^[a-f0-9]{32}$/.test(id)||(key!==''&&!/^[a-f0-9]{48}$/.test(key)))throw Error('Open a valid Live View link from Camera Director.');
   if(!window.RTCPeerConnection)throw Error('Live View needs a WebRTC-capable browser.');
   await request('watch',{id,key});
   const viewer=Array.from(crypto.getRandomValues(new Uint8Array(16)),x=>x.toString(16).padStart(2,'0')).join('');
@@ -34,7 +34,7 @@
   peer.addTransceiver('video',{direction:'recvonly'});
   peer.ontrack=e=>{view.srcObject=e.streams[0]||new MediaStream([e.track]);void view.play().catch(()=>{});state('● LIVE · Camera Director Program');};
   peer.onconnectionstatechange=()=>{
-   if(peer.connectionState==='failed'||peer.connectionState==='disconnected')state('Feed interrupted. Reopen the private Live View link to reconnect.',true);
+   if(peer.connectionState==='failed'||peer.connectionState==='disconnected')state('Feed interrupted. Reload the Live View link to reconnect.',true);
    if(peer.connectionState==='connected')state('● LIVE · Camera Director Program');
   };
   await peer.setLocalDescription(await peer.createOffer());
@@ -51,6 +51,31 @@
   while(alive){await new Promise(resolve=>setTimeout(resolve,3500));if(!alive)return;await request('watch',{id,key});}
  }
  function stop(){alive=false;try{peer?.close();}catch(_){}view.srcObject=null;}
+ async function listPublic(){
+  const root=document.getElementById('director-public-list');
+  if(!root)return;
+  const result=await request('public_list');
+  root.replaceChildren();
+  const items=Array.isArray(result.broadcasts)?result.broadcasts:[];
+  for(const [index,item] of items.entries()){
+   if(!/^[a-f0-9]{32}$/.test(item.id||''))continue;
+   const link=document.createElement('a');
+   const url=new URL('live-view.php',document.baseURI);url.searchParams.set('id',item.id);
+   link.href=url.href;link.className='director-public-item';
+   const label=document.createElement('strong');label.textContent='● LIVE · Broadcast '+(index+1);
+   const hint=document.createElement('span');hint.textContent='Watch host-selected Program →';
+   link.append(label,hint);root.appendChild(link);
+  }
+  state(root.children.length?'Live public broadcasts · Only the host selects the Program.':'No public broadcasts are live right now.');
+ }
  window.addEventListener('pagehide',stop);
- void connect().catch(e=>{stop();state('Live View unavailable: '+e.message,true);});
+ if(!id){
+  const refresh=()=>void listPublic().catch(e=>state('Unable to load public broadcasts: '+e.message,true));
+  document.getElementById('director-public-refresh')?.addEventListener('click',refresh);
+  refresh();
+  const refreshTimer=setInterval(refresh,12000);
+  window.addEventListener('pagehide',()=>clearInterval(refreshTimer));
+ }else{
+  void connect().catch(e=>{stop();state('Live View unavailable: '+e.message,true);});
+ }
 })();
