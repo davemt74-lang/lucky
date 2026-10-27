@@ -86,13 +86,16 @@
    'Desktop camera video is silent. Enable the host microphone to add audio.':'This source has no audio track; Program video remains live.');
   else audioInfo('● Program audio: '+(selectedKey==='host-mic'?'Host microphone':source(state.program)?.label||'Selected source')+' · '+state.audioVolume+'%');
  }
- function programStream(){
+ function programStream(includeSilentAudio=true){
   if(!state.active||!state.program||!source(state.program))return null;
   if(openAudioMixer())routeAudio();
   const result=program.captureStream(25);
   // Clone the mixed track: stopping a broadcast/export must not stop the mixer.
   const track=audioOutput?.stream.getAudioTracks()[0];
-  if(track?.readyState==='live')result.addTrack(track.clone());
+  // Broadcasts need a stable audio track so sound can be enabled mid-show.
+  // An export with no selected sound should be video-only: Chromium can
+  // otherwise produce an empty recording from a synthetic silent track.
+  if(track?.readyState==='live'&&(includeSilentAudio||!!sourceAudio(state.program)))result.addTrack(track.clone());
   return result;
  }
  function stopHostMicrophone(){
@@ -275,9 +278,12 @@
   if(state.program)graphics(programCtx,state.programGraphics);
   frame=requestAnimationFrame(paint);
  }
- const supported=()=>{
+ const supported=(withAudio=true)=>{
   if(!program.captureStream||!window.MediaRecorder)throw Error('Program export requires a browser with canvas recording support.');
-  return ['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm','video/mp4']
+  const formats=withAudio?
+   ['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm','video/mp4']:
+   ['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm','video/mp4'];
+  return formats
    .find(type=>MediaRecorder.isTypeSupported(type))||'';
  };
  function stopExport(){
@@ -287,8 +293,9 @@
  function startExport(){
   if(state.recording||!state.program||!state.active)return false;
   try{
-   const mime=supported();parts=[];bytes=0;exportStream=programStream();
+   parts=[];bytes=0;exportStream=programStream(false);
    if(!exportStream)throw Error('Take a camera to Program before recording.');
+   const mime=supported(exportStream.getAudioTracks().length>0);
    recorder=new MediaRecorder(exportStream,mime?{mimeType:mime}:undefined);
    const recorded=recorder;exportStarted=Date.now();
    recorded.ondataavailable=e=>{if(e.data?.size){parts.push(e.data);bytes+=e.data.size;if(bytes>=MAX_BYTES)stopExport();}};
