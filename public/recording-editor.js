@@ -94,9 +94,12 @@
   const ruler=$('mc-ruler');ruler.replaceChildren();ruler.style.width=(width-134)+'px';ruler.style.marginLeft='134px';
   for(let i=0;i<=10;i++){const tick=el('span',clock(duration*i/10));tick.style.left=(i*10)+'%';ruler.append(tick);}
   const lanes=$('mc-lanes');lanes.replaceChildren();lanes.style.width=width+'px';
-  const groups=new Map();for(const a of assets){const key=a.source_id||a.id;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(a);}
+  // A source can record several takes. Keep each take/source pair on its own
+  // track while retaining the absolute session-clock offsets for alignment.
+  const groups=new Map();for(const a of assets){const key=(a.take_id||'unassigned')+':'+(a.source_id||a.id);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(a);}
   for(const group of groups.values()){
-   const row=el('div','','mc-lane');const label=el('strong',group[0].source_name||group[0].title,'mc-lane-name');row.append(label);
+   const first=group[0],take=first.take_index?`Take ${first.take_index} · `:'Unassigned · ';
+   const row=el('div','','mc-lane');const label=el('strong',take+(first.source_name||first.title),'mc-lane-name');row.append(label);
    const track=el('div','','mc-lane-track');const playhead=el('span','','mc-lane-playhead');playhead.style.left=clamp(timeMs/duration*100,0,100)+'%';track.append(playhead);
    for(const a of group){const b=el('button',a.title,'mc-clip');b.type='button';b.dataset.assetId=a.id;b.dataset.kind=a.kind;b.title=`${a.title} · ${seconds(offset(a))}s · ${seconds(length(a))}s`;
     b.style.left=clamp(offset(a)/duration*100,0,100)+'%';b.style.width=clamp(length(a)/duration*100,.22,100)+'%';b.setAttribute('aria-selected',String(a.id===selected));

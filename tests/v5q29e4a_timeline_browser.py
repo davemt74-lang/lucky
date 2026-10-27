@@ -67,6 +67,11 @@ with sync_playwright() as playwright:
     state['conflict']=True;page.locator('[data-nudge="100"]').click();page.locator('#mc-save').click()
     expect(page.locator('#mc-status')).to_contain_text('Another editor changed')
     assert state['saves']==1,'Conflict must not overwrite edit'
+    media.append({'id':'9'*32,'take_id':'8'*32,'source_id':src1,'source_name':'Stage left','take_title':'Act 2','take_index':2,'kind':'video','title':'Camera left second take','duration_ms':4500,'initial_global_offset_ms':10000,'sync_confidence':1})
+    page.reload()
+    expect(page.locator('.mc-lane')).to_have_count(3)
+    labels=page.locator('.mc-lane-name').all_inner_texts()
+    assert 'Take 1 · Stage left' in labels and 'Take 2 · Stage left' in labels,labels
     browser.close()
 
 print('V5Q.29E4A MULTICAMERA TIMELINE BROWSER CERTIFIED')

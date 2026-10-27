@@ -192,9 +192,12 @@
    const media=(result.media||[]).filter(a=>['video','audio','photo'].includes(a.kind));
    const rows=new Map();
    for (const item of media) {
-    const label=item.source_id?(sources.get(item.source_id)||'Unregistered camera'):(item.kind==='audio'?'Program Audio':'Unassigned source');
-    if (!rows.has(label)) rows.set(label,[]);
-    rows.get(label).push(item);
+    const source=item.source_id?(sources.get(item.source_id)||'Unregistered camera'):(item.kind==='audio'?'Program Audio':'Unassigned source');
+    const take=takes.get(item.take_id);
+    const label=take?`Take ${take.take_index} · ${source}`:`Unassigned · ${source}`;
+    const key=(item.take_id||'unassigned')+':'+(item.source_id||item.kind);
+    if (!rows.has(key)) rows.set(key,{label,items:[]});
+    rows.get(key).items.push(item);
    }
    timelineRoot.replaceChildren();
    if (!media.length) {emptyTimeline('No uploaded media yet. Start a grouped take; desktop, Program and approved phone originals upload to these tracks.');timelineSummary.textContent=`${(detail.takes||[]).length} take(s) · 0 uploaded clips`;return;}
@@ -203,7 +206,7 @@
    ruler.append(el('span','','00:00'));
    for (let tick=1;tick<=4;tick++) ruler.append(el('span','',duration(extent*tick/4)));
    timelineRoot.append(ruler);
-   for (const [name,items] of rows) {
+   for (const {label:name,items} of rows.values()) {
     const row=el('div','director-workspace-lane');row.setAttribute('role','listitem');
     const label=el('div','director-workspace-lane-label',name);const track=el('div','director-workspace-lane-track');
     const kind=items[0]?.kind;
