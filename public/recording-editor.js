@@ -1,7 +1,7 @@
 /* V5Q.29E4D1: full-screen multicamera workspace with non-destructive edits. */
 (() => {
  'use strict';
- const $=id=>document.getElementById(id), params=new URLSearchParams(location.search),sessionId=params.get('session')||'';
+ const $=id=>document.getElementById(id), params=new URLSearchParams(location.search),sessionId=params.get('session')||'',requestedAsset=params.get('asset')||'';
  let assets=[],revision=0,timeline={offsets:[],switches:[]},session=null,selected='',previewOverride='',timeMs=0,playing=false,lastFrame=0,mediaId='',busy=false,dirty=false,initialized=false;
  let exportBusy=false,exportActive=false,exportTimer=null,exportClosed=false,mediaFilter='all';
  const MAX_MS=86400000, clamp=(n,a,b)=>Math.max(a,Math.min(b,n)),seconds=ms=>(ms/1000).toFixed(2);
@@ -195,7 +195,10 @@
    $('mc-session-name').textContent=session.title;$('mc-session-meta').textContent=`${session.type.replaceAll('_',' ')} · ${assets.length} sources · ${session.status}`;
    $('mc-play').disabled=!assets.length;$('mc-edl').disabled=!assets.length;$('mc-scrubber').disabled=!assets.length;
    $('mc-save').disabled=true;$('mc-export-start').disabled=!assets.length;exportAudioOptions();renderTimeline();renderMedia();
-   notice(assets.length?'Ready. Select a clip, nudge alignment and cut between camera angles.':'No direct phone media found in this recording.');
+   const directorLink=$('mc-director-link');if(directorLink){directorLink.href='director.php?'+new URLSearchParams({recording:sessionId});directorLink.hidden=!['draft','active'].includes(session.status);}
+   const requested=asset(requestedAsset);
+   if(requested){selected=requested.id;previewOverride=requested.id;scrub(Math.max(0,offset(requested)));renderMedia();openInspector();notice('Opened '+requested.title+' from Camera Director. Align this original or cut to it.');}
+   else notice(assets.length?'Ready. Select a clip, nudge alignment and cut between camera angles.':'No recorded media found in this recording.');
    void loadExports();
   }catch(e){notice(e.message,true);}
  }
