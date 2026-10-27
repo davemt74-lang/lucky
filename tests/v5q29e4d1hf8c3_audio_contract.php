@@ -14,7 +14,7 @@ audioCheck(str_contains($mixer,'state.audioMuted')&&str_contains($mixer,'state.a
 audioCheck(str_contains($mixer,'getUserMedia({video:false,audio:')&&str_contains($mixer,'toggleHostMicrophone'),'Desktop mic never starts without host action');
 audioCheck(str_contains($mixer,'hostMicrophone?.getTracks().forEach(t=>t.stop())')&&str_contains($mixer,'resetAudio()'),'Mic and graph released on proof closure');
 audioCheck(str_contains($mixer,'audioOutput?.stream.getAudioTracks()[0]')&&str_contains($mixer,'result.addTrack(track.clone())'),'Stable isolated audio track in Program stream');
-audioCheck(str_contains($mixer,'exportStream=programStream()')&&str_contains($mixer,'codecs=vp8,opus'),'Export records composited video with audio');
+audioCheck(str_contains($mixer,'exportStream=programStream(false)')&&str_contains($mixer,'codecs=vp8,opus')&&str_contains($mixer,'codecs=vp8'),'Export records audio when available and remains video-only when silent');
 audioCheck(str_contains($publisher,'for(const track of stream.getTracks())peer.addTrack(track,stream)'),'Live View publishes Program audio with video');
 audioCheck(str_contains($viewer,"peer.addTransceiver('audio'")&&str_contains($live,'director-view-sound')&&str_contains($viewer,'view.muted=!view.muted'),'Viewer receives audio and explicitly unmutes');
 audioCheck(str_contains($page,'camera-director.js?v=5q29e4d1hf8c3')&&str_contains($live,'director-view.js?v=5q29e4d1hf8c3')&&str_contains($layout,'platform.css?v=5q29e4d1hf8c3')&&str_contains($css,'#director-view-sound'),'Release assets cache-busted together');
