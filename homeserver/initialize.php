@@ -38,7 +38,8 @@ foreach(['v5n.sql','v5p.sql','v5p_sync.sql','v5q_claim_media.sql','v5q3_renders.
          'v5q15m_layers.sql','v5q15n_templates.sql','v5q20_prize_packages.sql','v5q26_movie_preview.sql',
          'v5q29e1_recording_sessions.sql','v5q29e2_phone_camera.sql','v5q29e3_multicamera_coordination.sql',
          'v5q29e4a_multicamera_timeline.sql','v5q29e4b_multicamera_exports.sql',
-         'v5q29e4c_recording_profiles.sql','v5q29e4d1hf8c4_director_recordings.sql'] as $migration){
+         'v5q29e4c_recording_profiles.sql','v5q29e4d1hf8c4_director_recordings.sql',
+         'v5q29e4d1hf8c5_recording_live.sql'] as $migration){
     foreach(MigrationSql::statements((string)file_get_contents($home.'/lib/migrations/'.$migration)) as $sql)$db->exec($sql);
 }
 PrizePublicationMigration::ensure($db);

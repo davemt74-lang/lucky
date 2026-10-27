@@ -1428,6 +1428,10 @@ body.game-fullwidth .header{position:relative;z-index:60}
 .director-studio-session,.director-studio-inputs{padding:14px;border-radius:14px;display:grid;gap:10px}
 .director-studio-session .director-toolbar label,.director-studio-inputs .director-toolbar label{min-width:min(100%,280px)}
 .director-studio-session .director-toolbar select,.director-studio-inputs .director-toolbar select{width:100%;min-height:43px;padding:8px;background:#0a1d31;border:1px solid #527491;color:#f5f9fe;border-radius:9px}
+.director-studio-session .director-toolbar input{width:100%;min-height:43px;box-sizing:border-box;padding:8px 12px;background:#0a1d31;border:1px solid #527491;color:#f5f9fe;border-radius:9px}
+#director-studio-take-status{margin:0;padding:11px 13px;border:1px solid #355674;border-radius:10px;background:#0b2035}
+#director-studio-take-status.is-error,#director-studio-phone-status.is-error{color:#ffcabd}
+#director-studio-phone-status{padding:11px 14px;margin:0;border-radius:11px;border:1px solid #365c69;background:#112635}
 .director-studio-inputs .camera-grid{display:flex;flex-wrap:wrap;gap:12px;min-height:10px}
 .director-studio-inputs .camera-source{flex:1 1 260px;max-width:420px;min-width:210px;display:grid;gap:8px;background:#08182b;border:1px solid #3a5773;border-radius:12px;padding:10px}
 .director-studio-inputs .camera-source video{width:100%;aspect-ratio:16/9;background:#050b15;border-radius:8px;object-fit:contain}

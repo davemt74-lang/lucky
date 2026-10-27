@@ -3,7 +3,7 @@
  const $=id=>document.getElementById(id),KEY='lucky-phone-controller-v5p',MAX_BYTES=80*1024*1024,MAX_SECONDS=180;
  const valid={video:new Set(['video/webm','video/mp4','video/quicktime']),photo:new Set(['image/jpeg','image/png','image/webp']),audio:new Set(['audio/webm','audio/mpeg','audio/mp4','audio/ogg','audio/wav','audio/x-wav'])};
  let pair=null,sessions=[],mode='video',facing='environment',stream=null,recorder=null,parts=[],bytes=0,clock=null,started=0,generation=0,media=null,mediaNonce='',previewUrl='',duration=0,uploading=false,loading=false;
- let armed=false,armedSession='',armBusy=false,pollBusy=false,clockDelta=0,coordCapture=null,finishedTake='',autoSending=false,connectionInterrupted=false;
+ let armed=false,armedSession='',armBusy=false,pollBusy=false,clockDelta=0,coordCapture=null,finishedTake='',autoSending=false,connectionInterrupted=false,lastLiveKey='';
  const random=()=>crypto.randomUUID?.().replaceAll('-','')||Array.from(crypto.getRandomValues(new Uint8Array(16)),b=>b.toString(16).padStart(2,'0')).join('');
  const note=(message,bad=false)=>{const e=$('session-camera-message');e.textContent=message;e.classList.toggle('platform-error',bad);};
  const session=()=>sessions.find(s=>s.id===$('session-camera-session').value);
@@ -45,6 +45,14 @@
   $('session-camera-arm-status').textContent=armed?(rec?'● Host-directed recording in progress':`Armed for ${session()?.title||'recording'} · waiting for host`):'Open video or audio and grant consent, then arm to follow the host’s take.';
   $('session-camera-stage').dataset.mode=mode;
   document.querySelectorAll('[data-session-mode]').forEach(b=>{b.setAttribute('aria-pressed',String(b.dataset.sessionMode===mode));b.disabled=uploading||rec||armed||!permitted(b.dataset.sessionMode);});
+  // Arming is the explicit authorization to privately preview this camera in
+  // Camera Director. Preview shares the same tracks used by local recording;
+  // it never starts an additional capture or changes the saved original.
+  const sharing=armed&&mode==='video'&&!!stream?.getVideoTracks?.().some(t=>t.readyState==='live')&&
+   !!session()&&$('session-camera-consent').checked;
+  const liveKey=sharing?session().id+':'+stream.id:'';
+  if(liveKey!==lastLiveKey){lastLiveKey=liveKey;window.dispatchEvent(new CustomEvent('lucky:recording-camera-live',{
+   detail:{session:sharing?session().id:'',stream:sharing?stream:null,consent:sharing,armed:sharing}}));}
  }
  async function call(action,body){const headers={'X-Controller-Token':pair?.token||''};let payload;
   if(body instanceof FormData)payload=body;else{headers['Content-Type']='application/json';payload=JSON.stringify({id:pair?.id,...body});}
