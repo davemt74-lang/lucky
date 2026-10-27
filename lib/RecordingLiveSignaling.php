@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__.'/RecordingSessions.php';
 require_once __DIR__.'/RecordingMulticam.php';
 require_once __DIR__.'/PhoneLiveSignaling.php';
 

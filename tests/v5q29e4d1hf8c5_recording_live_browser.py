@@ -136,7 +136,13 @@ async def run_phone(browser, checks):
     page = await browser.new_page()
     errors = []
     page.on('pageerror', lambda error: errors.append(str(error)))
-    await page.set_content(html, wait_until='domcontentloaded')
+    # sessionStorage is blocked in about:blank/opaque origins. Serve this
+    # isolated fixture from a routed HTTPS origin, like the real paired phone.
+    async def serve_phone(route):
+        await route.fulfill(status=200, content_type='text/html', body=html)
+
+    await page.route('https://lucky.test/hf8c5-phone', serve_phone)
+    await page.goto('https://lucky.test/hf8c5-phone', wait_until='domcontentloaded')
     await check('Phone preview is off until armed', await page.evaluate(
         "offerWrites.length===0 && LuckyRecordingPhonePreview.state().sharing===false"), checks)
     await page.evaluate("""() => {
