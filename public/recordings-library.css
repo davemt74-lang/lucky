@@ -1,0 +1,25 @@
+/* HF8C9: library-first recording manager with an isolated creation dialog. */
+#tab-recordings .recordings-header-actions{display:flex;flex-wrap:wrap;gap:9px;align-items:center}
+#tab-recordings .recordings-workspace{grid-template-columns:minmax(0,1fr)}
+#tab-recordings .recording-library-heading{display:flex;align-items:center;gap:12px;justify-content:space-between;margin:0 0 12px}
+#tab-recordings .recording-library-heading h3{margin:0}
+#tab-recordings #recording-library-count{color:#9bb9d5;font-size:12px}
+#tab-recordings .recordings-list{grid-template-columns:repeat(auto-fill,minmax(min(100%,265px),1fr));gap:12px}
+#tab-recordings .recording-list-item{display:grid;align-content:start;gap:9px;min-height:125px;background:#11283f;padding:15px;transition:background .15s,border-color .15s}
+#tab-recordings .recording-list-item:hover{background:#1c3752;border-color:#e3b874}
+#tab-recordings .recording-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+#tab-recordings .recording-card-name{font-size:15px;line-height:1.35}
+#tab-recordings .recording-card-status{border:1px solid #54708b;border-radius:99px;padding:3px 7px;text-transform:uppercase;letter-spacing:.05em;font-size:9px;white-space:nowrap;color:#c6d9ec;font-weight:800}
+#tab-recordings .recording-card-status[data-status=active]{border-color:#287e66;background:#153e37;color:#90f2c8}
+#tab-recordings .recording-card-status[data-status=completed]{border-color:#766241;background:#3c3229;color:#ecd5a6}
+#tab-recordings .recording-card-meta{color:#a7c0d7;font-size:12px}
+#tab-recordings .recording-card-description{color:#c7d5e6;font-size:12px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+#tab-recordings .recording-card-tags{color:#8cdbcb;font-size:11px}
+#tab-recordings .recording-workspace{margin-top:18px;background:#0d1d30}
+.recording-new-dialog{width:min(780px,calc(100vw - 26px));max-height:min(90dvh,920px);overflow:auto;overscroll-behavior:contain;border:1px solid #52708b;border-radius:16px;background:#111e32;color:#eef4ff;padding:20px;box-shadow:0 22px 90px #000b}
+.recording-new-dialog::backdrop{background:#030a15bd;backdrop-filter:blur(4px)}
+.recording-new-dialog .recording-new-modal-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;border-bottom:1px solid #314760;padding-bottom:12px}
+.recording-new-dialog .recording-new-modal-head h2{margin:2px 0;font-size:23px}
+.recording-new-dialog .recordings-modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:12px}
+.recording-new-dialog .platform-form{margin-top:14px}
+@media(max-width:600px){.recording-new-dialog{padding:13px;max-height:95dvh}.recording-new-dialog .recordings-new-grid{grid-template-columns:minmax(0,1fr)}.recording-new-dialog .recordings-modal-actions .btn{flex:1}}

@@ -5,6 +5,13 @@
  const random=()=>crypto.randomUUID?.().replaceAll('-','')||Array.from(crypto.getRandomValues(new Uint8Array(16)),b=>b.toString(16).padStart(2,'0')).join('');
  const el=(tag,label='',className='')=>{const x=document.createElement(tag);x.textContent=label;x.className=className;return x;};
  const note=(message,error=false)=>{const n=$('recording-admin-status');n.textContent=message;n.classList.toggle('platform-error',error);};
+ const createDialog=$('recording-new-dialog');
+ const openCreate=()=>{createDialog.showModal();$('recording-title').focus();};
+ const closeCreate=()=>{if(!busy&&createDialog.open)createDialog.close();};
+ $('recording-new-open').addEventListener('click',openCreate);
+ $('recording-new-close').addEventListener('click',closeCreate);
+ $('recording-new-cancel').addEventListener('click',closeCreate);
+ createDialog.addEventListener('cancel',e=>{if(busy)e.preventDefault();});
  async function api(action,body=null,query={}){
   const url='api/recording-sessions.php?'+new URLSearchParams({action,...query});const headers={};
   if(body!==null){const me=await Lucky.getMe();headers['Content-Type']='application/json';headers['X-CSRF-Token']=me.csrf||'';}
@@ -20,11 +27,20 @@
   for(const s of sessions){if(type&&s.type!==type)continue;
    const keywords=[s.title,s.type,s.description,s.gameSessionId,s.profile?.location,s.profile?.eventDate,...(s.profile?.tags||[])].filter(Boolean).join(' ').toLowerCase();
    if(search&&!keywords.includes(search))continue;found++;
+   const card=el('button','','recording-list-item');card.type='button';
+   card.setAttribute('aria-pressed',String(selected===s.id));card.dataset.recordingId=s.id;
+   const top=el('span','','recording-card-top');top.append(el('strong',s.title,'recording-card-name'));
+   const badge=el('span',s.status,'recording-card-status');badge.dataset.status=s.status;top.append(badge);card.append(top);
+   const category=({live_event:'Live event',production:'Production',general:'Custom',game:'Game'})[s.type]||s.type;
+   const when=s.profile?.eventDate||s.createdAt?.slice(0,10)||'';
+   card.append(el('span',[category,when,s.profile?.location].filter(Boolean).join(' · '),'recording-card-meta'));
+   if(s.description)card.append(el('span',s.description,'recording-card-description'));
    const tags=(s.profile?.tags||[]).slice(0,3).map(t=>'#'+t).join(' ');
-   const btn=el('button',`${s.title} · ${s.type.replace('_',' ')} · ${s.status}${tags?' · '+tags:''}`,'recording-list-item');
-   btn.type='button';btn.setAttribute('aria-pressed',String(selected===s.id));btn.dataset.recordingId=s.id;btn.onclick=()=>void select(s.id);root.append(btn);
+   if(tags)card.append(el('span',tags,'recording-card-tags'));
+   card.onclick=()=>void run(async()=>select(s.id));root.append(card);
   }
-  if(!found)root.append(el('p',sessions.length?'No matching recordings. Change your filters.':'No recording groups yet. Create one above.'));
+  $('recording-library-count').textContent=`${found} session${found===1?'':'s'}`;
+  if(!found)root.append(el('p',sessions.length?'No matching recordings. Change your filters.':'No recording sessions yet. Select New recording to create one.'));
  }
  async function select(id){
   selected=id;const [detail,permission,media]=await Promise.all([api('detail',null,{id}),api('permission_status',null,{id}),api('media_list',null,{id})]);
@@ -88,7 +104,7 @@
   const body={type:$('recording-type').value,title:$('recording-title').value.trim(),description:$('recording-description').value.trim(),gameSessionId:$('recording-game-id').value.trim(),
    eventDate:$('recording-event-date').value,location:$('recording-location').value.trim(),tags:$('recording-tags').value.split(',').map(s=>s.trim()).filter(Boolean),
    brief:$('recording-brief').value.trim(),shotList:$('recording-shots').value.split('\n').map(s=>s.trim()).filter(Boolean),capture:captureValues(),nonce:random()};
-  const result=await api('create',body);$('recording-create').reset();$('recording-type').onchange();$('recording-multicam').onchange();selected=result.session.id;await refresh();
+  const result=await api('create',body);$('recording-create').reset();$('recording-type').onchange();$('recording-multicam').onchange();selected=result.session.id;await refresh();createDialog.close();
  });};
  $('recording-search').addEventListener('input',paintList);$('recording-filter-type').addEventListener('change',paintList);
  $('recording-refresh').onclick=()=>run(refresh);

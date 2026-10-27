@@ -24,7 +24,6 @@
  const status = $('director-status');
  const grid = $('camera-grid');
  const globalHeader = document.querySelector('body.director-studio-page .shell > .header');
- const mainBrand = globalHeader?.querySelector('.brand');
  const accountMenu = globalHeader?.querySelector('.account-menu');
  if (![session,take,inputs,monitors,switcher,clips,graphics,audio,scenes,exportControls,broadcast,status,grid].every(Boolean)) return;
 
@@ -34,7 +33,7 @@
  workspace.className = 'director-workspace';
  workspace.innerHTML = `
   <header class="director-workspace-top">
-   <div class="director-workspace-brand"><a class="director-workspace-back btn btn-outline" href="admin.php" aria-label="Back to Admin Studio">← Back</a><div id="director-workspace-main-brand"></div><div class="director-workspace-title"><p class="mini-label">PRODUCTION STUDIO</p><h1>Camera Director</h1></div></div>
+   <div class="director-workspace-brand"><a class="director-workspace-back btn btn-outline" href="admin.php" aria-label="Back to Admin Studio">← Back</a><div class="director-workspace-title"><p class="mini-label">PRODUCTION STUDIO</p><h1>Camera Director</h1></div></div>
    <div class="director-workspace-session-indicator"><span class="director-workspace-signal" aria-hidden="true"></span><span id="director-workspace-session-title">No session selected</span><span id="director-workspace-camera-count">0 cameras</span></div>
    <div class="director-workspace-actions"><button type="button" class="btn btn-outline" data-director-panel="sessions">☷ Sessions</button><button type="button" class="btn btn-primary" data-director-panel="live">◉ Go Live</button><div id="director-workspace-record-actions"></div><div id="director-workspace-account"></div></div>
   </header>
@@ -62,11 +61,10 @@
   </div>`;
  shell.replaceChildren(workspace);
  shell.dataset.workspaceEnhanced = 'true';
- // Reuse the server-rendered logo and authenticated dropdown, preserving their
- // links, account actions and CSRF token. Director has one unified header.
- if (mainBrand) $('director-workspace-main-brand').append(mainBrand);
+ // Keep the authenticated account dropdown but omit the site-wide logo
+ // to let Camera Director stand alone as the production workspace.
  if (accountMenu) $('director-workspace-account').append(accountMenu);
- if (globalHeader && mainBrand && accountMenu) globalHeader.remove();
+ if (globalHeader && accountMenu) globalHeader.remove();
  const target = name => workspace.querySelector(`[data-director-content="${name}"]`);
  target('sessions').append(session);
  if (links) target('sessions').append(links);
