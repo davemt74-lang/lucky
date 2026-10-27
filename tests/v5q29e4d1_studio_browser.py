@@ -13,7 +13,7 @@ media=[
  {'id':'d'*32,'source_id':'3'*32,'source_name':'Sound desk','kind':'audio','title':'Ambient audio','duration_ms':9000,'initial_global_offset_ms':0,'sync_confidence':1,'take_title':'Show','take_index':1},
 ]
 errors=[]
-state={'revision':0,'timeline':{'offsets':[],'switches':[]},'saves':0}
+state={'revision':0,'timeline':{'offsets':[],'switches':[]},'saves':0,'session_status':'completed'}
 
 def respond(route):
  url=route.request.url
@@ -23,7 +23,7 @@ def respond(route):
  elif '/public/client.js' in url:route.fulfill(status=200,content_type='application/javascript',body='window.Lucky={getMe:async()=>({csrf:"studio-test"})};')
  elif '/api/recording-timeline.php' in url:
   if 'action=get' in url:
-   result={'ok':True,'project':{'session':{'id':session_id,'title':'Full concert','type':'live_event','status':'completed'},'revision':state['revision'],'timeline':state['timeline']},'media':media}
+   result={'ok':True,'project':{'session':{'id':session_id,'title':'Full concert','type':'live_event','status':state['session_status']},'revision':state['revision'],'timeline':state['timeline']},'media':media}
   else:
    assert route.request.headers.get('x-csrf-token')=='studio-test'
    payload=json.loads(route.request.post_data)
@@ -76,6 +76,17 @@ with sync_playwright() as playwright:
   expect(page.locator('#mc-export-dialog')).to_be_hidden()
   context.close()
   assert state['saves']==1 and state['timeline']['offsets']==[{'assetId':'b'*32,'offsetMs':100}],state
+ state['session_status']='active'
+ context=browser.new_context(viewport={'width':1366,'height':900})
+ context.route('**/*',respond)
+ page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)))
+ page.goto('https://lucky.test/recording-editor.php?session='+session_id+'&asset='+'c'*32)
+ expect(page.locator('#mc-inspector')).to_be_visible()
+ expect(page.locator('#mc-selected-title')).to_contain_text('Crowd photo')
+ expect(page.locator('#mc-inspector-toggle')).to_have_attribute('aria-expanded','true')
+ expect(page.locator('#mc-director-link')).to_be_visible()
+ expect(page.locator('#mc-director-link')).to_have_attribute('href','director.php?recording='+session_id)
+ context.close()
  assert not errors,errors
  browser.close()
 print('V5Q.29E4D1 FULL-SCREEN STUDIO BROWSER CERTIFIED')
