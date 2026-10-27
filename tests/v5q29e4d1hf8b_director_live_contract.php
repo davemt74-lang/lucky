@@ -14,7 +14,7 @@ $migration=file_get_contents($root.'/lib/migrations/v5q29e4d1hf8b_director_live.
 $upgrade=file_get_contents($root.'/upgrade.php');
 assertLive(str_contains($proof,'director-publish-consent')&&str_contains($proof,'director-unpublish'),'Explicit broadcast consent and stop controls');
 assertLive(str_contains($proof,'director-publish.js')&&str_contains($proof,'camera-director.js'),'Publisher follows Program mixer');
-assertLive(str_contains($director,'program.captureStream(25)')&&(str_contains($director,'programStream:')||(str_contains($director,'function programStream()')&&str_contains($director,'programStream,')))&&!str_contains($publisher,'director-preview'),'Only Program canvas exposed to publisher');
+assertLive(str_contains($director,'program.captureStream(25)')&&(str_contains($director,'programStream:')||(str_contains($director,'function programStream(')&&str_contains($director,'programStream,')))&&!str_contains($publisher,'director-preview'),'Only Program canvas exposed to publisher');
 assertLive(str_contains($publisher,"request('publish'")&&str_contains($publisher,"request('stop'")&&str_contains($publisher,'lucky:proof-close'),'Explicit publish, revoke and proof-close lifecycle');
 assertLive(str_contains($api,'requireAdmin()')&&str_contains($api,'assertCsrf()')&&str_contains($api,'SchemaGuard::require'),'Administrative publication, CSRF and upgrade guard');
 assertLive(str_contains($service,"hash('sha256',".'$key'.")")&&str_contains($service,'hash_equals('),'Viewer bearer token stored only as hash');
