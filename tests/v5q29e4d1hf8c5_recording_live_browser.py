@@ -70,7 +70,7 @@ async def run_director(browser, checks):
     }};
     """
     scripts = ['camera-director.js', 'director-studio.js', 'recording-live-host.js']
-    html = ('<base href="https://lucky.test/">'
+    html = ('<meta charset="utf-8"><base href="https://lucky.test/">'
             + markup.group(0)
             + '<script>' + prelude + '</script>'
             + ''.join('<script>' + read('public/' + script) + '</script>' for script in scripts))
@@ -102,8 +102,7 @@ async def run_director(browser, checks):
     await check('Take start uses selected group and stable nonce', await page.evaluate(
         "takeWrites[0].id==='a'.repeat(32)&&takeWrites[0].title==='Concert angle 1'&&/^[a-f0-9]{32}$/.test(takeWrites[0].nonce)"), checks)
     await page.wait_for_function("!document.getElementById('director-studio-record-clock').hidden")
-    await page.wait_for_timeout(1100)
-    print('CLOCK_DEBUG', await page.evaluate("(()=>{const c=document.getElementById('director-studio-record-clock');return {hidden:c.hidden,text:c.textContent};})()"), flush=True)
+    await page.wait_for_function("(()=>{const c=document.getElementById('director-studio-record-clock');return !c.hidden&&c.textContent.startsWith('● REC ')&&c.textContent!=='● REC 00:00:00';})()", timeout=5000)
     await check('Active grouped take displays advancing recording clock', await page.evaluate(
         "(()=>{const c=document.getElementById('director-studio-record-clock');return !c.hidden&&c.textContent.startsWith('● REC ')&&!c.textContent.includes('NaN')&&c.textContent!=='● REC 00:00:00';})()"), checks)
     await page.locator('#director-studio-take-stop').click()
