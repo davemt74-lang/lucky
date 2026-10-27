@@ -51,7 +51,7 @@ try {
   audit($db,'recording.session-status',$row['gameSessionId'],['id'=>$id,'status'=>$row['status']]);success(['session'=>$row]);
  }
  if($action==='take_start'){
-  $take=RecordingSessions::startTake($db,$owner,$id,$input);audit($db,'recording.take-started',null,['session'=>$id,'take'=>$take['id']]);success(['take'=>$take],201);
+  $take=RecordingSessions::startTake($db,$owner,$id,$input);audit($db,'recording.take-started',null,['session'=>$id,'take'=>$take['id']]);success(['take'=>$take,'serverTimeMs'=>(int)round(microtime(true)*1000)],201);
  }
  if($action==='take_stop'){
   $take=RecordingSessions::finishTake($db,$owner,$id,(string)($input['takeId']??''));audit($db,'recording.take-stopped',null,['session'=>$id,'take'=>$take['id']]);success(['take'=>$take]);

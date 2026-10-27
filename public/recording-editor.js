@@ -73,7 +73,7 @@
   $('mc-selected-title').textContent=a?a.title:'Click an angle clip to adjust its alignment.';
   if(!a)return;
   $('mc-source').textContent=a.source_name||'Unknown camera';$('mc-take').textContent=a.take_title?`Take ${a.take_index}: ${a.take_title}`:'Ungrouped media';
-  $('mc-confidence').textContent=a.sync_confidence?'Approximate · controller polling':'Unaligned / manually imported';
+  $('mc-confidence').textContent=Number(a.sync_confidence)===2?'Director clock · timestamp aligned':Number(a.sync_confidence)===1?'Approximate · phone polling':'Unaligned / manually imported';
   $('mc-original').textContent=seconds(a.initial_global_offset_ms)+' s';$('mc-offset').value=seconds(offset(a));
   $('mc-select-angle').disabled=!canSwitch(a)||!activeAt(a,timeMs);
   document.querySelectorAll('.mc-clip').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.assetId===selected)));

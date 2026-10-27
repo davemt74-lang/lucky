@@ -298,7 +298,7 @@
   if(recorder?.state==='recording')recorder.stop();
   $('director-export-stop').disabled=true;
  }
- function startExport(){
+ function startExport(meta=null){
   if(state.recording||!state.program||!state.active)return false;
   try{
    parts=[];bytes=0;exportStream=programStream(false);
@@ -306,6 +306,8 @@
    const mime=supported(exportStream.getAudioTracks().length>0);
    recorder=new MediaRecorder(exportStream,mime?{mimeType:mime}:undefined);
    const recorded=recorder;exportStarted=Date.now();
+    const hostMeta=meta&&typeof meta==='object'?{...meta}:null;
+    const hostStart=exportStarted;
    recorded.ondataavailable=e=>{if(e.data?.size){parts.push(e.data);bytes+=e.data.size;if(bytes>=MAX_BYTES)stopExport();}};
    recorded.onerror=()=>{info('Program recording failed; choose Record again.',true);stopExport();};
    recorded.onstop=()=>{
@@ -314,6 +316,7 @@
     $('director-export-stop').disabled=true;
     $('director-recording-badge').hidden=true;
     const blob=new Blob(parts,{type:recorded.mimeType||mime||'video/webm'});parts=[];
+     if(hostMeta&&blob.size)window.dispatchEvent(new CustomEvent('lucky:director-program-captured',{detail:{...hostMeta,blob,startMs:hostStart,endMs:Date.now()}}));
     if(!blob.size){info('No Program video was captured.',true);return;}
     if(download)URL.revokeObjectURL(download);
     download=URL.createObjectURL(blob);

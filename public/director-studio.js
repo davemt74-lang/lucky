@@ -6,7 +6,7 @@
  const idOk=id=>/^[a-f0-9]{32}$/.test(id||'');
  const grid=$('camera-grid'),selector=$('director-studio-session'),devices=$('director-studio-camera');
  const connected=new Map();let sessions=[],active='',epoch=0,refreshTimer=null,busy=false;
- let csrf='',take=null,takeBusy=false,startNonce='',startTitle='';
+ let csrf='',take=null,takeBusy=false,startNonce='',startTitle='',reportedTake='';
  const status=(message,error=false)=>{const node=$('director-studio-status');node.textContent=message;node.classList.toggle('is-error',error);};
  const cameraStatus=(message,error=false)=>{const node=$('director-studio-device-status');node.textContent=message;node.classList.toggle('is-error',error);};
  const random=()=>crypto.randomUUID?.().replaceAll('-','')||
@@ -45,7 +45,7 @@
  function closeSession(){
   if(refreshTimer){clearInterval(refreshTimer);refreshTimer=null;}
   active='';epoch++;window.dispatchEvent(new Event('lucky:director-studio-close'));
-  stopCameras();take=null;takeBusy=false;startNonce='';startTitle='';takeButtons();
+  stopCameras();take=null;reportedTake='';takeBusy=false;startNonce='';startTitle='';takeButtons();
  }
  async function syncSession(version){
   if(version!==epoch||!active)return;
@@ -57,7 +57,12 @@
     closeSession();status('The recording was completed. Reopen an active recording to direct and broadcast.',true);return;
    }
    take=(data.takes||[]).find(t=>t.status==='recording')||null;
-   if(take){startNonce='';startTitle='';}takeButtons();
+   if(take){startNonce='';startTitle='';}
+    if(take?.id!==reportedTake){
+     if(reportedTake)window.dispatchEvent(new CustomEvent('lucky:director-take-stop',{detail:{recordingSession:active,takeId:reportedTake}}));
+     if(take?.id)window.dispatchEvent(new CustomEvent('lucky:director-take-start',{detail:{recordingSession:active,takeId:take.id,clockOffsetMs:0}}));
+     reportedTake=take?.id||'';
+    }takeButtons();
    const devices=await request('camera_devices',{id:active}).catch(()=>({devices:[]}));
    if(version!==epoch)return;
    const armed=(devices.devices||[]).filter(d=>d.armed&&d.online);
@@ -85,9 +90,13 @@
   if(title.length>120){takeStatus('Take name is limited to 120 characters.',true);return;}
   if(!startNonce){startNonce=random();startTitle=title;}takeBusy=true;takeButtons();
   try{
-   const result=await request('take_start',{id,title:startTitle,nonce:startNonce},'POST');
+   const before=Date.now();
+    const result=await request('take_start',{id,title:startTitle,nonce:startNonce},'POST');
+    const after=Date.now();
    if(version!==epoch||active!==id)return;
-   startNonce='';startTitle='';take=result.take;takeStatus('● TAKE STARTED · Phones observe host commands through their recording-session polling.');
+   startNonce='';startTitle='';take=result.take;reportedTake=take.id;
+    window.dispatchEvent(new CustomEvent('lucky:director-take-start',{detail:{recordingSession:id,takeId:take.id,clockOffsetMs:Number(result.serverTimeMs||after)-Math.round((before+after)/2)}}));
+    takeStatus('● TAKE STARTED · Desktop cameras and Program are now recording; phones observe host commands through polling.');
    await syncSession(version);
   }catch(e){if(version===epoch)takeStatus('Start take: '+e.message+'. Retrying will use the same request token.',true);}
   finally{if(version===epoch){takeBusy=false;takeButtons();}}
@@ -98,7 +107,8 @@
   try{
    await request('take_stop',{id,takeId},'POST');
    if(version!==epoch||active!==id)return;
-   take=null;takeStatus('■ TAKE STOPPED · Armed phones will finish their files and upload the originals automatically.');
+   window.dispatchEvent(new CustomEvent('lucky:director-take-stop',{detail:{recordingSession:id,takeId}}));
+    reportedTake='';take=null;takeStatus('■ TAKE STOPPED · Desktop and Program originals are queuing for upload; armed phones will finish theirs.');
    await syncSession(version);
   }catch(e){if(version===epoch)takeStatus('Stop take: '+e.message+'. You can retry safely.',true);}
   finally{if(version===epoch){takeBusy=false;takeButtons();}}
@@ -132,7 +142,7 @@
    const label=document.createElement('strong');label.textContent=track?.label||'Desktop camera '+(connected.size+1);
    const video=document.createElement('video');video.autoplay=true;video.playsInline=true;video.muted=true;video.srcObject=stream;
    const remove=document.createElement('button');remove.className='btn btn-outline';remove.type='button';remove.textContent='Remove';remove.addEventListener('click',()=>removeCamera(key));
-   card.append(label,video,remove);grid.append(card);connected.set(key,{stream,card});
+   card.append(label,video,remove);grid.append(card);connected.set(key,{stream,card,id,label:label.textContent});
    track?.addEventListener('ended',()=>removeCamera(key),{once:true});
    await video.play().catch(()=>{});await scanDevices();window.dispatchEvent(new Event('lucky:cameras-refreshed'));
    cameraStatus(connected.size+' desktop camera'+(connected.size===1?'':'s')+' connected. Phone uploads sync through the selected recording session.');
@@ -154,5 +164,5 @@
  $('director-studio-take-stop').addEventListener('click',()=>void stopTake());
  window.addEventListener('pagehide',()=>{closeSession();stopCameras();});
  takeButtons();void refreshSessions();void scanDevices();
- window.LuckyDirectorStudio={state:()=>({recordingSession:active,cameras:connected.size,activeTake:take?.id||null}),open:id=>{selector.value=id;return openSession();}};
+ window.LuckyDirectorStudio={state:()=>({recordingSession:active,cameras:connected.size,activeTake:take?.id||null}),cameras:()=>[...connected.values()].map(({stream,id,label})=>({stream,id,label})),open:id=>{selector.value=id;return openSession();}};
 })();
