@@ -101,6 +101,7 @@ async def run_director(browser, checks):
     await page.wait_for_function('takeWrites.length===1')
     await check('Take start uses selected group and stable nonce', await page.evaluate(
         "takeWrites[0].id==='a'.repeat(32)&&takeWrites[0].title==='Concert angle 1'&&/^[a-f0-9]{32}$/.test(takeWrites[0].nonce)"), checks)
+    await page.wait_for_function("!document.getElementById('director-studio-record-clock').hidden")
     await check('Active grouped take displays recording clock', await page.evaluate(
         "!document.getElementById('director-studio-record-clock').hidden && /^● REC 00:00:\\d\\d$/.test(document.getElementById('director-studio-record-clock').textContent)"), checks)
     await page.locator('#director-studio-take-stop').click()
