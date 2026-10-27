@@ -35,6 +35,7 @@ c5Check(str_contains($host,'card.dataset.phonePair')&&str_contains($host,"new Ev
 c5Check(str_contains($host,'lucky:director-studio-open')&&str_contains($host,'lucky:director-studio-close'),'Changing production sessions tears down live preview');
 c5Check(str_contains($director,"request('take_start'")&&str_contains($director,"request('take_stop'")&&str_contains($director,'startNonce'),'Start/Stop Group Take uses existing idempotent take API');
 c5Check(str_contains($director,"request('camera_devices'")&&str_contains($director,'activeTake'),'Director reflects armed cameras and active take on group timeline');
+c5Check(str_contains($phone,"replaceAll('-','')")&&str_contains($director,"replaceAll('-','')"),'Secure-origin UUIDs are canonical 32-character idempotency tokens');
 c5Check(str_contains($page,'id="director-studio-take-start"')&&str_contains($page,'id="director-studio-take-stop"')&&str_contains($page,'recording-live-host.js?v=5q29e4d1hf8c5'),'Director has recording controls and new WebRTC bridge');
 c5Check(str_contains($cameraPage,'recording-live-phone.js?v=5q29e4d1hf8c5')&&str_contains($cameraPage,'recording-camera.js?v=5q29e4d1hf8c5'),'Phone Camera Studio serves updated recording client');
 c5Check(str_contains($page,'Only')||str_contains($page,'Program'),'Production preview remains separate from Program publishing');

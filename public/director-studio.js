@@ -9,7 +9,7 @@
  let csrf='',take=null,takeBusy=false,startNonce='',startTitle='';
  const status=(message,error=false)=>{const node=$('director-studio-status');node.textContent=message;node.classList.toggle('is-error',error);};
  const cameraStatus=(message,error=false)=>{const node=$('director-studio-device-status');node.textContent=message;node.classList.toggle('is-error',error);};
- const random=()=>crypto.randomUUID?.().replaceAll('-')||
+ const random=()=>crypto.randomUUID?.().replaceAll('-','')||
   Array.from(crypto.getRandomValues(new Uint8Array(16)),b=>b.toString(16).padStart(2,'0')).join('');
  function takeButtons(){
   $('director-studio-take-start').disabled=!active||!!take||takeBusy;

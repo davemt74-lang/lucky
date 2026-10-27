@@ -5,7 +5,7 @@
  const badge=document.createElement('p');badge.id='session-camera-director-status';badge.className='mini-label';
  badge.setAttribute('role','status');badge.textContent='Director live preview: off';anchor.after(badge);
  const ICE={iceServers:[{urls:'stun:stun.l.google.com:19302'}]};
- const random=()=>crypto.randomUUID?.().replaceAll('-')||
+ const random=()=>crypto.randomUUID?.().replaceAll('-','')||
   Array.from(crypto.getRandomValues(new Uint8Array(16)),x=>x.toString(16).padStart(2,'0')).join('');
  let current=null,desired=null,version=0,retryCount=0,retryTimer=null;
  const status=(s,bad=false)=>{badge.textContent=s;badge.classList.toggle('platform-error',bad);};

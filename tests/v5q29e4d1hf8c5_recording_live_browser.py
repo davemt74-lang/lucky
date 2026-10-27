@@ -77,7 +77,11 @@ async def run_director(browser, checks):
     page = await browser.new_page(viewport={'width': 1280, 'height': 900})
     errors = []
     page.on('pageerror', lambda error: errors.append(str(error)))
-    await page.set_content(html, wait_until='domcontentloaded')
+    async def serve_director(route):
+        await route.fulfill(status=200, content_type='text/html', body=html)
+
+    await page.route('https://lucky.test/hf8c5-director', serve_director)
+    await page.goto('https://lucky.test/hf8c5-director', wait_until='domcontentloaded')
     await page.wait_for_function("document.querySelector('#director-studio-session').options.length===3")
     await check('No camera permission requested just by opening Director', await page.evaluate('peerInstances.length===0'), checks)
     await page.locator('#director-studio-session').select_option(A)
