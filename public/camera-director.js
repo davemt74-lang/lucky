@@ -6,7 +6,7 @@
  const grid=$('camera-grid'),preview=$('director-preview'),program=$('director-program');
  const selector=$('director-preview-source'),previewCtx=preview.getContext('2d'),programCtx=program.getContext('2d');
  const WIDTH=1280,HEIGHT=720,MAX_BYTES=80*1024*1024;
- const state={preview:'',program:'',transition:null,recording:false,active:false};
+ const state={preview:'',program:'',transition:null,recording:false,active:false,programGraphics:{text:'',sticker:''}};
  let recorder=null,parts=[],bytes=0,frame=0,lastOptions='',exportStream=null,download=null,exportStarted=0;
  const clips=new Map();let proof=null,clipVersion=0,lastClipLoad=0;
  const info=(message,error=false)=>{const node=$('director-status');node.textContent=message;node.classList.toggle('is-error',error);};
@@ -80,7 +80,7 @@
    info('Program camera disconnected. Select and Take another source.',true);
    window.dispatchEvent(new Event('lucky:director-program-ended'));
   }
-  labels();
+  labels();window.dispatchEvent(new Event('lucky:director-sources-updated'));
  }
  function labels(){
   $('director-preview-label').textContent=source(state.preview)?.label||'No camera cued';
@@ -105,6 +105,7 @@
   state.transition=kind!=='cut'&&previous&&previous!==state.preview?
    {kind,from:previous,to:state.preview,started:at,duration:kind==='fade'?450:650}:null;
   state.program=state.preview;
+  state.programGraphics=readGraphics();
   info(({fade:'Fade',wipe:'Wipe',dip:'Dip to black',cut:'Cut'})[kind]+' to '+source(state.program).label+'. Program output updated.');
   labels();return true;
  }
@@ -124,9 +125,10 @@
   slate(ctx,id?'Waiting for '+(source(id)?.label||'camera'):'Select a source');
   const item=source(id);if(item)fit(ctx,item.video);
  }
- function graphics(ctx){
-  const caption=$('director-overlay-text').value.trim().slice(0,100);
-  const sticker=$('director-overlay-sticker').value;
+ function readGraphics(){return {text:$('director-overlay-text').value.trim().slice(0,100),sticker:$('director-overlay-sticker').value};}
+ function graphics(ctx,overlays){
+  const caption=overlays.text||'';
+  const sticker=overlays.sticker||'';
   if(caption){
    ctx.save();ctx.font='bold 48px system-ui, sans-serif';
    const width=Math.min(WIDTH-120,ctx.measureText(caption).width+64);
@@ -138,6 +140,7 @@
  function paint(at){
   if(!root.isConnected)return;
   renderSource(previewCtx,state.preview);
+  if(state.preview)graphics(previewCtx,readGraphics());
   renderSource(programCtx,state.program);
   if(state.transition){
    const t=state.transition,progress=Math.max(0,Math.min(1,(at-t.started)/t.duration));
@@ -154,7 +157,7 @@
     }
    }else{state.transition=null;if(t.from.startsWith('clip:')&&t.from!==state.preview)clips.get(t.from)?.video.pause();}
   }
-  if(state.program)graphics(programCtx);
+  if(state.program)graphics(programCtx,state.programGraphics);
   frame=requestAnimationFrame(paint);
  }
  const supported=()=>{
@@ -196,7 +199,7 @@
   }catch(e){state.recording=false;exportStream?.getTracks().forEach(track=>track.stop());exportStream=null;info(e.message,true);return false;}
  }
  function close(){
-  state.active=false;state.preview='';state.program='';state.transition=null;proof=null;clipVersion++;
+  state.active=false;state.preview='';state.program='';state.transition=null;state.programGraphics={text:'',sticker:''};proof=null;clipVersion++;
   for(const id of [...clips.keys()])discardClip(id);
   $('director-clip-count').textContent='0';lastOptions='';stopExport();sync();labels();
  }
@@ -223,5 +226,5 @@
  sync();labels();frame=requestAnimationFrame(paint);
  window.LuckyCameraDirector={sources:()=>sources().map(({id,label})=>({id,label})),select,take,startExport,stopExport,
   programStream:()=>state.active&&state.program&&source(state.program)?program.captureStream(25):null,
-  state:()=>({preview:state.preview,program:state.program,recording:state.recording,transition:!!state.transition})};
+  state:()=>({preview:state.preview,program:state.program,recording:state.recording,transition:!!state.transition,programGraphics:{...state.programGraphics}})};
 })();

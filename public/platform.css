@@ -1390,3 +1390,19 @@ body.game-fullwidth .header{position:relative;z-index:60}
 .director-clip-toolbar .mini-label{margin:0;line-height:1.5;color:#c7d9e9}
 .director-clip-toolbar #director-clip-status{flex:1 1 260px}
 .director-clip-toolbar .btn{padding:8px 12px;font-size:12px;white-space:nowrap}
+
+
+/* HF8C2: host-only scene presets within the existing proof workspace. */
+.director-scenes{display:grid;gap:12px;padding:14px;border:1px solid #486688;background:#0b1f34;border-radius:12px}
+.director-scenes>header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.director-scenes h4{font-size:18px;color:#f1d4a2;margin:0 0 4px}
+.director-scenes .mini-label{margin:0;line-height:1.45}
+.director-scenes .director-toolbar input{color:#ecf6ff;background:#0a1d31;border:1px solid #4a6888;border-radius:10px;min-height:40px;padding:9px 11px;width:100%;max-width:100%}
+.director-scene-list{display:grid;gap:8px}
+.director-scene-item{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;background:#142b43;border:1px solid #3d5f82;border-radius:9px;padding:10px 12px}
+.director-scene-detail{display:grid;gap:4px;min-width:180px;flex:1 1 250px;overflow-wrap:anywhere}
+.director-scene-detail strong{color:#e8f5ff}
+.director-scene-detail span,.director-scene-detail small{font-size:12px;color:#b2cde4}
+.director-scene-actions{display:flex;gap:8px;flex-wrap:wrap}
+.director-scene-actions .btn{padding:7px 10px;min-height:34px;font-size:12px}
+#director-scene-status.is-error{color:#ff9f9f}
