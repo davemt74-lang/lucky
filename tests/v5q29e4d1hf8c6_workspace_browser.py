@@ -26,7 +26,7 @@ async def main():
      window.fetch=async(url)=>{{
       const p=new URL(String(url),'https://lucky.test/'),act=p.searchParams.get('action');
       let data={{ok:true}};
-      if(act==='detail')data={{ok:true,takes:[{{id:'{TAKE}',title:'Opening angle',take_index:1}}],sources:[{{id:'{SOURCE}',display_name:'Paired iPhone'}}],assets:[]}};
+      if(act==='detail')data={{ok:true,takes:[{{id:'{TAKE}',title:'Opening angle',take_index:1}},{{id:'f'.repeat(32),title:'Second take',take_index:2}}],sources:[{{id:'{SOURCE}',display_name:'Paired iPhone'}}],assets:[]}};
       if(act==='media_list')data={{ok:true,media:window.mockMedia}};
       return {{ok:true,status:200,json:async()=>data}};
      }};
@@ -87,6 +87,13 @@ async def main():
         await test('Timeline contains only real media grouped into source lanes',
                    await page.locator('.director-workspace-lane').count() == 2 and
                    await page.locator('.director-workspace-timeline-clip').count() == 2)
+        await page.evaluate("window.mockMedia.push({id:'g'.repeat(32),source_id:'b'.repeat(32),take_id:'f'.repeat(32),kind:'video',title:'Second take same camera',duration_ms:6000,start_offset_ms:0})")
+        await page.evaluate('LuckyDirectorWorkspace.refreshTimeline()')
+        await page.wait_for_function("document.querySelectorAll('.director-workspace-timeline-clip').length===3")
+        await test('Same camera across two takes occupies distinct labeled lanes',
+                   await page.locator('.director-workspace-lane').count() == 3 and
+                   'Take 1' in await page.locator('.director-workspace-lane-label').nth(0).inner_text() and
+                   'Take 2' in await page.locator('.director-workspace-lane-label').nth(2).inner_text())
         await test('Editor link opens the same selected recording session',
                    await page.locator('#director-workspace-editor-link').get_attribute('href') ==
                    f'recording-editor.php?session={A}')
