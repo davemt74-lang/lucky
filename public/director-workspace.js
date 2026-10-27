@@ -64,7 +64,9 @@
  // Keep the authenticated account dropdown but omit the site-wide logo
  // to let Camera Director stand alone as the production workspace.
  if (accountMenu) $('director-workspace-account').append(accountMenu);
- if (globalHeader && accountMenu) globalHeader.remove();
+ // Never leave the generic Lucky Game Hub masthead above this standalone
+ // production surface, including installations without an account menu.
+ if (globalHeader) globalHeader.remove();
  const target = name => workspace.querySelector(`[data-director-content="${name}"]`);
  target('sessions').append(session);
  if (links) target('sessions').append(links);

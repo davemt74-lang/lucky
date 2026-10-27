@@ -23,24 +23,31 @@
   if(selected&&sessions.some(s=>s.id===selected))await select(selected);else {selected='';details=null;$('recording-workspace').hidden=true;}
  }
  function paintList(){const root=$('recording-session-list');root.replaceChildren();const type=$('recording-filter-type').value;
-  const search=$('recording-search').value.toLowerCase().trim();let found=0;
-  for(const s of sessions){if(type&&s.type!==type)continue;
+  const search=$('recording-search').value.toLowerCase().trim(),status=$('recording-filter-status').value;let found=0;
+  const ordered=[...sessions].sort((a,b)=>({active:0,draft:1,completed:2,archived:3}[a.status]??4)-({active:0,draft:1,completed:2,archived:3}[b.status]??4)||String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
+  for(const s of ordered){if(type&&s.type!==type)continue;if(status&&s.status!==status)continue;
    const keywords=[s.title,s.type,s.description,s.gameSessionId,s.profile?.location,s.profile?.eventDate,...(s.profile?.tags||[])].filter(Boolean).join(' ').toLowerCase();
    if(search&&!keywords.includes(search))continue;found++;
-   const card=el('button','','recording-list-item');card.type='button';
-   card.setAttribute('aria-pressed',String(selected===s.id));card.dataset.recordingId=s.id;
+   const card=el('article','','recording-session-card');
+   const choose=el('button','','recording-list-item');choose.type='button';
+   choose.setAttribute('aria-pressed',String(selected===s.id));choose.dataset.recordingId=s.id;
    const top=el('span','','recording-card-top');top.append(el('strong',s.title,'recording-card-name'));
-   const badge=el('span',s.status,'recording-card-status');badge.dataset.status=s.status;top.append(badge);card.append(top);
+   const badge=el('span',s.status,'recording-card-status');badge.dataset.status=s.status;top.append(badge);choose.append(top);
    const category=({live_event:'Live event',production:'Production',general:'Custom',game:'Game'})[s.type]||s.type;
    const when=s.profile?.eventDate||s.createdAt?.slice(0,10)||'';
-   card.append(el('span',[category,when,s.profile?.location].filter(Boolean).join(' · '),'recording-card-meta'));
-   if(s.description)card.append(el('span',s.description,'recording-card-description'));
+   choose.append(el('span',[category,when,s.profile?.location].filter(Boolean).join(' · '),'recording-card-meta'));
+   if(s.description)choose.append(el('span',s.description,'recording-card-description'));
    const tags=(s.profile?.tags||[]).slice(0,3).map(t=>'#'+t).join(' ');
-   if(tags)card.append(el('span',tags,'recording-card-tags'));
-   card.onclick=()=>void run(async()=>select(s.id));root.append(card);
+   if(tags)choose.append(el('span',tags,'recording-card-tags'));
+   choose.onclick=()=>void run(async()=>select(s.id));card.append(choose);
+   const actions=el('div','','recording-card-actions');
+   const editor=el('a','✂ Edit timeline','btn btn-outline');editor.href='recording-editor.php?session='+encodeURIComponent(s.id);actions.append(editor);
+   if(['active','draft'].includes(s.status)){const director=el('a','◉ Camera Director','btn btn-primary');director.href='director.php?recording='+encodeURIComponent(s.id);actions.prepend(director);}
+   card.append(actions);root.append(card);
   }
-  $('recording-library-count').textContent=`${found} session${found===1?'':'s'}`;
-  if(!found)root.append(el('p',sessions.length?'No matching recordings. Change your filters.':'No recording sessions yet. Select New recording to create one.'));
+  const active=sessions.filter(s=>s.status==='active').length;
+  $('recording-library-count').textContent=`${found} of ${sessions.length} session${sessions.length===1?'':'s'} · ${active} active`;
+  if(!found){const empty=el('div','','recording-library-empty');empty.append(el('p',sessions.length?'No matching recordings. Change your filters.':'Your recording library is empty. Create your first recording session.'));if(!sessions.length){const create=el('button','＋ New recording','btn btn-primary');create.type='button';create.onclick=openCreate;empty.append(create);}root.append(empty);}
  }
  async function select(id){
   selected=id;const [detail,permission,media]=await Promise.all([api('detail',null,{id}),api('permission_status',null,{id}),api('media_list',null,{id})]);
@@ -106,7 +113,7 @@
    brief:$('recording-brief').value.trim(),shotList:$('recording-shots').value.split('\n').map(s=>s.trim()).filter(Boolean),capture:captureValues(),nonce:random()};
   const result=await api('create',body);$('recording-create').reset();$('recording-type').onchange();$('recording-multicam').onchange();selected=result.session.id;await refresh();createDialog.close();
  });};
- $('recording-search').addEventListener('input',paintList);$('recording-filter-type').addEventListener('change',paintList);
+ $('recording-search').addEventListener('input',paintList);$('recording-filter-type').addEventListener('change',paintList);$('recording-filter-status').addEventListener('change',paintList);
  $('recording-refresh').onclick=()=>run(refresh);
  $('recording-refresh-devices').onclick=()=>void refreshDevices().catch(e=>note(e.message,true));
  $('recording-activate').onclick=()=>run(async()=>{await api('status',{id:selected,status:'active',revision:details.session.revision});await refresh();});

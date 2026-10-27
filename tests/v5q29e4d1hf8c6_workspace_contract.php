@@ -6,7 +6,7 @@ $file=static fn(string $name):string=>(string)file_get_contents($root.'/'.$name)
 $page=$file('director.php');$workspace=$file('public/director-workspace.js');$css=$file('public/director-workspace.css');
 $studio=$file('public/director-studio.js');$pub=$file('public/director-publish.js');$proof=$file('proof.php');
 $check=static function(bool $ok,string $message):void {if(!$ok)throw new RuntimeException('HF8C6: '.$message);echo "PASS $message\n";};
-$check(preg_match('~director-workspace\.css\?v=hf8(?:c[6-9]|d0b)~',$page)===1&&preg_match('~director-workspace\.js\?v=hf8c[6-9]~',$page)===1,'Redesigned workspace styles and behavior are cache-busted');
+$check(preg_match('~director-workspace\.css\?v=hf8(?:c[6-9]|d0[b-e])~',$page)===1&&preg_match('~director-workspace\.js\?v=hf8c[6-9]~',$page)===1,'Redesigned workspace styles and behavior are cache-busted');
 $check(str_contains($workspace,"const monitors = director?.querySelector('.director-monitors')")&&str_contains($workspace,"const grid = $('camera-grid')"),'Existing live monitors and real camera grid are reparented');
 $check(str_contains($workspace,'shell.replaceChildren(workspace)')&&str_contains($workspace,"target('live').append(broadcast)")&&str_contains($workspace,"target('audio').append(audio)"),'Controls retain original DOM nodes and event handlers');
 $check(str_contains($workspace,'target(\'settings\').append(director)')&&str_contains($workspace,'director.hidden = true'),'Original compositor root stays connected for live animation frames');
