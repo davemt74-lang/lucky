@@ -113,13 +113,44 @@
  backdrop.addEventListener('click',() => closePanel());
  document.addEventListener('keydown',e => { if (e.key === 'Escape' && !drawer.hidden) { e.preventDefault(); closePanel(); } });
 
+ const cameraId = card => card.dataset.phonePair ? 'phone:' + card.dataset.phonePair :
+  card.dataset.cameraId ? 'camera:' + card.dataset.cameraId : '';
+ const markTally = () => {
+  const state=window.LuckyCameraDirector?.state?.()||{};
+  grid.querySelectorAll(':scope > .camera-source').forEach(card => {
+   const id=cameraId(card);
+   card.classList.toggle('is-cued',!!id&&state.preview===id);
+   card.classList.toggle('is-program',!!id&&state.program===id);
+  });
+ };
  const cameraCount = () => {
   const live = grid.querySelectorAll(':scope > .camera-source').length;
   $('director-workspace-camera-count').textContent = `${live} camera${live === 1 ? '' : 's'}`;
   $('director-workspace-source-count').setAttribute('aria-label',`${live} connected camera sources`);
+  grid.querySelectorAll(':scope > .camera-source').forEach(card => {
+   if (!cameraId(card)) return;
+   card.tabIndex=0;card.setAttribute('role','button');
+   card.setAttribute('aria-label','Cue '+(card.querySelector('strong')?.textContent||'camera')+' in Preview');
+  });
+  markTally();
  };
+ function cueTile(card) {
+  const id=card&&cameraId(card);
+  if (!id) return;
+  if (window.LuckyCameraDirector?.select?.(id)) {markTally();status.textContent='Cued '+(card.querySelector('strong')?.textContent||'camera')+' in Preview. Press Cut to send it to Program.';}
+ }
+ grid.addEventListener('click',e=>{
+  if (e.target.closest('button,a,input,select')) return;
+  cueTile(e.target.closest('.camera-source'));
+ });
+ grid.addEventListener('keydown',e=>{
+  if (e.target.closest('button,a,input,select')) return;
+  if (['Enter',' '].includes(e.key)&&e.target.matches('.camera-source')) {e.preventDefault();cueTile(e.target);}
+ });
  new MutationObserver(cameraCount).observe(grid,{childList:true});
  window.addEventListener('lucky:cameras-refreshed',cameraCount);
+ window.addEventListener('lucky:director-sources-updated',markTally);
+ ['director-cut','director-fade','director-wipe','director-dip'].forEach(id=>$(id).addEventListener('click',()=>requestAnimationFrame(markTally)));
  cameraCount();
  const badge = $('director-live-badge');
  function liveState() {

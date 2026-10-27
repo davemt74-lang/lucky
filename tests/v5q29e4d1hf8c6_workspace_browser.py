@@ -21,6 +21,7 @@ async def main():
     mock = f"""
      window.currentSession='';
      window.LuckyDirectorStudio={{state:()=>({{recordingSession:window.currentSession}})}};
+     window.LuckyCameraDirector={{preview:'',select(id){{this.preview=id;return true;}},state(){{return {{preview:this.preview,program:''}};}}}};
      window.mockMedia=[];
      window.fetch=async(url)=>{{
       const p=new URL(String(url),'https://lucky.test/'),act=p.searchParams.get('action');
@@ -93,7 +94,7 @@ async def main():
                    'Live event' in await page.locator('#director-workspace-session-title').inner_text() and
                    await page.locator('#director-workspace-drawer').is_hidden())
         await page.evaluate("""() => {
-          const card=document.createElement('section');card.className='camera-source';
+          const card=document.createElement('section');card.className='camera-source';card.dataset.cameraId='webcam-test';
           const title=document.createElement('strong');title.textContent='USB Camera';
           const vid=document.createElement('video');card.append(title,vid);
           document.getElementById('camera-grid').append(card);
@@ -101,6 +102,9 @@ async def main():
         await page.wait_for_function("document.querySelector('#director-workspace-camera-count').textContent==='1 camera'")
         await test('Connected devices appear in the main multiview grid',
                    await page.locator('#director-workspace-grid .camera-source').count() == 1)
+        await page.locator('#director-workspace-grid .camera-source').click()
+        await test('Clicking a live tile cues Preview without changing Program',
+                   await page.evaluate("LuckyCameraDirector.state().preview==='camera:webcam-test' && LuckyCameraDirector.state().program===''"))
         await page.set_viewport_size({'width': 380, 'height': 760})
         await test('Mobile monitors stack vertically without horizontal page overflow',
                    await page.evaluate("""() => {

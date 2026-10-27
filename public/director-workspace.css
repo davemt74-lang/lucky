@@ -47,6 +47,10 @@ body.director-studio-page .director-studio-shell{max-width:none;padding:10px 0 2
 .director-workspace-multiview #camera-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:0;padding:10px;background:#081523;min-height:110px;align-items:stretch}
 .director-workspace-multiview #camera-grid:empty:after{content:'No live camera inputs connected. Open a recording session, then use Cameras to add a desktop device or arm a paired phone.';grid-column:1/-1;display:grid;place-items:center;min-height:110px;color:#91adbf;font-size:12px;text-align:center;padding:14px;border:1px dashed #3b5c75;border-radius:7px}
 .director-workspace-multiview #camera-grid>.camera-source{width:100%;min-width:0;max-width:none;display:grid;align-content:start;gap:5px;padding:6px;border:1px solid #3c5f7a;border-radius:8px;background:#091b2e;overflow:hidden}
+.director-workspace-multiview #camera-grid>.camera-source[role=button]{cursor:pointer}
+.director-workspace-multiview #camera-grid>.camera-source.is-cued{border-color:#36d9d1;box-shadow:0 0 0 1px #27b9b7}
+.director-workspace-multiview #camera-grid>.camera-source.is-program{border-color:#f05a66;box-shadow:0 0 0 1px #cf344f}
+.director-workspace-multiview #camera-grid>.camera-source.is-cued.is-program{box-shadow:inset 0 0 0 2px #36d9d1,0 0 0 1px #f05a66}
 .director-workspace-multiview #camera-grid>.camera-source video{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;max-height:none;border-radius:5px;background:#020a14}
 .director-workspace-multiview #camera-grid>.camera-source strong{font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#d7e8f9}
 .director-workspace-multiview #camera-grid>.camera-source>.btn{padding:6px 9px;min-height:27px;font-size:10px}
