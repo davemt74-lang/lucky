@@ -31,6 +31,6 @@ shellStart('Camera Director','admin','director-studio-page');
 <script src="public/director-publish.js?v=5q29e4d1hf8c4" defer></script>
 <script src="public/recording-live-host.js?v=5q29e4d1hf8c5" defer></script>
 <script src="public/director-studio.js?v=5q29e4d1hf8c5-hf8d0b" defer></script>
-<script src="public/director-workspace.js?v=hf8c9-hf8d0c" defer></script>
+<script src="public/director-workspace.js?v=hf8c9-hf8d0d" defer></script>
 <script src="public/director-recording-sync.js?v=hf8c7" defer></script>
 <?php shellEnd(); ?>
