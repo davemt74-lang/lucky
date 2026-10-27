@@ -1,4 +1,4 @@
-/* HF8C1 Camera Director: live and saved-proof sources, cue, transitions and Program mixing. */
+/* HF8C3 Camera Director: Program video, graphics, and governed audio mixing. */
 (() => {
  'use strict';
  const root=document.getElementById('camera-director');if(!root)return;
@@ -6,9 +6,11 @@
  const grid=$('camera-grid'),preview=$('director-preview'),program=$('director-program');
  const selector=$('director-preview-source'),previewCtx=preview.getContext('2d'),programCtx=program.getContext('2d');
  const WIDTH=1280,HEIGHT=720,MAX_BYTES=80*1024*1024;
- const state={preview:'',program:'',transition:null,recording:false,active:false,programGraphics:{text:'',sticker:''}};
+ const state={preview:'',program:'',transition:null,recording:false,active:false,programGraphics:{text:'',sticker:''},audioMuted:false,audioVolume:100};
  let recorder=null,parts=[],bytes=0,frame=0,lastOptions='',exportStream=null,download=null,exportStarted=0;
  const clips=new Map();let proof=null,clipVersion=0,lastClipLoad=0;
+ let audioContext=null,audioOutput=null,hostMicrophone=null,lastAudioCheck=0;
+ const audioChannels=new Map();
  const info=(message,error=false)=>{const node=$('director-status');node.textContent=message;node.classList.toggle('is-error',error);};
  function sources(){
   if(!grid)return [];
@@ -20,7 +22,111 @@
   return live.concat([...clips.values()].map(({id,label,video})=>({id,label,video})));
  }
  function source(id){return sources().find(s=>s.id===id)||null;}
+ const audioInfo=(message,error=false)=>{const label=$('director-audio-status');label.textContent=message;label.classList.toggle('is-error',error);};
+ function openAudioMixer(){
+  if(!audioContext){
+   const Context=window.AudioContext||window.webkitAudioContext;
+   if(!Context){audioInfo('This browser cannot mix audio. Video remains available.',true);return false;}
+   try{audioContext=new Context();audioOutput=audioContext.createMediaStreamDestination();}
+   catch(e){audioContext=null;audioOutput=null;audioInfo('Unable to initialize Program audio: '+e.message,true);return false;}
+  }
+  if(audioContext.state==='suspended')void audioContext.resume().catch(()=>audioInfo('Tap a Program audio control to enable sound.',true));
+  return true;
+ }
+ function discardChannel(id){
+  const channel=audioChannels.get(id);if(!channel)return;
+  try{channel.input.disconnect();channel.gain.disconnect();}catch(_){/* already disconnected */}
+  if(channel.clipVideo)channel.clipVideo.muted=true;
+  audioChannels.delete(id);
+ }
+ function sourceAudio(id){
+  const isDesktop=id.startsWith('camera:');
+  if(isDesktop){
+   if(!hostMicrophone?.getAudioTracks().some(t=>t.readyState==='live'))return null;
+   return {key:'host-mic',stream:hostMicrophone};
+  }
+  const entry=source(id);if(!entry)return null;
+  if(id.startsWith('phone:')){
+   const stream=entry.video?.srcObject;
+   return stream?.getAudioTracks?.().some(t=>t.readyState==='live')?{key:id,stream}:null;
+  }
+  if(id.startsWith('clip:'))return {key:id,clipVideo:entry.video};
+  return null;
+ }
+ function ensureChannel(spec){
+  if(!audioContext||!spec)return null;
+  const current=audioChannels.get(spec.key);
+  if(current&&current.stream===spec.stream&&current.clipVideo===spec.clipVideo)return current;
+  if(current)discardChannel(spec.key);
+  try{
+   const input=spec.clipVideo?audioContext.createMediaElementSource(spec.clipVideo):
+    audioContext.createMediaStreamSource(new MediaStream(spec.stream.getAudioTracks().filter(t=>t.readyState==='live')));
+   const gain=audioContext.createGain();gain.gain.value=0;input.connect(gain);gain.connect(audioOutput);
+   const channel={input,gain,stream:spec.stream,clipVideo:spec.clipVideo};audioChannels.set(spec.key,channel);
+   // Only the mixed Program destination receives clip sound, never local speakers.
+   if(spec.clipVideo)spec.clipVideo.muted=false;
+   return channel;
+  }catch(e){audioInfo('Audio source unavailable: '+e.message,true);return null;}
+ }
+ function routeAudio(duration=0){
+  if(!audioContext)return;
+  const spec=state.active&&state.program?sourceAudio(state.program):null;
+  const channel=spec?ensureChannel(spec):null;
+  const selectedKey=channel?spec.key:'';
+  const at=audioContext.currentTime,seconds=Math.max(0,Math.min(duration,0.7));
+  const level=state.audioMuted?0:state.audioVolume/100;
+  for(const [id,item] of audioChannels){
+   const target=id===selectedKey?level:0,param=item.gain.gain;
+   param.cancelScheduledValues(at);param.setValueAtTime(param.value,at);
+   if(seconds)param.linearRampToValueAtTime(target,at+seconds);else param.setValueAtTime(target,at);
+  }
+  if(!state.program)audioInfo('Take a source to Program to route its sound.');
+  else if(state.audioMuted||state.audioVolume===0)audioInfo('Program audio muted. Live View and exports receive silence.');
+  else if(!channel)audioInfo(state.program.startsWith('camera:')?
+   'Desktop camera video is silent. Enable the host microphone to add audio.':'This source has no audio track; Program video remains live.');
+  else audioInfo('● Program audio: '+(selectedKey==='host-mic'?'Host microphone':source(state.program)?.label||'Selected source')+' · '+state.audioVolume+'%');
+ }
+ function programStream(includeSilentAudio=true){
+  if(!state.active||!state.program||!source(state.program))return null;
+  if(openAudioMixer())routeAudio();
+  const result=program.captureStream(25);
+  // Clone the mixed track: stopping a broadcast/export must not stop the mixer.
+  const track=audioOutput?.stream.getAudioTracks()[0];
+  // Broadcasts need a stable audio track so sound can be enabled mid-show.
+  // An export with no selected sound should be video-only: Chromium can
+  // otherwise produce an empty recording from a synthetic silent track.
+  if(track?.readyState==='live'&&(includeSilentAudio||!!sourceAudio(state.program)))result.addTrack(track.clone());
+  return result;
+ }
+ function stopHostMicrophone(){
+  discardChannel('host-mic');hostMicrophone?.getTracks().forEach(t=>t.stop());hostMicrophone=null;
+  $('director-host-mic').textContent='Enable host microphone';routeAudio();
+ }
+ async function toggleHostMicrophone(){
+  if(hostMicrophone){stopHostMicrophone();return;}
+  if(!state.active)return;
+  if(!navigator.mediaDevices?.getUserMedia){audioInfo('Microphone permission needs HTTPS and a compatible browser.',true);return;}
+  const button=$('director-host-mic');button.disabled=true;
+  try{
+   const stream=await navigator.mediaDevices.getUserMedia({video:false,audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
+   if(!state.active){stream.getTracks().forEach(t=>t.stop());return;}
+   hostMicrophone=stream;button.textContent='Disable host microphone';
+   if(openAudioMixer())routeAudio();
+   stream.getAudioTracks().forEach(t=>t.addEventListener('ended',()=>{if(hostMicrophone===stream)stopHostMicrophone();},{once:true}));
+  }catch(e){audioInfo('Host microphone not enabled: '+e.message,true);}
+  finally{button.disabled=!state.active;}
+ }
+ function resetAudio(){
+  for(const id of [...audioChannels.keys()])discardChannel(id);
+  hostMicrophone?.getTracks().forEach(t=>t.stop());hostMicrophone=null;
+  const old=audioContext;audioContext=null;audioOutput=null;if(old)void old.close().catch(()=>{});
+  state.audioMuted=false;state.audioVolume=100;
+  $('director-audio-mute').checked=false;$('director-audio-volume').value='100';$('director-audio-volume-label').textContent='100%';
+  $('director-host-mic').textContent='Enable host microphone';$('director-host-mic').disabled=!state.active;
+  audioInfo('Audio follows the selected Program source. No microphone is enabled.');
+ }
  function discardClip(id){
+  discardChannel(id);
   const clip=clips.get(id);if(!clip)return;
   clip.video.pause();clip.video.removeAttribute('src');clip.video.load();clips.delete(id);
  }
@@ -77,6 +183,7 @@
   $('director-source-count').textContent=String(list.length);
   if(!list.some(s=>s.id===state.program)&&state.program){
    state.program='';state.transition=null;
+   routeAudio();
    info('Program camera disconnected. Select and Take another source.',true);
    window.dispatchEvent(new Event('lucky:director-program-ended'));
   }
@@ -106,6 +213,7 @@
    {kind,from:previous,to:state.preview,started:at,duration:kind==='fade'?450:650}:null;
   state.program=state.preview;
   state.programGraphics=readGraphics();
+  if(openAudioMixer())routeAudio(kind==='cut'?0:kind==='fade'?.45:.65);
   info(({fade:'Fade',wipe:'Wipe',dip:'Dip to black',cut:'Cut'})[kind]+' to '+source(state.program).label+'. Program output updated.');
   labels();return true;
  }
@@ -139,6 +247,16 @@
  }
  function paint(at){
   if(!root.isConnected)return;
+  // A paired phone can reconnect with a replacement WebRTC MediaStream while
+  // remaining the same selected Program tile. Refresh that audio route safely.
+  if(audioContext&&at-lastAudioCheck>1100){
+   lastAudioCheck=at;
+   const id=state.program;
+   if(id?.startsWith('phone:')){
+    const incoming=sourceAudio(id),current=audioChannels.get(id);
+    if((incoming?.stream||null)!==(current?.stream||null))routeAudio();
+   }
+  }
   renderSource(previewCtx,state.preview);
   if(state.preview)graphics(previewCtx,readGraphics());
   renderSource(programCtx,state.program);
@@ -160,9 +278,12 @@
   if(state.program)graphics(programCtx,state.programGraphics);
   frame=requestAnimationFrame(paint);
  }
- const supported=()=>{
+ const supported=(withAudio=true)=>{
   if(!program.captureStream||!window.MediaRecorder)throw Error('Program export requires a browser with canvas recording support.');
-  return ['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm','video/mp4']
+  const formats=withAudio?
+   ['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm','video/mp4']:
+   ['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm','video/mp4'];
+  return formats
    .find(type=>MediaRecorder.isTypeSupported(type))||'';
  };
  function stopExport(){
@@ -172,7 +293,9 @@
  function startExport(){
   if(state.recording||!state.program||!state.active)return false;
   try{
-   const mime=supported();parts=[];bytes=0;exportStream=program.captureStream(25);
+   parts=[];bytes=0;exportStream=programStream(false);
+   if(!exportStream)throw Error('Take a camera to Program before recording.');
+   const mime=supported(exportStream.getAudioTracks().length>0);
    recorder=new MediaRecorder(exportStream,mime?{mimeType:mime}:undefined);
    const recorded=recorder;exportStarted=Date.now();
    recorded.ondataavailable=e=>{if(e.data?.size){parts.push(e.data);bytes+=e.data.size;if(bytes>=MAX_BYTES)stopExport();}};
@@ -189,19 +312,20 @@
     const anchor=$('director-export-download');anchor.href=download;
     anchor.download='lucky-program-'+new Date(exportStarted).toISOString().replace(/[:.]/g,'-')+(blob.type.includes('mp4')?'.mp4':'.webm');
     anchor.hidden=false;
-    info('Program export ready ('+(blob.size/1048576).toFixed(1)+' MB). Download this video; audio mixing and publishing follow in later sections.');
+    info('Program export ready ('+(blob.size/1048576).toFixed(1)+' MB). The selected Program audio is included when available.');
    };
    recorded.start(1000);state.recording=true;
    $('director-export-start').disabled=true;$('director-export-stop').disabled=false;
    $('director-recording-badge').hidden=false;$('director-export-download').hidden=true;
-   info('● Recording the Program output. Camera cuts, fades and graphics are included.');
+   info('● Recording Program video, graphics and mixed audio. Camera transitions are included.');
    return true;
   }catch(e){state.recording=false;exportStream?.getTracks().forEach(track=>track.stop());exportStream=null;info(e.message,true);return false;}
  }
  function close(){
   state.active=false;state.preview='';state.program='';state.transition=null;state.programGraphics={text:'',sticker:''};proof=null;clipVersion++;
+  $('director-host-mic').disabled=true;
   for(const id of [...clips.keys()])discardClip(id);
-  $('director-clip-count').textContent='0';lastOptions='';stopExport();sync();labels();
+  $('director-clip-count').textContent='0';lastOptions='';stopExport();resetAudio();sync();labels();
  }
  selector.addEventListener('change',()=>select(selector.value));
  $('director-cut').addEventListener('click',()=>take());
@@ -211,10 +335,21 @@
  $('director-refresh-clips').addEventListener('click',()=>void loadClips(true));
  $('director-export-start').addEventListener('click',startExport);
  $('director-export-stop').addEventListener('click',stopExport);
+ $('director-audio-volume').addEventListener('input',()=>{
+  state.audioVolume=Math.max(0,Math.min(100,Number($('director-audio-volume').value)||0));
+  $('director-audio-volume-label').textContent=state.audioVolume+'%';
+  if(openAudioMixer())routeAudio(.07);
+ });
+ $('director-audio-mute').addEventListener('change',()=>{
+  state.audioMuted=$('director-audio-mute').checked;
+  if(openAudioMixer())routeAudio(.05);
+ });
+ $('director-host-mic').addEventListener('click',()=>void toggleHostMicrophone());
  $('director-export-download').addEventListener('click',()=>{setTimeout(()=>{if(download){URL.revokeObjectURL(download);download=null;}},30000);});
  window.addEventListener('lucky:proof-open',e=>{
   close();state.active=!!e.detail?.session&&!!e.detail?.claim;
   if(state.active)proof={session:e.detail.session,claim:e.detail.claim};
+  $('director-host-mic').disabled=!state.active;
   sync();labels();void loadClips(true);
  });
  window.addEventListener('lucky:proof-close',close);
@@ -224,7 +359,9 @@
  window.addEventListener('pagehide',()=>{close();observer.disconnect();cancelAnimationFrame(frame);if(download)URL.revokeObjectURL(download);});
  preview.width=program.width=WIDTH;preview.height=program.height=HEIGHT;
  sync();labels();frame=requestAnimationFrame(paint);
- window.LuckyCameraDirector={sources:()=>sources().map(({id,label})=>({id,label})),select,take,startExport,stopExport,
-  programStream:()=>state.active&&state.program&&source(state.program)?program.captureStream(25):null,
+ window.LuckyCameraDirector={sources:()=>sources().map(({id,label})=>({id,label})),select,take,startExport,stopExport,programStream,
+  audioState:()=>({muted:state.audioMuted,volume:state.audioVolume,microphone:!!hostMicrophone,
+   source:state.program,activeChannel:state.program.startsWith('camera:')?'host-mic':state.program,
+   channels:[...audioChannels.keys()],hasAudioTrack:!!audioOutput?.stream.getAudioTracks().length}),
   state:()=>({preview:state.preview,program:state.program,recording:state.recording,transition:!!state.transition,programGraphics:{...state.programGraphics}})};
 })();

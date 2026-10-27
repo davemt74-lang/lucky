@@ -1,4 +1,4 @@
-/* HF8C0: host chooses public directory or private invitation; Program-only output. */
+/* HF8C3: host-only Program video and mixed audio, public or private visibility. */
 (() => {
  'use strict';
  const $=id=>document.getElementById(id);
@@ -53,7 +53,9 @@
   }};
   try{
    if(!stream||!active||active.id!==current||version!==epoch)throw Error('Publisher stopped.');
-   for(const track of stream.getVideoTracks())peer.addTrack(track,stream);
+   // Both tracks represent the composited Program; no individual camera feed
+   // or local microphone track is offered to viewers independently.
+   for(const track of stream.getTracks())peer.addTrack(track,stream);
    await peer.setRemoteDescription({type:'offer',sdp:offer.offer});
    await peer.setLocalDescription(await peer.createAnswer());
    await gathered(peer);

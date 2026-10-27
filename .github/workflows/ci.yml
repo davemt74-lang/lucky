@@ -89,6 +89,7 @@ jobs:
           php tests/v5q29e4d1hf8c0_visibility_contract.php
           php tests/v5q29e4d1hf8c1_director_clips_contract.php
           php tests/v5q29e4d1hf8c2_scenes_contract.php
+          php tests/v5q29e4d1hf8c3_audio_contract.php
           php -l api/recording-export.php
           php -l bin/recording-export-worker.php
           php -l lib/RecordingExports.php
@@ -234,6 +235,7 @@ jobs:
           python tests/v5q29e4d1hf8c0_visibility_browser.py
           python tests/v5q29e4d1hf8c1_director_clips_browser.py
           python tests/v5q29e4d1hf8c2_scenes_browser.py
+          python tests/v5q29e4d1hf8c3_audio_browser.py
           python tests/v5q29e4d1hf5_proof_camera_browser.py
           python tests/v5q29d_multicamera_browser.py
           python tests/v5q29a_timeline_browser.py
