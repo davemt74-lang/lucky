@@ -266,6 +266,9 @@ final class GameEngine {
           'bonusSlices'=>array_values(array_map(fn($p)=>['name'=>$p['name'],'cents'=>$p['cents'],'tier'=>'bonus','kind'=>'prize'],
               array_filter($s['pools']['bonus']['prizes'],fn($p)=>$p['cents']>0&&!in_array($p['id'],array_column($s['claims'],'prizeId'),true)))),
           'bonusEnabled'=>$s['odds']['bonusChance']>0,
-          'createdAt'=>$s['createdAt'],'endedAt'=>$s['endedAt'],'prizePackage'=>$s['prizePackage']??null];
+          'createdAt'=>$s['createdAt'],'endedAt'=>$s['endedAt'],'prizePackage'=>$s['prizePackage']??null,
+          // Presentation text is explicitly cued by the host and contains no
+          // camera credentials, private claims or recording invitations.
+          'showPresentation'=>in_array($s['status'],['active','paused'],true)?($s['director']['presentation']??null):null];
     }
 }

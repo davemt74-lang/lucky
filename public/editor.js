@@ -868,7 +868,7 @@ function renderBin(){const bin=$('editor-media-bin');if(!bin)return;bin.replaceC
  function applyGameMomentCaption(moment){
   if(movieMode)return inform('Stop the movie preview before editing game moment captions.',true);
   const clip=moment.claimId?clips.find(c=>c.claimId===moment.claimId):chosen;
-  if(!clip)return inform(moment.claimId?'Capture or add footage from this prize before adding its moment caption.':'Select a clip before applying this costume cue.',true);
+  if(!clip)return inform(moment.claimId?'Capture or add footage from this prize before adding its moment caption.':'Select a clip before applying this game moment.',true);
   const caption=window.LuckyEditorMoments.caption(moment).replace(/[\u0000-\u001f]/g,' ').slice(0,120);
   if(!overlayClip(clip,caption,'bottom','medium'))return inform('That game moment cannot be used as a clip caption.',true);
   select(clip.instanceId);

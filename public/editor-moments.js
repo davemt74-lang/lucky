@@ -1,4 +1,4 @@
-/* V5Q31: game turns and costume changes are editing cues, not fabricated video timestamps. */
+/* V5Q32B: player, costume and Director show events are editing cues, not fabricated footage. */
 (() => {
  'use strict';
  const $=id=>document.getElementById(id);
@@ -8,17 +8,22 @@
    playerId:turn.playerId,playerName:turn.playerName,turnNumber:turn.turnNumber,
    claimId:turn.claimId||'',prizeName:turn.prizeName,costumeItem:turn.costumeItem||null});
   for(const event of roster.costumeEvents||[])items.push({...event,kind:'costume'});
+  for(const event of state?.director?.events||[]){
+   if(!['cue','program_cut','turn_skip','clear_presentation','camera_assignment'].includes(event.type))continue;
+   items.push({...event,kind:'director'});
+  }
   items.sort((a,b)=>(Date.parse(a.at)||0)-(Date.parse(b.at)||0)||(a.kind==='prize'?-1:1));
   return items;
  };
- const caption=moment=>moment.kind==='costume'?
-  `${moment.playerName} · ${moment.itemName} · ${moment.actionName||moment.action}${moment.note?' · '+moment.note:''}`:
+ const caption=moment=>moment.kind==='director'?
+  `Director · ${moment.label||moment.type}${moment.note?' · '+moment.note:''}`:
+  moment.kind==='costume'?`${moment.playerName} · ${moment.itemName} · ${moment.actionName||moment.action}${moment.note?' · '+moment.note:''}`:
   `${moment.playerName} wins ${moment.prizeName}${moment.costumeItem?' · Costume item: '+moment.costumeItem.itemName:''}`;
  function render(state,onCaption){
   const list=$('editor-game-moment-list'),selector=$('editor-game-moment-player'),count=$('editor-game-moment-count');
   if(!list||!selector||!count)return;
   const moments=rows(state),before=selector.value;
-  const people=new Map(moments.map(m=>[m.playerId,m.playerName]));
+  const people=new Map(moments.filter(m=>m.playerId&&m.playerName).map(m=>[m.playerId,m.playerName]));
   selector.replaceChildren(new Option('All players',''));
   for(const [id,name] of people)selector.add(new Option(name,id));
   selector.value=people.has(before)?before:'';
@@ -29,7 +34,7 @@
    for(const moment of visible){
     const li=document.createElement('li');li.className='studio-game-moment';
     const label=document.createElement('strong');label.textContent=caption(moment);
-    const meta=document.createElement('small');meta.textContent=`Turn ${moment.turnNumber||'?'} · ${new Date(moment.at).toLocaleString()}${moment.claimId?' · prize footage linked':''}`;
+    const meta=document.createElement('small');meta.textContent=`${moment.kind==='director'?'Live Director':`Turn ${moment.turnNumber||'?'}`} · ${new Date(moment.at).toLocaleString()}${moment.claimId?' · prize footage linked':''}`;
     const button=document.createElement('button');button.type='button';button.className='btn btn-outline';button.textContent='Caption clip';
     button.onclick=()=>onCaption?.(moment);
     li.append(label,meta,button);list.append(li);

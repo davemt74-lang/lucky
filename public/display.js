@@ -3,6 +3,7 @@
  const body=document.body,id=body.dataset.session,token=body.dataset.token;let lastSpin=0,lastVersion=0,animating=false,initialized=false,wheelOutcome=null;
  const WINNER_HOLD_MS=3500;
  const render=v=>{
+  L.showPresentation?.(v);
   if($('display-pair-phone'))$('display-pair-phone').hidden=!['active','paused'].includes(v.status);
   const current=v.multiplayer?.players?.[v.multiplayer.turnIndex||0];
   $('display-state').textContent=(v.status==='active'?`LIVE · ${v.spinCount} SPINS`:v.status==='paused'?'GAME PAUSED':'GAME ENDED')+(current?' · NEXT: '+current.name:'');

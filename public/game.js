@@ -158,6 +158,7 @@
  }
  function render(){
   const view=data?.view;const live=['active','paused'].includes(view?.status);const active=view?.status==='active';
+  L.showPresentation?.(view);
   directorLink.href=view?.id?'director.php?game='+encodeURIComponent(view.id):'director.php';
   const roster=view?.multiplayer,players=roster?.players||[],current=players[roster?.turnIndex||0];
   const turnCard=$('game-turn-card');if(turnCard){

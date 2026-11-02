@@ -74,6 +74,32 @@
   return ()=>{voiceActive=false;try{r.abort();}catch(_){}};
  }
  function idempotency(){return crypto.randomUUID?crypto.randomUUID():Math.random().toString(36).slice(2)+Date.now();}
+ // Public display text comes only from a server-authorized show cue. Never
+ // embed streams, pairing tokens or HTML from this read-only presentation.
+ let showTimer=null;
+ function showPresentation(view){
+  if(document.body.dataset.page!=='display'&&!$('start-game'))return;
+  let card=$('lucky-show-card');
+  if(!card){
+   card=document.createElement('section');card.id='lucky-show-card';card.className='lucky-show-card';
+   card.setAttribute('aria-live','polite');
+   const eyebrow=document.createElement('span');eyebrow.className='lucky-show-eyebrow';eyebrow.textContent='✦ LIVE GAME';
+   const headline=document.createElement('strong');headline.className='lucky-show-headline';
+   const detail=document.createElement('p');detail.className='lucky-show-detail';
+   card.append(eyebrow,headline,detail);document.body.append(card);
+  }
+  const cue=view?.showPresentation;
+  const expires=Number(cue?.expiresAtMs);
+  const show=Boolean(view&&['active','paused'].includes(view.status)&&cue&&
+   typeof cue.headline==='string'&&Number.isFinite(expires)&&expires>Date.now());
+  if(showTimer!==null){clearTimeout(showTimer);showTimer=null;}
+  card.hidden=!show;
+  if(!show)return;
+  card.dataset.cue=String(cue.cue||'');
+  card.querySelector('.lucky-show-headline').textContent=cue.headline.slice(0,180);
+  card.querySelector('.lucky-show-detail').textContent=String(cue.detail||'').slice(0,240);
+  showTimer=setTimeout(()=>{card.hidden=true;showTimer=null;},Math.min(16000,Math.max(0,expires-Date.now())));
+ }
  function bindMusic(){
   const select=$('music-select');if(!select)return;
   fillTracks(select,trackId);select.onchange=()=>{trackId=select.value;if(pref.musicOn)playMusic(trackId).catch(e=>note('voice-status',e.message,true));};
@@ -84,5 +110,5 @@
    const key=ch==='music'?'musicVolume':ch+'Volume';input.value=pref[key];const out=$(ch+'-value');if(out)out.textContent=pref[key]+'%';
    input.oninput=()=>{volume(ch,Number(input.value));if(out)out.textContent=pref[key]+'%';};});refresh();
  }
- window.Lucky={api,getMe,$,money,dollars,note,tracks,getTrack,loadTracks,fillTracks,bindMusic,pref,playMusic,stopMusic,toggleMusic,nextMusic,volume,audioToggleMute,beep,speak,listen,idempotency};
+ window.Lucky={api,getMe,$,money,dollars,note,tracks,getTrack,loadTracks,fillTracks,bindMusic,pref,playMusic,stopMusic,toggleMusic,nextMusic,volume,audioToggleMute,beep,speak,listen,idempotency,showPresentation};
 })();

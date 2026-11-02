@@ -8,6 +8,7 @@
  const params=new URL(location.href).searchParams;
  let gameId=validId(params.get('game'))?params.get('game'):'';
  let context=null,requestPending=false,refreshPending=false,signature='',lastClaim='',operatorDirty=false;
+ let cameraSignature='',lastCamera='';
  let lastStudioAttempt=0,openingRecording='';
  const feedback=(message,error=false)=>{
   const node=$('director-game-feedback');node.textContent=message;node.classList.toggle('is-error',error);
@@ -41,6 +42,38 @@
   const oldValid=old===''||(context?.operators||[]).some(o=>o.pairId===old&&o.approved);
   const candidate=operatorDirty&&oldValid?old:assigned;
   select.value=[...select.options].some(o=>o.value===candidate&&!o.disabled)?candidate:'';
+ }
+ function fillCostume(){
+  const select=$('director-game-costume-item');if(!select)return;
+  const current=context?.game?.currentPlayer;
+  const items=[...(current?.costume?.items||[]),...(current?.prizeCostumeItems||[])];
+  const old=select.value;
+  select.replaceChildren(new Option('Costume spotlight · general',''));
+  for(const item of items)select.add(new Option(`${current.name} · ${item.name}`,item.id));
+  select.value=items.some(item=>item.id===old)?old:'';
+ }
+ function refreshCameras(){
+  const camera=window.LuckyCameraDirector;
+  const sources=camera?.sources?.()||[];
+  const select=$('director-game-camera-source');if(!select)return;
+  const nextSignature=JSON.stringify(sources);
+  if(nextSignature!==cameraSignature){
+   cameraSignature=nextSignature;
+   const chosen=select.value;
+   select.replaceChildren(new Option(sources.length?'Choose a camera / clip':'Connect a camera or load media',''));
+   for(const source of sources)select.add(new Option(source.label,source.id));
+   select.value=sources.some(source=>source.id===chosen)?chosen:'';
+  }
+  const ready=Boolean(active()&&context?.recording?.id&&
+   window.LuckyDirectorStudio?.state?.().recordingSession===context.recording.id);
+  $('director-game-preview').disabled=!ready||!select.value||requestPending;
+  $('director-game-take').disabled=!ready||!select.value||requestPending;
+  const program=camera?.state?.().program||'';
+  if(program!==lastCamera){lastCamera=program;
+   label('director-game-camera-status',program?
+    `Program: ${sources.find(source=>source.id===program)?.label||'connected source'}. Publish in Live View only with participant consent.`:
+    'Program off. Choose a source, cue Preview, then Take.');
+  }
  }
  function renderMoments(){
   const moments=context?.moments||[];
@@ -88,7 +121,7 @@
   const stateSignature=JSON.stringify({game:state,operators:context?.operators,assignments:context?.assignments,moments:context?.moments,recording:context?.recording});
   if(stateSignature!==signature){
    signature=stateSignature;
-   fillClaims();fillOperators();renderMoments();
+   fillClaims();fillOperators();fillCostume();renderMoments();
   }
   $('director-game-open-wheel').href=state?`game.php?session=${encodeURIComponent(state.id)}`:'game.php';
   $('director-game-open-editor').href=context?.recording?.id
@@ -96,7 +129,9 @@
   $('director-game-assign').disabled=!active()||!$('director-game-claim').value||requestPending;
   $('director-game-next').disabled=!active()||state.players.length<2||requestPending;
   $('director-game-cues').querySelectorAll('button').forEach(button=>{button.disabled=!active()||requestPending;});
+  $('director-game-clear-presentation').disabled=!active()||!context?.presentation||requestPending;
   maybeOpenRecording();updateCapture();
+  refreshCameras();
  }
  async function refresh(manual=false){
   if(refreshPending||requestPending)return;
@@ -124,7 +159,8 @@
  }
  for(const [key,name] of cueNames){
   const button=document.createElement('button');button.type='button';button.className='btn btn-outline';button.textContent=name;
-  button.addEventListener('click',()=>void act('cue',{cue:key,claimId:$('director-game-claim').value||''}));
+  button.addEventListener('click',()=>void act('cue',{cue:key,claimId:$('director-game-claim').value||'',
+   itemId:key==='costume_focus'?$('director-game-costume-item').value:''}));
   $('director-game-cues').append(button);
  }
  $('director-game-claim').addEventListener('change',()=>{operatorDirty=false;fillOperators();render();});
@@ -132,6 +168,24 @@
  $('director-game-assign').addEventListener('click',()=>void act('assign_camera',{
   claimId:$('director-game-claim').value,pairId:$('director-game-operator').value}));
  $('director-game-next').addEventListener('click',()=>void act('next_player',{claimId:''}));
+ $('director-game-clear-presentation').addEventListener('click',()=>void act('clear_presentation',{claimId:''}));
+ $('director-game-camera-source').addEventListener('change',refreshCameras);
+ $('director-game-preview').addEventListener('click',()=>{
+  const id=$('director-game-camera-source').value;
+  if(!id||!window.LuckyCameraDirector?.select?.(id))feedback('The selected Preview source is no longer available.',true);
+  else feedback('Preview cued privately. Take to Program to switch the visible feed.');
+ });
+ $('director-game-take').addEventListener('click',()=>{
+  const select=$('director-game-camera-source'),id=select.value;
+  const transition=$('director-game-transition').value;
+  const camera=window.LuckyCameraDirector;
+  if(!id||!camera?.select?.(id)||!camera?.take?.(transition)){
+   feedback('Unable to take this source to Program. Check the connected camera and recording session.',true);return;
+  }
+  // The camera switch is real and local to the Director compositor. Record a
+  // server cue afterward so the other computer and editor can see when it cut.
+  void act('program_cut',{claimId:'',sourceLabel:select.selectedOptions[0]?.text.slice(0,100)||'Camera',transition});
+ });
  $('director-game-refresh').addEventListener('click',()=>void refresh(true));
  $('director-game-record-start').addEventListener('click',()=>{
   updateCapture();if(!$('director-game-record-start').disabled)$('director-studio-take-start').click();
@@ -149,4 +203,5 @@
  if(validId(params.get('game')))document.querySelector('[data-director-panel="game"]')?.click();
  setInterval(()=>{if(!document.hidden)void refresh();},1400);
  setInterval(updateCapture,1000);
+ setInterval(refreshCameras,900);
 })();
