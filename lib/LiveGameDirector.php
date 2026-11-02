@@ -8,6 +8,7 @@ final class LiveGameDirector {
  public const MAX_EVENTS=256;
  private const CUES=['turn_intro'=>'Turn introduction','prize_reveal'=>'Prize reveal','reaction'=>'Player reaction',
   'costume_focus'=>'Costume close-up','celebration'=>'Celebration','scene_cut'=>'Scene change'];
+ private const TRANSITIONS=['cut'=>'Cut','fade'=>'Fade','wipe'=>'Wipe','dip'=>'Dip to black'];
 
  private static function id(mixed $id):string {
   if(!is_string($id)||preg_match('/^[a-f0-9]{32}$/D',$id)!==1)throw new DomainException('Invalid game or prize identifier.',422);
@@ -36,10 +37,14 @@ final class LiveGameDirector {
   if(!is_string($key)||preg_match('/^[a-zA-Z0-9_-]{12,64}$/D',$key)!==1)
    throw new DomainException('Invalid director request key.',422);
   $action=$input['action']??'';
-  if(!is_string($action)||!in_array($action,['assign_camera','cue','next_player'],true))
+  if(!is_string($action)||!in_array($action,['assign_camera','cue','next_player','program_cut',
+   'clear_presentation'],true))
    throw new DomainException('Unknown Live Game Director action.',422);
-  $requestSignature=hash('sha256',json_encode([$action,$input['claimId']??'',
-   $input['pairId']??'',$input['cue']??'',$input['note']??''],JSON_THROW_ON_ERROR));
+  $fingerprint=[$action,$input['claimId']??'',$input['pairId']??'',$input['cue']??'',$input['note']??''];
+  // Preserve V5Q32A retry signatures for existing saved game sessions.
+  if(($input['itemId']??'')!==''||($input['sourceLabel']??'')!==''||($input['transition']??'')!=='')
+   array_push($fingerprint,$input['itemId']??'',$input['sourceLabel']??'',$input['transition']??'');
+  $requestSignature=hash('sha256',json_encode($fingerprint,JSON_THROW_ON_ERROR));
   foreach($state['director']['events']??[] as $prior)if(($prior['requestKey']??'')===$key){
    if(($prior['requestSignature']??'')!==$requestSignature)
     throw new DomainException('Director request key was already used for another command.',409);
@@ -88,11 +93,47 @@ final class LiveGameDirector {
    $next=$players[$roster['turnIndex']];
    $event['type']='turn_skip';$event['nextPlayerId']=$next['id'];$event['nextPlayerName']=$next['name'];
    $event['label']='Skipped '.$current['name'].' · next: '.$next['name'];
+   $state['director']['presentation']=['id'=>$event['id'],'cue'=>'turn_intro',
+    'headline'=>$next['name']."'s turn",'detail'=>'Next up on Spin the Wheel',
+    'expiresAtMs'=>$ms+15000];
+  }elseif($action==='program_cut'){
+   $transition=$input['transition']??'cut';$sourceLabel=$input['sourceLabel']??'';
+   if(!is_string($transition)||!isset(self::TRANSITIONS[$transition]))
+    throw new DomainException('Invalid Program transition.',422);
+   if(!is_string($sourceLabel)||trim($sourceLabel)===''||strlen($sourceLabel)>100||
+    preg_match('/[\x00-\x1f\x7f]/',$sourceLabel))throw new DomainException('Invalid Program source name.',422);
+   $event['type']='program_cut';$event['transition']=$transition;
+   $event['sourceLabel']=trim($sourceLabel);
+   $event['label']=self::TRANSITIONS[$transition].' to '.$event['sourceLabel'];
+   $state['director']['lastCamera']=['label'=>$event['sourceLabel'],'transition'=>$transition,'at'=>$event['at']];
+  }elseif($action==='clear_presentation'){
+   if(empty($state['director']['presentation']))return ['changed'=>false,'event'=>null];
+   unset($state['director']['presentation']);
+   $event['type']='clear_presentation';$event['label']='Cleared game presentation';
   }else{
    $cue=$input['cue']??'';
    if(!is_string($cue)||!isset(self::CUES[$cue]))throw new DomainException('Invalid live show cue.',422);
    $event['type']='cue';$event['cue']=$cue;
    $event['label']=self::CUES[$cue].($claim?' · '.$claim['name']:'');
+   $subject=$claim['playerName']??$current['name'];
+   $headline=match($cue){
+    'turn_intro'=>$subject."'s turn",'prize_reveal'=>$claim?'Prize: '.$claim['name']:'Prize reveal',
+    'reaction'=>$subject.' reacts','costume_focus'=>'Costume spotlight',
+    'celebration'=>'Congratulations, '.$subject.'!','scene_cut'=>'Camera scene change'};
+   $detail=$claim['name']??($current['costume']['name']??'Spin the Wheel');
+   if($cue==='costume_focus'){
+    $itemId=$input['itemId']??'';
+    if(!is_string($itemId)||strlen($itemId)>100)throw new DomainException('Invalid costume layer.',422);
+    if($itemId!==''){
+     $items=array_merge($current['costume']['items']??[],$current['prizeCostumeItems']??[]);
+     $found=null;foreach($items as $item)if(($item['id']??'')===$itemId){$found=$item;break;}
+     if(!$found)throw new DomainException('The selected costume layer belongs to another player.',422);
+     $detail=(string)$found['name'];$event['itemId']=$itemId;
+    }
+   }
+   if($note!=='')$detail=trim($note);
+   $state['director']['presentation']=['id'=>$event['id'],'cue'=>$cue,
+    'headline'=>$headline,'detail'=>$detail,'expiresAtMs'=>$ms+15000];
   }
   $state['director']['events'][]=$event;
   $state['version']=(int)$state['version']+1;
@@ -148,12 +189,15 @@ final class LiveGameDirector {
     'party'=>$roster['party']['name']??null,'theme'=>$roster['theme']['name']??null,
     'players'=>array_map(static fn($p)=>['id'=>$p['id'],'name'=>$p['name']],$players),
     'hosts'=>array_map(static fn($p)=>['id'=>$p['id'],'name'=>$p['name']],$roster['hosts']??[]),
-    'currentPlayer'=>$current?['id'=>$current['id'],'name'=>$current['name'],'costume'=>$current['costume']??null]:null,
+    'currentPlayer'=>$current?['id'=>$current['id'],'name'=>$current['name'],'costume'=>$current['costume']??null,
+     'prizeCostumeItems'=>$current['prizeCostumeItems']??[]]:null,
     'latestPrize'=>$latest?['id'=>$latest['id'],'name'=>$latest['name'],'playerName'=>$latest['playerName']??null,
      'playerId'=>$latest['playerId']??null,'costumeItem'=>$latest['costumeItem']??null]:null,
     'claims'=>array_map(static fn($c)=>['id'=>$c['id'],'name'=>$c['name'],'playerName'=>$c['playerName']??null],$claims)],
    'operators'=>$operators,'assignments'=>$state['director']['assignments']??[],
    'moments'=>array_slice($moments,-160),'recording'=>$recording,'takes'=>$takes,
+   'presentation'=>$state['director']['presentation']??null,
+   'lastCamera'=>$state['director']['lastCamera']??null,
    'serverTimeMs'=>(int)round(microtime(true)*1000)];
  }
 }

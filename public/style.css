@@ -201,3 +201,16 @@ body[data-page="intro"]{min-height:100vh;margin:0}.intro-stage{min-height:100vh;
 .intro-stage>.intro-background{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:cover;object-position:center;z-index:-2;filter:brightness(.55) saturate(.93)}
 .intro-stage:has(.intro-background):after{mask-image:none;background:linear-gradient(180deg,rgba(6,11,20,.56),rgba(5,10,20,.23) 42%,rgba(5,9,19,.76))}
 .intro-stage>.intro-background[hidden]{display:none}
+
+/* V5Q32B: audience-safe live show cards, never a camera or microphone feed. */
+.lucky-show-card{position:fixed;z-index:320;right:clamp(12px,4vw,56px);bottom:clamp(14px,4vh,46px);width:min(520px,calc(100vw - 24px));
+ pointer-events:none;display:grid;gap:6px;padding:18px 23px;border-radius:17px;border:1px solid #88dbe5;
+ background:linear-gradient(125deg,rgba(11,30,48,.96),rgba(8,15,33,.97));box-shadow:0 18px 64px #000a;color:#fff;
+ overflow-wrap:anywhere;animation:lucky-show-arrive .24s ease-out}
+.lucky-show-card[hidden]{display:none}
+.lucky-show-eyebrow{font-size:10px;letter-spacing:.19em;color:#86e6ec;font-weight:900}
+.lucky-show-headline{font-size:clamp(21px,3.5vw,35px);line-height:1.12;color:#ffdf9e}
+.lucky-show-detail{margin:0;font-size:clamp(13px,1.6vw,17px);color:#d4e6f5;line-height:1.35}
+@keyframes lucky-show-arrive{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:620px){.lucky-show-card{left:10px;right:10px;bottom:12px;width:auto;padding:13px 16px;border-radius:12px}}
+@media(prefers-reduced-motion:reduce){.lucky-show-card{animation:none}}

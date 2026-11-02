@@ -17,6 +17,11 @@
 .director-game-controls label{font-size:.78rem;display:flex;flex-direction:column;gap:.3rem;color:#c4d1e1}
 .director-game-controls select,.director-game-controls input{width:100%;min-width:0;background:#091525;border:1px solid #48627d;color:#f0f5fd;border-radius:.4rem;padding:.55rem}
 .director-game-controls .mini-label{margin:.1rem 0;color:#9cb4ca;line-height:1.4;font-size:.69rem}
+.director-game-camera-controls,.director-game-presentation-controls{margin:.75rem 0 0;padding:.8rem;background:#0d2031;border:1px solid #344b65;border-radius:.65rem;display:grid;gap:.5rem;min-width:0}
+.director-game-camera-controls h3{margin:0;color:#ffdf9e;font-size:.98rem}
+.director-game-camera-controls p,.director-game-presentation-controls p{margin:.1rem 0;font-size:.72rem;color:#a9c3d9;line-height:1.45}
+.director-game-camera-controls label,.director-game-presentation-controls label{display:grid;gap:.3rem;font-size:.76rem;color:#cbdbe9}
+.director-game-camera-controls select,.director-game-presentation-controls select{width:100%;min-width:0;background:#091525;border:1px solid #48627d;color:#f0f5fd;border-radius:.4rem;padding:.5rem}
 .director-game-cues{display:flex;flex-wrap:wrap;gap:.4rem}
 .director-game-cues .btn{font-size:.76rem;padding:.4rem .6rem}
 .director-game-record{display:flex;flex-wrap:wrap;gap:.4rem}
