@@ -1,6 +1,9 @@
 /* V5Q32C: audience-initiated Program viewer; input credentials never render in the show state. */
 .lucky-program-launch{position:fixed;z-index:330;right:15px;top:15px;font-size:.76rem;padding:.55rem .85rem;
  background:#102638;color:#aef3f2;border:1px solid #6ad4db;border-radius:12px;box-shadow:0 7px 24px #0007}
+/* While Program is visible its own toolbar handles expand/disconnect; don't
+   let the entry button cover those controls on a narrow, expanded screen. */
+body.lucky-program-on .lucky-program-launch{display:none}
 .lucky-program-dialog{width:min(520px,calc(100vw - 22px));max-height:calc(100dvh - 20px);border:1px solid #649ca9;
  border-radius:17px;background:#091b2d;color:#eaf7fa;padding:0;box-shadow:0 24px 90px #000d}
 .lucky-program-dialog::backdrop{background:rgba(1,7,17,.83)}
