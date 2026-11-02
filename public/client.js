@@ -100,6 +100,13 @@
   card.querySelector('.lucky-show-detail').textContent=String(cue.detail||'').slice(0,240);
   showTimer=setTimeout(()=>{card.hidden=true;showTimer=null;},Math.min(16000,Math.max(0,expires-Date.now())));
  }
+ // The same opt-in Program viewer runs on the host gameplay and audience/TV
+ // displays. Keep it independent of the public game-view API and versioning.
+ if(document.body.dataset.page==='display'||$('start-game')){
+  const style=document.createElement('link');style.rel='stylesheet';style.href='public/display-program.css?v=5q32c';
+  const script=document.createElement('script');script.src='public/display-program.js?v=5q32c';script.async=true;
+  document.head.append(style,script);
+ }
  function bindMusic(){
   const select=$('music-select');if(!select)return;
   fillTracks(select,trackId);select.onchange=()=>{trackId=select.value;if(pref.musicOn)playMusic(trackId).catch(e=>note('voice-status',e.message,true));};

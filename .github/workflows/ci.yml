@@ -31,6 +31,7 @@ jobs:
           php tests/v5q31_costume_actions.php
           php tests/v5q32a_live_game_director.php
           php tests/v5q32b_program_stage.php
+          php tests/v5q32c_live_program_display.php
           php tests/v5q22_phone_controller_contract.php
           php tests/v5q22b_game_catalog.php
           php tests/v5q22c_cloud_updates.php
@@ -202,6 +203,7 @@ jobs:
           python tests/v5q31_costume_actions_browser.py
           python tests/v5q32a_live_game_director_browser.py
           python tests/v5q32b_program_stage_browser.py
+          python tests/v5q32c_live_program_display_browser.py
           python tests/v5q13_phone_proof_browser.py
           python tests/v5q14_single_proof_flow.py
           python tests/v5q15b_prize_acceptance_browser.py

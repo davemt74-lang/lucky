@@ -1,0 +1,30 @@
+/* V5Q32C: audience-initiated Program viewer; input credentials never render in the show state. */
+.lucky-program-launch{position:fixed;z-index:330;right:15px;top:15px;font-size:.76rem;padding:.55rem .85rem;
+ background:#102638;color:#aef3f2;border:1px solid #6ad4db;border-radius:12px;box-shadow:0 7px 24px #0007}
+.lucky-program-dialog{width:min(520px,calc(100vw - 22px));max-height:calc(100dvh - 20px);border:1px solid #649ca9;
+ border-radius:17px;background:#091b2d;color:#eaf7fa;padding:0;box-shadow:0 24px 90px #000d}
+.lucky-program-dialog::backdrop{background:rgba(1,7,17,.83)}
+.lucky-program-form{padding:25px;display:grid;gap:15px}
+.lucky-program-form h2{margin:0;font-size:1.3rem;color:#ffdb98}
+.lucky-program-form p{margin:0;line-height:1.45;color:#bfd3e1;font-size:.86rem}
+.lucky-program-form label{display:grid;gap:6px;font-size:.84rem;font-weight:700}
+.lucky-program-form input{width:100%;min-width:0;border:1px solid #5a8798;border-radius:9px;background:#051422;
+ padding:.75rem;color:#fff;font:inherit}
+.lucky-program-actions{display:flex;gap:.6rem;flex-wrap:wrap}
+.lucky-program-surface{position:fixed;z-index:310;right:14px;bottom:14px;width:min(490px,calc(100vw - 28px));
+ color:#ecf8fa;border:1px solid #6eced4;border-radius:15px;overflow:hidden;background:#071421;
+ box-shadow:0 18px 75px #000b;display:grid;gap:0}
+.lucky-program-surface[hidden]{display:none}
+.lucky-program-toolbar,.lucky-program-footer{display:flex;align-items:center;gap:8px;padding:8px 11px;background:#0c2234}
+.lucky-program-toolbar strong{font-size:.77rem;letter-spacing:.08em;color:#9be7e9;margin-right:auto}
+.lucky-program-toolbar button,.lucky-program-footer button{font-size:.69rem;padding:5px 8px}
+.lucky-program-surface video{width:100%;aspect-ratio:16/9;object-fit:contain;background:#010409;display:block}
+.lucky-program-footer p{font-size:.71rem;line-height:1.3;color:#cadde8;margin:0 auto 0 0}
+.lucky-program-surface.is-maximized{inset:0;width:100vw;height:100dvh;border:0;border-radius:0;
+ grid-template-rows:auto minmax(0,1fr) auto;background:#02060b}
+.lucky-program-surface.is-maximized video{width:100%;height:100%;aspect-ratio:auto}
+body.lucky-program-on .lucky-show-card{z-index:320;bottom:min(410px,48vh)}
+body.lucky-program-on:has(.lucky-program-surface.is-maximized) .lucky-show-card{bottom:80px}
+@media(max-width:640px){.lucky-program-launch{top:8px;right:8px;font-size:.66rem;padding:6px 8px}
+ .lucky-program-form{padding:16px}.lucky-program-surface{width:calc(100vw - 16px);right:8px;bottom:8px}
+ body.lucky-program-on .lucky-show-card{bottom:min(310px,46vh)}}
