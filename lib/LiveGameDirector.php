@@ -8,7 +8,81 @@ final class LiveGameDirector {
  public const MAX_EVENTS=256;
  private const CUES=['turn_intro'=>'Turn introduction','prize_reveal'=>'Prize reveal','reaction'=>'Player reaction',
   'costume_focus'=>'Costume close-up','celebration'=>'Celebration','scene_cut'=>'Scene change'];
+ private const TRIGGERS=['manual'=>'Manual','spin_start'=>'Wheel starts','prize_reveal'=>'Wheel reveal complete',
+  'costume_action'=>'Costume action','next_player'=>'Next player'];
  private const TRANSITIONS=['cut'=>'Cut','fade'=>'Fade','wipe'=>'Wipe','dip'=>'Dip to black'];
+
+ public static function defaultSteps():array {
+  return [
+   ['id'=>'intro','trigger'=>'next_player','cue'=>'turn_intro','durationSec'=>8,'enabled'=>true,'detail'=>''],
+   ['id'=>'spin','trigger'=>'spin_start','cue'=>'scene_cut','durationSec'=>6,'enabled'=>true,'detail'=>'Wheel spinning'],
+   ['id'=>'prize','trigger'=>'prize_reveal','cue'=>'prize_reveal','durationSec'=>12,'enabled'=>true,'detail'=>''],
+   ['id'=>'costume','trigger'=>'costume_action','cue'=>'costume_focus','durationSec'=>9,'enabled'=>true,'detail'=>''],
+   ['id'=>'reaction','trigger'=>'manual','cue'=>'reaction','durationSec'=>8,'enabled'=>true,'detail'=>''],
+   ['id'=>'finale','trigger'=>'manual','cue'=>'celebration','durationSec'=>10,'enabled'=>true,'detail'=>'']
+  ];
+ }
+ public static function rundown(array $state):array {
+  $saved=$state['director']['rundown']??[];
+  return ['steps'=>$saved['steps']??self::defaultSteps(),'enabled'=>(bool)($saved['enabled']??false),
+   'paused'=>(bool)($saved['paused']??false),'cursor'=>(int)($saved['cursor']??0),
+   'lastStepId'=>$saved['lastStepId']??null];
+ }
+ private static function checkedSteps(mixed $steps):array {
+  if(!is_array($steps)||!array_is_list($steps)||count($steps)<1||count($steps)>12)
+   throw new DomainException('Rundown needs 1 to 12 steps.',422);
+  $clean=[];$seen=[];
+  foreach($steps as $step){
+   if(!is_array($step))throw new DomainException('Invalid rundown step.',422);
+   $id=$step['id']??'';$trigger=$step['trigger']??'';$cue=$step['cue']??'';$duration=$step['durationSec']??null;
+   $detail=$step['detail']??'';
+   if(!is_string($id)||preg_match('/^[a-zA-Z0-9_-]{3,32}$/D',$id)!==1||isset($seen[$id])||
+    !is_string($trigger)||!isset(self::TRIGGERS[$trigger])||!is_string($cue)||!isset(self::CUES[$cue])||
+    !is_int($duration)||$duration<3||$duration>45||!is_bool($step['enabled']??null)||
+    !is_string($detail)||strlen($detail)>120||preg_match('/[\x00-\x1f\x7f]/',$detail))
+    throw new DomainException('Invalid rundown step fields.',422);
+   $seen[$id]=true;$clean[]=['id'=>$id,'trigger'=>$trigger,'cue'=>$cue,'durationSec'=>$duration,
+    'enabled'=>$step['enabled'],'detail'=>trim($detail)];
+  }
+  return $clean;
+ }
+ private static function presentation(array $state,array $step,array $event,int $ms,?array $source=null):array {
+  $players=$state['multiplayer']['players']??[];
+  $index=count($players)?((int)($state['multiplayer']['turnIndex']??0)%count($players)):0;
+  $person=$source['playerName']??($players[$index]['name']??'Player');
+  $prize=$source['name']??($source['prizeName']??null);
+  $cue=$step['cue'];
+  $headline=match($cue){
+   'turn_intro'=>$person."'s turn",'prize_reveal'=>$prize?'Prize: '.$prize:'Prize reveal',
+   'reaction'=>$person.' reacts','costume_focus'=>'Costume spotlight',
+   'celebration'=>'Congratulations, '.$person.'!','scene_cut'=>'Camera scene change'};
+  $detail=$step['detail']!==''?$step['detail']:($source['itemName']??$prize??'Spin the Wheel');
+  return ['id'=>$event['id'],'cue'=>$cue,'headline'=>$headline,'detail'=>$detail,
+   'expiresAtMs'=>$ms+$step['durationSec']*1000];
+ }
+ /** Triggered only inside a locked gameplay mutation. Never starts cameras or reveals a prize before the wheel stops. */
+ public static function onTrigger(array &$state,string $trigger,string $sourceKey,?array $source=null):bool {
+  if(($state['game']??'')!=='spin-wheel'||!in_array($state['status']??'',['active','paused'],true))return false;
+  $r=self::rundown($state);
+  if(!$r['enabled']||$r['paused']||!isset(self::TRIGGERS[$trigger]))return false;
+  foreach($state['director']['events']??[] as $event)if(($event['triggerKey']??'')===$sourceKey)return false;
+  if(count($state['director']['events']??[])>=self::MAX_EVENTS)return false;
+  foreach($r['steps'] as $i=>$step){
+   if(!$step['enabled']||$step['trigger']!==$trigger)continue;
+   $ms=(int)round(microtime(true)*1000);
+   $event=['id'=>bin2hex(random_bytes(16)),'at'=>self::stamp($ms),'timeMs'=>$ms,
+    'type'=>'rundown_cue','triggerKey'=>$sourceKey,'trigger'=>$trigger,'stepId'=>$step['id'],
+    'cue'=>$step['cue'],'label'=>'AUTO · '.self::CUES[$step['cue']],
+    'playerId'=>$source['playerId']??null,'playerName'=>$source['playerName']??null,
+    'claimId'=>$source['id']??($source['claimId']??null)];
+   $state['director']['events'][]=$event;
+   $state['director']['presentation']=self::presentation($state,$step,$event,$ms,$source);
+   $state['director']['rundown']['cursor']=($i+1)%count($r['steps']);
+   $state['director']['rundown']['lastStepId']=$step['id'];
+   return true;
+  }
+  return false;
+ }
 
  private static function id(mixed $id):string {
   if(!is_string($id)||preg_match('/^[a-f0-9]{32}$/D',$id)!==1)throw new DomainException('Invalid game or prize identifier.',422);
@@ -38,9 +112,11 @@ final class LiveGameDirector {
    throw new DomainException('Invalid director request key.',422);
   $action=$input['action']??'';
   if(!is_string($action)||!in_array($action,['assign_camera','cue','next_player','program_cut',
-   'clear_presentation'],true))
+   'clear_presentation','rundown_save','rundown_control'],true))
    throw new DomainException('Unknown Live Game Director action.',422);
   $fingerprint=[$action,$input['claimId']??'',$input['pairId']??'',$input['cue']??'',$input['note']??''];
+  if(array_key_exists('command',$input)||array_key_exists('steps',$input))
+   array_push($fingerprint,$input['command']??'',$input['steps']??null);
   // Preserve V5Q32A retry signatures for existing saved game sessions.
   if(($input['itemId']??'')!==''||($input['sourceLabel']??'')!==''||($input['transition']??'')!=='')
    array_push($fingerprint,$input['itemId']??'',$input['sourceLabel']??'',$input['transition']??'');
@@ -68,7 +144,41 @@ final class LiveGameDirector {
    'requestSignature'=>$requestSignature,'at'=>self::stamp($ms),'timeMs'=>$ms,
    'playerId'=>$claim['playerId']??$current['id'],'playerName'=>$claim['playerName']??$current['name'],
    'claimId'=>$claim['id']??null,'prizeName'=>$claim['name']??null,'note'=>trim($note)];
-  if($action==='assign_camera'){
+  if($action==='rundown_save'){
+   $steps=self::checkedSteps($input['steps']??null);
+   $old=self::rundown($state);
+   $state['director']['rundown']=['steps'=>$steps,'enabled'=>$old['enabled'],
+    'paused'=>$old['paused'],'cursor'=>0,'lastStepId'=>null];
+   $event['type']='rundown_edit';$event['label']='Updated show rundown · '.count($steps).' steps';
+  }elseif($action==='rundown_control'){
+   $command=$input['command']??'';
+   if(!is_string($command)||!in_array($command,['enable','disable','pause','resume','next','skip','replay'],true))
+    throw new DomainException('Invalid rundown control.',422);
+   $r=self::rundown($state);$steps=$r['steps'];$count=count($steps);$chosen=null;
+   if($command==='enable'){$r['enabled']=true;$r['paused']=false;}
+   elseif($command==='disable'){$r['enabled']=false;unset($state['director']['presentation']);}
+   elseif($command==='pause'){$r['paused']=true;unset($state['director']['presentation']);}
+   elseif($command==='resume')$r['paused']=false;
+   elseif($command==='skip'){$r['cursor']=($r['cursor']+1)%$count;unset($state['director']['presentation']);}
+   else{
+    $chosen=null;$index=null;
+    if($command==='replay'&&$r['lastStepId'])foreach($steps as $i=>$step)
+     if($step['id']===$r['lastStepId']&&$step['enabled']){$chosen=$step;$index=$i;break;}
+    if($command==='replay'&&!$chosen)throw new DomainException('No rundown cue to replay.',409);
+    if($command==='next')for($j=0;$j<$count;$j++){
+     $i=($r['cursor']+$j)%$count;
+     if($steps[$i]['enabled']){$chosen=$steps[$i];$index=$i;break;}
+    }
+    if(!$chosen)throw new DomainException('Enable at least one rundown step.',409);
+    $r['cursor']=($index+1)%$count;$r['lastStepId']=$chosen['id'];
+    $state['director']['presentation']=self::presentation($state,$chosen,$event,$ms,
+     $claim??null);
+    $event['cue']=$chosen['cue'];$event['stepId']=$chosen['id'];
+   }
+   $state['director']['rundown']=$r;
+   $event['type']='rundown_control';$event['command']=$command;
+   $event['label']='Show rundown · '.$command.($chosen?' · '.self::CUES[$chosen['cue']]:'');
+  }elseif($action==='assign_camera'){
    if(!$claim)throw new DomainException('Award a prize before assigning its cameraman.',409);
    $pairId=$input['pairId']??'';
    if(!is_string($pairId))throw new DomainException('Invalid player camera.',422);
@@ -136,6 +246,7 @@ final class LiveGameDirector {
     'headline'=>$headline,'detail'=>$detail,'expiresAtMs'=>$ms+15000];
   }
   $state['director']['events'][]=$event;
+  if($action==='next_player')self::onTrigger($state,'next_player','turn-skip-'.$event['id'],$next);
   $state['version']=(int)$state['version']+1;
   return ['changed'=>true,'event'=>$event];
  }
@@ -197,6 +308,7 @@ final class LiveGameDirector {
    'operators'=>$operators,'assignments'=>$state['director']['assignments']??[],
    'moments'=>array_slice($moments,-160),'recording'=>$recording,'takes'=>$takes,
    'presentation'=>$state['director']['presentation']??null,
+   'rundown'=>self::rundown($state),
    'lastCamera'=>$state['director']['lastCamera']??null,
    'serverTimeMs'=>(int)round(microtime(true)*1000)];
  }
