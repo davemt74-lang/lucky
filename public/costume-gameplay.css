@@ -1,0 +1,10 @@
+.game-costume-actions{padding:.85rem;border:1px solid #52637d;border-radius:.75rem;background:#0f1c30}
+.game-costume-actions summary{cursor:pointer;font-weight:700;color:#e4c985}
+.game-costume-actions p{font-size:.88rem;color:#b8c9db}
+.game-costume-player{padding:.7rem 0;border-top:1px solid #334763}
+.game-costume-player h3{font-size:1rem;margin:.2rem 0 .6rem}
+.game-costume-item{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;margin:.55rem 0;padding:.55rem;border:1px solid #344760;border-radius:.5rem}
+.game-costume-item input{min-width:140px;flex:1 1 180px}
+.game-costume-item-name{font-size:.85rem;flex:1 1 100%}
+#game-costume-action-history{margin:.4rem 0;padding-left:1.25rem;font-size:.82rem;color:#cbd6e6}
+@media(max-width:650px){.game-costume-item input{flex-basis:100%}.game-costume-item button{flex:1 1 auto}}

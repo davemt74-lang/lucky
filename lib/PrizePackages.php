@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__.'/GameEngine.php';
+require_once __DIR__.'/PartyStudio.php';
 
 /**
  * HomeServer-owned prize packages. Sessions copy validated package data at
@@ -147,6 +148,7 @@ final class PrizePackages {
  public static function save(PDO $db,string $id,int $version,string $name,array $cfg,bool $enabled,bool $player,mixed $budgetCents=null,mixed $image='',?bool $phoneCameraEnabled=null):array {
   self::requireReady($db);self::lockGame($db);self::id($id);$name=self::label($name);
   $cfg=GameEngine::validateConfig($cfg);
+  PartyStudio::prizeCostumeMap($db,$cfg);
   $budgetCents=self::budget($budgetCents,$cfg);$image=self::image($image);
   $q=$db->prepare("SELECT version,enabled,publication_status,phone_camera_enabled FROM prize_packages WHERE id=? AND game_id='spin-wheel' FOR UPDATE");
   $q->execute([$id]);$r=$q->fetch();
@@ -170,6 +172,7 @@ final class PrizePackages {
   if(!$published&&self::chosen($db)===$id)throw new DomainException('Choose a different published package before moving this one to Draft.',409);
   if($published){
    $cfg=GameEngine::validateConfig(json_decode($r['config_json'],true,512,JSON_THROW_ON_ERROR));
+   PartyStudio::prizeCostumeMap($db,$cfg);
     self::budget($r['budget_cents']===null?null:(int)$r['budget_cents'],$cfg);
    if(count($cfg['pools']['tier1']['prizes'])===0)throw new DomainException('Add at least one Tier 1 prize before publishing.',422);
   }

@@ -35,6 +35,7 @@
    badges.append(elem('span',p.image?'📷 Photo attached':'📷 No photo','prize-catalog-chip'));
    badges.append(elem('span',p.videoUrl?'🎞 Video attached':'🎞 No video','prize-catalog-chip'));
    badges.append(elem('span',`${(p.proofAngles||[]).length} proof angles`,'prize-catalog-chip'));
+   if(p.costumeItem)badges.append(elem('span','♜ Costume item attached','prize-catalog-chip'));
    const edit=elem('button','Edit prize →','btn btn-outline prize-catalog-edit');edit.type='button';edit.setAttribute('aria-label','Edit prize '+p.name);edit.onclick=()=>openPrizeEditor(p);
    info.append(heading,description,badges);card.append(photo,info,edit);list.append(card);
   }
@@ -49,6 +50,21 @@
   $('prize-edit-name').value=draft.name;$('prize-edit-value').value=cents(draft.cents);
   $('prize-edit-link').value=draft.url||'';$('prize-edit-description').value=draft.description||'';
   $('prize-edit-delete').hidden=creating;$('prize-edit-status').textContent='';
+  const costumeSelect=$('prize-edit-costume-item');costumeSelect.replaceChildren(new Option('Loading costume items…',''));
+  costumeSelect.disabled=true;
+  const linked=draft.costumeItem?`${draft.costumeItem.costumeId}:${draft.costumeItem.itemId}`:'';
+  let costumeLoaded=false;
+  void L.api('party_studio').then(catalog=>{
+   if(!dialog.open)return;
+   costumeSelect.replaceChildren(new Option('No costume item attached',''));
+   for(const costume of catalog.costumes||[])for(const item of costume.items||[])
+    costumeSelect.add(new Option(`${costume.name} · Layer ${item.layer} · ${item.name}`,`${costume.id}:${item.id}`));
+   if(linked&&!Array.from(costumeSelect.options).some(option=>option.value===linked)){
+    costumeSelect.add(new Option('Missing costume item — reassign before saving',linked));
+    $('prize-edit-status').textContent='This prize references a missing costume item. Select another item or remove the link.';
+   }
+   costumeSelect.value=linked;costumeSelect.disabled=false;costumeLoaded=true;
+  }).catch(error=>{if(dialog.open){costumeSelect.replaceChildren(new Option('Costume library unavailable',''));$('prize-edit-status').textContent=error.message;}});
   const paintMedia=()=>{imagePreview('prize-edit-photo-preview',draft.image,'photo');imagePreview('prize-edit-video-preview',draft.videoUrl,'video');};paintMedia();
   let working=false;
   const uploadFile=async(kind,file)=>{if(!file||working)return;working=true;$('prize-edit-save').disabled=true;
@@ -93,6 +109,9 @@
    try{
     draft.name=$('prize-edit-name').value.trim();if(!draft.name||draft.name.length>80)throw Error('Enter a prize name (1–80 characters).');
     draft.cents=amount($('prize-edit-value').value);draft.url=$('prize-edit-link').value.trim();draft.description=$('prize-edit-description').value.trim();
+    if(!costumeLoaded)throw Error('Wait for the costume library to load before saving this prize.');
+    if(costumeSelect.value){const [costumeId,itemId]=costumeSelect.value.split(':');draft.costumeItem={costumeId,itemId};}
+    else delete draft.costumeItem;
     if(draft.url&&!/^https?:\/\//i.test(draft.url))throw Error('Prize URL must start with https:// or http://.');
     for(const angle of draft.proofAngles||[]){if(!Number.isInteger(Number(angle.seconds))||angle.seconds<3||angle.seconds>30)throw Error('Proof angles must record between 3 and 30 seconds.');}
     if(creating){if(pool.prizes.length>=24)throw Error('Limit: 24 prizes per tier.');pool.prizes.push(draft);prize=draft;}

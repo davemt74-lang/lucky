@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-require __DIR__.'/../lib/Bootstrap.php';require_once __DIR__.'/../lib/CloudGameUpdates.php';require_once __DIR__.'/../lib/GamePackageInstaller.php';require_once __DIR__.'/../lib/GamePackageActivation.php';require_once __DIR__.'/../lib/CloudGamePackageDownload.php';require_once __DIR__.'/../lib/GamePublisherChannels.php';require_once __DIR__.'/../lib/GameCatalog.php';require_once __DIR__.'/../lib/ProductCatalog.php';require_once __DIR__.'/../lib/ControllerGame.php';require_once __DIR__.'/../lib/PrizeDecision.php';require_once __DIR__.'/../lib/GameSessionLifecycle.php';require_once __DIR__.'/../lib/GamePluginCapabilities.php';require_once __DIR__.'/../lib/RecordingSessions.php';require_once __DIR__.'/../lib/PartyStudio.php';headerSecurity();
+require __DIR__.'/../lib/Bootstrap.php';require_once __DIR__.'/../lib/CloudGameUpdates.php';require_once __DIR__.'/../lib/GamePackageInstaller.php';require_once __DIR__.'/../lib/GamePackageActivation.php';require_once __DIR__.'/../lib/CloudGamePackageDownload.php';require_once __DIR__.'/../lib/GamePublisherChannels.php';require_once __DIR__.'/../lib/GameCatalog.php';require_once __DIR__.'/../lib/ProductCatalog.php';require_once __DIR__.'/../lib/ControllerGame.php';require_once __DIR__.'/../lib/PrizeDecision.php';require_once __DIR__.'/../lib/GameSessionLifecycle.php';require_once __DIR__.'/../lib/GamePluginCapabilities.php';require_once __DIR__.'/../lib/RecordingSessions.php';require_once __DIR__.'/../lib/PartyStudio.php';require_once __DIR__.'/../lib/CostumeGameplay.php';headerSecurity();
 $action=strval($_GET['action']??'');$method=$_SERVER['REQUEST_METHOD']??'GET';
 function setting(PDO $db,string $game='spin-wheel'):array {
  $q=$db->prepare('SELECT * FROM game_settings WHERE game_id=?');$q->execute([$game]);$r=$q->fetch();
@@ -370,6 +370,24 @@ try {
   success(['id'=>$id],201);
  }
  $in=jsonInput();
+ if($action==='costume_item_action'){
+  $id=(string)($in['session']??'');$key=(string)($in['requestKey']??'');
+  $db->beginTransaction();try{
+   $row=sessionRow($db,$id,true);$state=stateFromRow($row);
+   if($state['game']!=='spin-wheel')throw new DomainException('Costume actions are for Spin the Wheel.',422);
+   if((int)($in['expectedVersion']??-1)!==(int)$state['version']&&!CostumeGameplay::hasRequest($state,$key))
+    throw new DomainException('The game changed. Refresh and try again.',409);
+   $result=CostumeGameplay::update($state,(string)($in['playerId']??''),(string)($in['itemId']??''),
+    (string)($in['action']??''),$key,(string)($in['note']??''),(string)($in['claimId']??''));
+   if($result['changed']){
+    saveState($db,$state);audit($db,'costume.item-action',$id,['playerId'=>$in['playerId'],'itemId'=>$in['itemId'],
+     'action'=>$in['action'],'momentId'=>$result['event']['id']]);
+   }
+   $db->commit();
+  }catch(Throwable $e){$db->rollBack();throw $e;}
+  success(['data'=>['session'=>$state,'view'=>GameRegistry::module($state['game'])->publicView($state)],
+   'changed'=>$result['changed'],'momentId'=>$result['event']['id']??null]);
+ }
  if($action==='player_phone_assign'){
   $id=(string)($in['session']??'');
   $db->beginTransaction();try{
@@ -381,6 +399,18 @@ try {
    $db->commit();
   }catch(Throwable $e){$db->rollBack();throw $e;}
   success(['data'=>['session'=>$state,'view'=>GameRegistry::module($state['game'])->publicView($state)]]);
+ }
+ if(in_array($action,['costume_action_save','costume_action_delete'],true)){
+  $db->beginTransaction();try{
+   if($action==='costume_action_save'){
+    $result=PartyStudio::saveAction($db,$in);audit($db,'costume-action.save',null,['id'=>$result['id']]);
+   }else{
+    PartyStudio::deleteAction($db,$in['id']??null);$result=['id'=>$in['id']];
+    audit($db,'costume-action.delete',null,['id'=>$result['id']]);
+   }
+   $db->commit();
+  }catch(Throwable $e){$db->rollBack();throw $e;}
+  success(['record'=>$result]);
  }
  if(in_array($action,['party_studio_save','party_studio_delete'],true)){
   $section=(string)($in['section']??'');
@@ -524,7 +554,10 @@ try {
     $config=$pkg['config'];
    }
    $s=GameRegistry::module($game)->createSession($config,bin2hex(random_bytes(16)));
-   if($game==='spin-wheel')$s['multiplayer']=PartyStudio::roster($db,is_array($in['multiplayer']??null)?$in['multiplayer']:[]);
+   if($game==='spin-wheel'){
+    $s['multiplayer']=PartyStudio::roster($db,is_array($in['multiplayer']??null)?$in['multiplayer']:[]);
+    $s['prizeCostumeMap']=PartyStudio::prizeCostumeMap($db,['pools'=>$s['pools']]);
+   }
    if(isset($pkg))$s['prizePackage']=['id'=>$pkg['id'],'name'=>$pkg['name'],'phoneCameraEnabled'=>$pkg['phoneCameraEnabled']];
    GameFoundation::checkSession(GameRegistry::module($game),$s,(string)($s['id']??''));
    $viewToken=token();$q=$db->prepare('INSERT INTO game_sessions(id,game_id,status,version,state_json,viewer_token) VALUES (?,?,?,?,?,?)');

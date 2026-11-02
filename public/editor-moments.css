@@ -1,0 +1,9 @@
+.studio-game-moments{margin:.85rem 0;padding:.7rem;border:1px solid #40516b;border-radius:.7rem}
+.studio-game-moments summary{cursor:pointer;font-weight:700}
+.studio-game-moments p{font-size:.82rem;color:#bbc7d7}
+.studio-game-moments label{display:flex;flex-direction:column;gap:.3rem;margin:.6rem 0}
+.studio-game-moments ol{margin:0;padding:0;list-style:none}
+.studio-game-moment{display:flex;flex-direction:column;gap:.35rem;border-bottom:1px solid #40516b;padding:.65rem 0;overflow-wrap:anywhere}
+.studio-game-moment strong{font-size:.86rem}
+.studio-game-moment small{font-size:.76rem;color:#b8c8da}
+.studio-game-moment button{align-self:flex-start}
