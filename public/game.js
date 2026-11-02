@@ -168,6 +168,7 @@
    }
   }
   paintPhoneAssignments();
+  const playerPhonesCard=$('game-player-phones');if(playerPhonesCard)playerPhonesCard.hidden=!live;
   const claimsPanel=document.querySelector('.host-claims-column');if(claimsPanel)claimsPanel.hidden=!live;
    const cameraState=$('host-phone-camera-state');if(cameraState){cameraState.hidden=!live;
     if(live)cameraState.textContent=data?.session?.prizePackage?.phoneCameraEnabled===false?
