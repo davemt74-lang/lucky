@@ -8,7 +8,7 @@
  const params=new URL(location.href).searchParams;
  let gameId=validId(params.get('game'))?params.get('game'):'';
  let context=null,requestPending=false,refreshPending=false,signature='',lastClaim='',operatorDirty=false;
- let cameraSignature='',lastCamera='';
+ let cameraSignature='',lastCamera='',rundownDirty=false,rundownSource='',draftSteps=[];
  let lastStudioAttempt=0,openingRecording='';
  const feedback=(message,error=false)=>{
   const node=$('director-game-feedback');node.textContent=message;node.classList.toggle('is-error',error);
@@ -18,6 +18,64 @@
  const cueNames=[['turn_intro','Introduce turn'],['prize_reveal','Reveal prize'],
   ['reaction','Player reaction'],['costume_focus','Costume close-up'],
   ['celebration','Celebration'],['scene_cut','Scene change']];
+ const triggers=[['manual','Manual'],['spin_start','Wheel starts'],
+  ['prize_reveal','Prize revealed'],['costume_action','Costume action'],['next_player','Next player']];
+ const optionSelect=(items,value)=>{
+  const select=document.createElement('select');for(const [id,name] of items)select.add(new Option(name,id));
+  select.value=value;return select;
+ };
+ function paintRundown(){
+  const root=$('director-rundown-steps');root.replaceChildren();
+  for(const [index,step] of draftSteps.entries()){
+   const li=document.createElement('li');li.className='director-rundown-step';
+   const title=document.createElement('strong');title.textContent=`${index+1}. ${step.cue.replaceAll('_',' ')}`;
+   const trigger=optionSelect(triggers,step.trigger),cue=optionSelect(cueNames,step.cue);
+   const duration=document.createElement('input');duration.type='number';duration.min='3';duration.max='45';duration.step='1';duration.value=step.durationSec;
+   const detail=document.createElement('input');detail.type='text';detail.maxLength=120;detail.placeholder='Optional on-screen detail';detail.value=step.detail||'';
+   const enabled=document.createElement('input');enabled.type='checkbox';enabled.checked=step.enabled;
+   const wrap=(name,field)=>{const label=document.createElement('label');label.textContent=name;label.append(field);return label;};
+   const actions=document.createElement('div');actions.className='director-rundown-row-actions';
+   const button=(name,action,disabled=false)=>{const b=document.createElement('button');b.type='button';b.className='btn btn-outline';b.textContent=name;b.disabled=disabled||requestPending;b.addEventListener('click',action);actions.append(b);};
+   const changed=()=>{step.trigger=trigger.value;step.cue=cue.value;step.durationSec=Number(duration.value);step.detail=detail.value;step.enabled=enabled.checked;
+    title.textContent=`${index+1}. ${step.cue.replaceAll('_',' ')}`;rundownDirty=true;renderRundownControls();};
+   for(const input of [trigger,cue,duration,detail,enabled])input.addEventListener('change',changed);
+   const move=offset=>{const target=index+offset;[draftSteps[index],draftSteps[target]]=[draftSteps[target],draftSteps[index]];rundownDirty=true;paintRundown();renderRundownControls();};
+   button('↑',()=>move(-1),index===0);button('↓',()=>move(1),index===draftSteps.length-1);
+   button('Remove',()=>{draftSteps.splice(index,1);rundownDirty=true;paintRundown();renderRundownControls();},draftSteps.length===1);
+   li.append(title,wrap('Trigger',trigger),wrap('Cue',cue),wrap('Seconds',duration),wrap('Detail',detail),wrap('Enabled',enabled),actions);
+   root.append(li);
+  }
+ }
+ function renderRundownControls(){
+  const r=context?.rundown||{},available=Boolean(active()&&!requestPending);
+  label('director-rundown-status',!r.enabled?'AUTO OFF':r.paused?'AUTO PAUSED':'● AUTO ON');
+  $('director-rundown-save').disabled=!available||!rundownDirty;
+  $('director-rundown-add').disabled=!available||draftSteps.length>=12;
+  $('director-rundown-revert').disabled=!available||!rundownDirty;
+  $('director-rundown-enable').disabled=!available||rundownDirty;
+  $('director-rundown-enable').textContent=r.enabled?'Disable AUTO':'Enable AUTO';
+  $('director-rundown-pause').disabled=!available||rundownDirty||!r.enabled;
+  $('director-rundown-pause').textContent=r.paused?'Resume AUTO':'Pause AUTO';
+  for(const key of ['next','skip','replay'])$('director-rundown-'+key).disabled=!available||rundownDirty||(key==='replay'&&!r.lastStepId);
+ }
+ function syncRundown(){
+  const source=JSON.stringify(context?.rundown?.steps||[]);
+  if(!rundownDirty&&source!==rundownSource){rundownSource=source;draftSteps=JSON.parse(source);paintRundown();}
+  renderRundownControls();
+ }
+ function syncBroadcast(){
+  const url=$('director-live-url')?.value||'';
+  const onAir=Boolean(window.LuckyDirectorPublisher?.state?.().onAir&&url);
+  const field=$('director-game-broadcast-url');if(field.value!==url)field.value=url;
+  label('director-game-on-air',onAir?'● ON AIR':'OFF AIR');
+  $('director-game-on-air').classList.toggle('is-live',onAir);
+  $('director-game-broadcast-copy').disabled=!onAir;
+  const open=$('director-game-broadcast-open');open.href=onAir?url:'live-view.php';
+  open.setAttribute('aria-disabled',String(!onAir));
+  label('director-game-broadcast-help',onAir?
+   'This link shows the final Program output. Private invitations must be shared only with intended viewers.':
+   'Broadcast URL appears when you publish Program with consent. Open Live View controls to go on air.');
+ }
 
  function fillClaims(){
   const select=$('director-game-claim'),claims=context?.game?.claims||[];
@@ -130,6 +188,7 @@
   $('director-game-next').disabled=!active()||state.players.length<2||requestPending;
   $('director-game-cues').querySelectorAll('button').forEach(button=>{button.disabled=!active()||requestPending;});
   $('director-game-clear-presentation').disabled=!active()||!context?.presentation||requestPending;
+  syncRundown();syncBroadcast();
   maybeOpenRecording();updateCapture();
   refreshCameras();
  }
@@ -147,14 +206,15 @@
   finally{refreshPending=false;}
  }
  async function act(action,fields={}){
-  if(!active()||requestPending)return;
+  if(!active()||requestPending)return false;
   requestPending=true;render();
   try{
    const response=await L.api('director_action',{body:{session:gameId,expectedVersion:context.game.version,
     requestKey:L.idempotency(),action,note:$('director-game-note').value.trim(),...fields}});
    context=response.context;gameId=context.game.id;signature='';operatorDirty=false;render();
    feedback(response.changed?'Show action saved and synchronized with the game screen.':'No change needed.');
-  }catch(e){feedback(`${e.message} Refreshing the synchronized game state…`,true);}
+   return true;
+  }catch(e){feedback(`${e.message} Refreshing the synchronized game state…`,true);return false;}
   finally{requestPending=false;render();void refresh();}
  }
  for(const [key,name] of cueNames){
@@ -169,6 +229,32 @@
   claimId:$('director-game-claim').value,pairId:$('director-game-operator').value}));
  $('director-game-next').addEventListener('click',()=>void act('next_player',{claimId:''}));
  $('director-game-clear-presentation').addEventListener('click',()=>void act('clear_presentation',{claimId:''}));
+ const rundownControl=command=>{
+  if(rundownDirty){feedback('Save or discard timeline edits before controlling the show.',true);return;}
+  void act('rundown_control',{command,claimId:''});
+ };
+ $('director-rundown-add').addEventListener('click',()=>{
+  if(draftSteps.length>=12)return;
+  draftSteps.push({id:'step_'+Math.random().toString(36).slice(2,12),trigger:'manual',cue:'reaction',durationSec:8,enabled:true,detail:''});
+  rundownDirty=true;paintRundown();renderRundownControls();
+ });
+ $('director-rundown-save').addEventListener('click',async()=>{
+  if(!draftSteps.length||draftSteps.some(s=>!Number.isInteger(s.durationSec)||s.durationSec<3||s.durationSec>45)){
+   feedback('Each timeline step needs a duration from 3 to 45 seconds.',true);return;
+  }
+  if(await act('rundown_save',{steps:draftSteps,claimId:''})){
+   rundownDirty=false;rundownSource='';syncRundown();
+  }
+ });
+ $('director-rundown-revert').addEventListener('click',()=>{rundownDirty=false;rundownSource='';syncRundown();});
+ $('director-rundown-enable').addEventListener('click',()=>rundownControl(context?.rundown?.enabled?'disable':'enable'));
+ $('director-rundown-pause').addEventListener('click',()=>rundownControl(context?.rundown?.paused?'resume':'pause'));
+ for(const command of ['next','skip','replay'])$('director-rundown-'+command).addEventListener('click',()=>rundownControl(command));
+ $('director-game-broadcast-copy').addEventListener('click',async()=>{
+  const url=$('director-game-broadcast-url').value;if(!url)return;
+  try{await navigator.clipboard.writeText(url);feedback('Live Program broadcast URL copied.');}
+  catch(_){$('director-game-broadcast-url').select();feedback('Select and copy the broadcast URL from the field.');}
+ });
  $('director-game-camera-source').addEventListener('change',refreshCameras);
  $('director-game-preview').addEventListener('click',()=>{
   const id=$('director-game-camera-source').value;
@@ -204,4 +290,5 @@
  setInterval(()=>{if(!document.hidden)void refresh();},1400);
  setInterval(updateCapture,1000);
  setInterval(refreshCameras,900);
+ setInterval(syncBroadcast,900);
 })();

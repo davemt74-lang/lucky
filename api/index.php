@@ -317,6 +317,10 @@ try {
    try {
     $state=stateFromRow(sessionRow($db,$session,true));
     $changed=SpinReveal::complete($state,$spinCount);
+    if($changed&&($state['lastSpin']['type']??'')==='award'){
+     $claim=end($state['claims']);
+     LiveGameDirector::onTrigger($state,'prize_reveal','reveal-'.$spinCount,$claim?:null);
+    }
     if($changed)saveState($db,$state);
     $db->commit();
    }catch(Throwable $e){$db->rollBack();throw $e;}
@@ -408,6 +412,8 @@ try {
    $result=CostumeGameplay::update($state,(string)($in['playerId']??''),(string)($in['itemId']??''),
     (string)($in['action']??''),$key,(string)($in['note']??''),(string)($in['claimId']??''));
    if($result['changed']){
+    LiveGameDirector::onTrigger($state,'costume_action','costume-'.$result['event']['id'],
+     $result['event']);
     saveState($db,$state);audit($db,'costume.item-action',$id,['playerId'=>$in['playerId'],'itemId'=>$in['itemId'],
      'action'=>$in['action'],'momentId'=>$result['event']['id']]);
    }
@@ -717,6 +723,8 @@ try {
    if($s['game']==='spin-wheel'&&$verb==='spin'){ControllerGame::spinReady($s);PrizeDecision::assertReady($db,$id);}
    $beforeVersion=(int)($s['version']??0);
    $result=$module->action($s,$verb,$payload);
+   if($s['game']==='spin-wheel'&&$verb==='spin')
+    LiveGameDirector::onTrigger($s,'spin_start','spin-'.$s['spinCount']);
    $type=(string)($result['type']??'');
    if(!preg_match('/^[a-z][a-z0-9_-]{0,39}$/D',$type)||($s['version']??0)!==$beforeVersion+1)
     throw new DomainException('Game module returned an invalid action or state version.',422);

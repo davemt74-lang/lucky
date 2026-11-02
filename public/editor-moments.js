@@ -9,7 +9,8 @@
    claimId:turn.claimId||'',prizeName:turn.prizeName,costumeItem:turn.costumeItem||null});
   for(const event of roster.costumeEvents||[])items.push({...event,kind:'costume'});
   for(const event of state?.director?.events||[]){
-   if(!['cue','program_cut','turn_skip','clear_presentation','camera_assignment'].includes(event.type))continue;
+   if(!['cue','program_cut','turn_skip','clear_presentation','camera_assignment',
+    'rundown_cue','rundown_control','rundown_edit'].includes(event.type))continue;
    items.push({...event,kind:'director'});
   }
   items.sort((a,b)=>(Date.parse(a.at)||0)-(Date.parse(b.at)||0)||(a.kind==='prize'?-1:1));
