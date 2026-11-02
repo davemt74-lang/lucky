@@ -3,7 +3,7 @@ declare(strict_types=1);
 /** Phone actions are applied to the same persisted game session as the host/TV.
  * No phone can select a prize, set odds, or bypass the game engine. */
 require_once __DIR__.'/ProofHandoff.php';
-require_once __DIR__.'/PrizePresentation.php';require_once __DIR__.'/PrizePackages.php';require_once __DIR__.'/CurrentGame.php';
+require_once __DIR__.'/PrizePresentation.php';require_once __DIR__.'/PrizePackages.php';require_once __DIR__.'/CurrentGame.php';require_once __DIR__.'/PartyStudio.php';
 final class ControllerGame {
  public const DIRECT=['start','spin','pause','resume','end','prize-accept','prize-decline'];
  public static function current(PDO $db,bool $locked=false):?array {
@@ -29,6 +29,7 @@ final class ControllerGame {
    'package'=>$state['prizePackage']??null,
    'id'=>$view['id'],'game'=>$view['game'],'status'=>$view['status'],'version'=>$view['version'],
    'spinCount'=>$view['spinCount'],'claimedCount'=>count($claimed),'claimedCents'=>array_sum(array_column($claimed,'cents')),
+   'multiplayer'=>$view['multiplayer']??null,
    'remaining'=>count(array_filter($view['slots'],fn($s)=>!empty($s['tier']))),
    'pendingBonus'=>$view['pendingBonus'],'lastPrize'=>$claimed?end($claimed)['name']:null,
    'spinning'=>$spinning,'offer'=>$prizeReady&&!$spinning?PrizePresentation::decorate(PrizeDecision::latest($db,$state['id']),$state):null,'upgradeRequired'=>!$prizeReady,'canStart'=>$prizeReady&&in_array($view['status'],['ended','saved'],true),
@@ -44,6 +45,20 @@ final class ControllerGame {
   if(SpinReveal::pending($state)||(!empty($state['lastSpin']['at']) && (time()-strtotime($state['lastSpin']['at'])<4)))
    throw new DomainException('The wheel is finishing its last spin. Try again in a moment.',409);
  }
+ public static function assertPlayerPhoneTurn(array $state,string $pairId,bool $prizeDecision=false):void {
+  $players=$state['multiplayer']['players']??[];
+  if(!$players)return; // Legacy sessions had no player assignments.
+  $index=(int)($state['multiplayer']['turnIndex']??0)%count($players);
+  $current=$players[$index];
+  if($prizeDecision){
+   foreach($players as $candidate)if(($candidate['id']??'')===($state['lastSpin']['playerId']??'')){$current=$candidate;break;}
+  }
+  $owner=(string)($current['phonePairId']??'');
+  if($owner!==''&&$owner!==$pairId)
+   throw new DomainException('This turn belongs to '.$current['name']."'s assigned phone. Use the host screen if needed.",403);
+  foreach($players as $player)if(($player['phonePairId']??'')===$pairId&&$player['id']!==$current['id'])
+   throw new DomainException('Wait for your player turn before using Spin or deciding the prize.',403);
+ }
  public static function apply(PDO $db,string $command,string $pairId,string $nonce,int $hostAdminId):array {
   if(in_array($command,['start','spin','select','prize-accept','prize-decline'],true))PrizeDecision::requireReady($db);
   // The caller already holds the controller pairing row under a transaction.
@@ -58,6 +73,7 @@ final class ControllerGame {
    GameSessionLifecycle::assertConsoleVacant($db);
    $pkg=PrizePackages::currentConfig($db);
    $state=GameRegistry::module('spin-wheel')->createSession($pkg['config'],bin2hex(random_bytes(16)));
+   $state['multiplayer']=PartyStudio::defaultRoster();
    $state['prizePackage']=['id'=>$pkg['id'],'name'=>$pkg['name']];
    $q=$db->prepare('INSERT INTO game_sessions(id,game_id,status,version,state_json,viewer_token) VALUES (?,?,?,?,?,?)');
    $q->execute([$state['id'],$state['game'],$state['status'],$state['version'],json_encode($state,JSON_THROW_ON_ERROR),token()]);
@@ -68,6 +84,8 @@ final class ControllerGame {
   }
   if(!$row)throw new DomainException('Start a game first.',409);
   $state=stateFromRow($row);
+  if(in_array($command,['spin','select','prize-accept','prize-decline'],true))
+   self::assertPlayerPhoneTurn($state,$pairId,in_array($command,['prize-accept','prize-decline'],true));
   if(in_array($command,['prize-accept','prize-decline'],true)){
    if(SpinReveal::pending($state))throw new DomainException('Wait for the wheel to stop before accepting a prize.',409);
    $offer=PrizeDecision::pending($db,$state['id'],true);

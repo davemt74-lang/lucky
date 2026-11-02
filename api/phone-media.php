@@ -5,6 +5,7 @@ require_once __DIR__.'/../lib/ControllerPairing.php';
 require_once __DIR__.'/../lib/PhoneCapturePolicy.php';
 require_once __DIR__.'/../lib/ClaimMediaUpload.php';
 require_once __DIR__.'/../lib/PhoneMediaChunks.php';
+require_once __DIR__.'/../lib/PartyStudio.php';
 headerSecurity();header('Referrer-Policy: no-referrer');header('X-Robots-Tag: noindex, nofollow');
 try {
  if(!installed())throw new DomainException('Install Lucky Game Hub first.',503);
@@ -27,8 +28,10 @@ try {
  $uploadAction=(string)($_POST['uploadAction']??'direct');
  if(!in_array($uploadAction,['direct','chunk','commit'],true))throw new DomainException('Unknown phone media upload action.',422);
  $form=$_POST;
- $form['sourceLabel']='Paired phone · '.substr((string)$pair['device_name'],0,46);
- $form['angleLabel']=substr('Phone · '.preg_replace('/[\x00-\x1f\x7f]/','',(string)$pair['device_name']),0,80);$form['angleIndex']=0;
+ $operator=PartyStudio::cameraOperator($db,$session,$pairId);
+ $cameraName=$operator?'Player camera · '.$operator['name']:'Paired phone · '.(string)$pair['device_name'];
+ $form['sourceLabel']=substr($cameraName,0,120);
+ $form['angleLabel']=substr($cameraName,0,80);$form['angleIndex']=0;
  $form['replaceClipId']=''; // A phone upload cannot overwrite an existing proof recording.
  $authorize=static function(PDO $db,string $sessionId,string $claimId)use($pairId,$token):void{
   $q=$db->prepare('SELECT * FROM controller_pairs WHERE id=? FOR UPDATE');$q->execute([$pairId]);$locked=$q->fetch(PDO::FETCH_ASSOC);

@@ -4,10 +4,11 @@
  const WINNER_HOLD_MS=3500;
  const render=v=>{
   if($('display-pair-phone'))$('display-pair-phone').hidden=!['active','paused'].includes(v.status);
-  $('display-state').textContent=v.status==='active'?`LIVE · ${v.spinCount} SPINS`:v.status==='paused'?'GAME PAUSED':'GAME ENDED';
+  const current=v.multiplayer?.players?.[v.multiplayer.turnIndex||0];
+  $('display-state').textContent=(v.status==='active'?`LIVE · ${v.spinCount} SPINS`:v.status==='paused'?'GAME PAUSED':'GAME ENDED')+(current?' · NEXT: '+current.name:'');
   const claims=v.spinPending&&v.lastSpin?.type==='award'?v.claims.slice(0,-1):v.claims;
-  $('display-latest').textContent=v.spinPending?'Wheel spinning…':v.pendingBonus?'✧ BONUS ROUND':claims.length?`Most recent: ${claims[claims.length-1].name}`:'Spin for the first prize!';
-  const list=$('display-claims');list.replaceChildren();claims.slice(-8).reverse().forEach(c=>{const e=document.createElement('div');e.className='platform-claim';e.textContent=`${c.name} — ${L.money(c.cents)}`;list.append(e);});
+  $('display-latest').textContent=v.spinPending?'Wheel spinning…':v.pendingBonus?'✧ BONUS ROUND':claims.length?`Most recent: ${claims[claims.length-1].playerName?claims[claims.length-1].playerName+' · ':''}${claims[claims.length-1].name}`:'Spin for the first prize!';
+  const list=$('display-claims');list.replaceChildren();claims.slice(-8).reverse().forEach(c=>{const e=document.createElement('div');e.className='platform-claim';e.textContent=`${c.playerName?c.playerName+' · ':''}${c.name} — ${L.money(c.cents)}`;list.append(e);});
   if(!animating){const slices=(wheelOutcome&&wheelOutcome.spinCount===v.lastSpin?.spinCount)?wheelOutcome.slices:v.spinPending&&v.lastSpin?.slices?v.lastSpin.slices:v.pendingBonus?(v.bonusSlices||[]):v.slots.map(s=>({name:s.name,cents:s.value,tier:s.tier,kind:s.tier?'prize':'empty'}));
     if(!wheelOutcome&&!v.spinPending&&!v.pendingBonus&&v.bonusEnabled&&(v.bonusSlices||[]).length)slices.push({name:'BONUS ROUND',tier:'bonus',kind:'trigger'});wheel.setSlices(slices);}
  };

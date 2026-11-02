@@ -49,6 +49,8 @@ final class PhoneGameDashboard {
    PrizePackages::lockGame($db,'spin-wheel');
    $pkg=PrizePackages::currentConfig($db);
    $session=$modules[$game]->createSession($pkg['config'],bin2hex(random_bytes(16)));
+   require_once __DIR__.'/PartyStudio.php';
+   $session['multiplayer']=PartyStudio::defaultRoster();
    $session['prizePackage']=['id'=>$pkg['id'],'name'=>$pkg['name'],'phoneCameraEnabled'=>$pkg['phoneCameraEnabled']];
   }else{
    $config=GameSessionLifecycle::lockGame($db,$game);

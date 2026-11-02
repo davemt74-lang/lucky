@@ -129,6 +129,14 @@ final class GameEngine {
     }
     public static function spin(array &$s,?float $forcedBonusSeed=null,?float $forcedPickSeed=null): array {
         if($s['status']!=='active')throw new DomainException('Start a new game before spinning.');
+        $roster=&$s['multiplayer'];
+        if(!is_array($roster)||!isset($roster['players'])||!is_array($roster['players'])||!$roster['players'])
+            $roster=['party'=>null,'theme'=>null,'players'=>[['id'=>'player-1','name'=>'Player 1','role'=>'player','costume'=>null]],
+                'hosts'=>[['id'=>'host-1','name'=>'Host 1','role'=>'host','costume'=>null]],'turnIndex'=>0,'turnHistory'=>[]];
+        $players=$roster['players']??[];
+        $turnIndex=count($players)?((int)($roster['turnIndex']??0)%count($players)):0;
+        $currentPlayer=$players[$turnIndex]??['id'=>'player-1','name'=>'Player 1'];
+        $turnNumber=count($roster['turnHistory']??[])+1;
         $s['spinCount']++;
         $claimed=self::claimedIds($s);
         $bonusMode=$s['pendingBonus'];
@@ -155,7 +163,8 @@ final class GameEngine {
             if($bonusAvailable && $s['odds']['bonusChance']>0 && ($main===[] || ($forcedBonusSeed??random_int(0,1000000)/1000001) < $s['odds']['bonusChance']/100)){
                 $beforeSlices[]=['name'=>'BONUS ROUND','cents'=>0,'tier'=>'bonus','kind'=>'trigger','prizeId'=>null];
                 $s['pendingBonus']=true;$s['version']++;
-                $s['lastSpin']=['type'=>'bonus_trigger','index'=>count($beforeSlices)-1,'slices'=>$beforeSlices,'at'=>gmdate('c'),'spinCount'=>$s['spinCount']];
+                $s['lastSpin']=['type'=>'bonus_trigger','index'=>count($beforeSlices)-1,'slices'=>$beforeSlices,'at'=>gmdate('c'),'spinCount'=>$s['spinCount'],
+                    'playerId'=>$currentPlayer['id'],'playerName'=>$currentPlayer['name'],'turnNumber'=>$turnNumber];
                 return ['type'=>'bonus_trigger','version'=>$s['version'],'spinCount'=>$s['spinCount'],'animation'=>$s['lastSpin']];
             }
             if(!$main)throw new DomainException('No eligible prizes remain.');
@@ -167,11 +176,17 @@ final class GameEngine {
             if($bonusReady && $s['odds']['bonusChance']>0)$beforeSlices[]=['name'=>'BONUS ROUND','cents'=>0,'tier'=>'bonus','kind'=>'trigger','prizeId'=>null];
         }
         $index=$bonusMode?array_search($pick['id'],array_column($beforeSlices,'prizeId'),true):$slotIndex;
-        $s['lastSpin']=['type'=>'award','index'=>$index,'slices'=>$beforeSlices,'at'=>gmdate('c'),'spinCount'=>$s['spinCount']];
+        $s['lastSpin']=['type'=>'award','index'=>$index,'slices'=>$beforeSlices,'at'=>gmdate('c'),'spinCount'=>$s['spinCount'],
+            'playerId'=>$currentPlayer['id'],'playerName'=>$currentPlayer['name'],'turnNumber'=>$turnNumber];
         $claim=['id'=>bin2hex(random_bytes(16)),'prizeId'=>$pick['id'],'tier'=>$tier,'name'=>$pick['name'],
             'cents'=>$pick['cents'],'url'=>$pick['url'],'image'=>$pick['image'],'videoUrl'=>$pick['videoUrl']??'','description'=>$pick['description']??'','slot'=>$slotIndex===null?null:$slotIndex+1,
-            'at'=>gmdate('c'),'method'=>'spin'];
+            'at'=>gmdate('c'),'method'=>'spin','playerId'=>$currentPlayer['id'],'playerName'=>$currentPlayer['name'],'turnNumber'=>$turnNumber];
         $s['claims'][]=$claim;
+        if($players){
+            $roster['turnHistory'][]=['turnNumber'=>$turnNumber,'playerId'=>$currentPlayer['id'],
+                'playerName'=>$currentPlayer['name'],'claimId'=>$claim['id'],'prizeName'=>$claim['name'],'at'=>$claim['at']];
+            $roster['turnIndex']=($turnIndex+1)%count($players);
+        }
         if($slotIndex!==null){
             $next= $tier==='tier1'?'tier2':($tier==='tier2'?'bonus':null);
             $s['slots'][$slotIndex]=['tier'=>null,'prizeId'=>null,'pending'=>$next];
@@ -207,10 +222,19 @@ final class GameEngine {
     public static function resume(array &$s):void {if($s['status']!=='paused')throw new DomainException('Can only resume a paused game.');$s['status']='active';$s['version']++;}
     public static function end(array &$s):void {$s['status']='ended';$s['endedAt']=gmdate('c');$s['version']++;}
     public static function publicView(array $s):array {
+        // The audience and paired phones see names, turns and costume layers,
+        // never the host's internal pairing identifiers.
+        $roster=$s['multiplayer']??null;
+        if(is_array($roster)){
+            foreach(['players','hosts'] as $role)foreach($roster[$role]??[] as $i=>$person)unset($roster[$role][$i]['phonePairId']);
+            foreach($roster['turnHistory']??[] as $i=>$turn)unset($roster['turnHistory'][$i]['claimId']);
+        }
         return ['id'=>$s['id'],'game'=>$s['game'],'status'=>$s['status'],'version'=>$s['version'],'slots'=>array_map(
             function($slot)use($s){$p=$slot['prizeId']?self::prize($s,$slot['tier'],$slot['prizeId']):null;
                 return ['tier'=>$slot['tier'],'name'=>$p['name']??'Waiting for replacement','value'=>$p['cents']??0,'pending'=>$slot['pending']];},$s['slots']),
-          'pendingBonus'=>$s['pendingBonus'],'claims'=>array_map(fn($c)=>['name'=>$c['name'],'tier'=>$c['tier'],'cents'=>$c['cents'],'at'=>$c['at'],'slot'=>$c['slot']],$s['claims']),
+          'pendingBonus'=>$s['pendingBonus'],'claims'=>array_map(fn($c)=>['name'=>$c['name'],'tier'=>$c['tier'],'cents'=>$c['cents'],'at'=>$c['at'],'slot'=>$c['slot'],
+             'playerId'=>$c['playerId']??null,'playerName'=>$c['playerName']??null,'turnNumber'=>$c['turnNumber']??null],$s['claims']),
+          'multiplayer'=>$roster,
           'spinCount'=>$s['spinCount'],'lastSpin'=>$s['lastSpin']??null,'spinPending'=>SpinReveal::pending($s),
           'bonusSlices'=>array_values(array_map(fn($p)=>['name'=>$p['name'],'cents'=>$p['cents'],'tier'=>'bonus','kind'=>'prize'],
               array_filter($s['pools']['bonus']['prizes'],fn($p)=>$p['cents']>0&&!in_array($p['id'],array_column($s['claims'],'prizeId'),true)))),

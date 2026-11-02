@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__.'/ControllerPairing.php';
 require_once __DIR__.'/PhoneCapturePolicy.php';
+require_once __DIR__.'/PartyStudio.php';
 
 /**
  * Short-lived WebRTC signaling between one authenticated paired phone and
@@ -73,7 +74,8 @@ final class PhoneLiveSignaling {
   foreach($q->fetchAll(PDO::FETCH_ASSOC) as $row){
    try{PhoneCapturePolicy::verify($row,$proof,$session,$claim,time());}
    catch(DomainException){continue;}
-   $out[]=['id'=>$row['pair_id'],'nonce'=>$row['nonce'],'name'=>$row['device_name'],'offer'=>$row['offer_sdp']];
+   $operator=PartyStudio::cameraOperator($db,$session,(string)$row['pair_id']);
+   $out[]=['id'=>$row['pair_id'],'nonce'=>$row['nonce'],'name'=>$operator?'Player camera · '.$operator['name']:$row['device_name'],'offer'=>$row['offer_sdp']];
   }
   return $out;
  }

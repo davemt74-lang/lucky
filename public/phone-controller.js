@@ -264,7 +264,8 @@
   if(hadUpgradeWarning){hadUpgradeWarning=false;message('Database upgrade detected. Phone ready.');}
   const status=current.status==='active'?'PLAYING':current.status==='paused'?'PAUSED':current.status==='ended'?'GAME ENDED':'READY';
   const phase=current.pendingBonus?' · BONUS ROUND':'';
-  panel.textContent=`${status}${phase} · ${current.spinCount||0} spins · ${current.claimedCount||0} claimed · ${current.remaining||0} live prizes`+(current.lastPrize?` · Latest: ${current.lastPrize}`:'')+(current.spinning?' · Spinning…':'');
+  const roster=current.multiplayer,turn=roster?.players?.[roster.turnIndex||0];
+  panel.textContent=`${status}${phase}${turn?' · Next: '+turn.name:''} · ${current.spinCount||0} spins · ${current.claimedCount||0} claimed · ${current.remaining||0} live prizes`+(current.lastPrize?` · Latest: ${current.lastPrize}`:'')+(current.spinning?' · Spinning…':'');
   const start=document.querySelector('[data-phone="start"]'),spin=document.querySelector('[data-phone="spin"]'),pause=document.querySelector('[data-phone="pause"]');
   if(start)start.disabled=!(current.canStart||current.status==='ready');
   if(spin){spin.disabled=!(current.canSpin||current.status==='ready');spin.querySelector('span').textContent=current.status==='ready'?'START':current.pendingBonus?'BONUS SPIN':current.spinning?'SPINNING':'SPIN';}
