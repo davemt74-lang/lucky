@@ -35,7 +35,7 @@ async def main():
    page.on('pageerror',lambda error:errors.append(str(error)))
    js=(BASE/'public/game-setup.js').read_text()
    await page.set_content(html_page('game.php',js,MOCK),wait_until='domcontentloaded')
-   await page.evaluate("window.__setupResult=null;LuckyGameSetup.open().then(value=>window.__setupResult=value)")
+   await page.evaluate("() => { window.__setupResult=null; LuckyGameSetup.open().then(value=>{ window.__setupResult=value; }); }")
    await page.locator('#multiplayer-setup').wait_for(state='visible')
    check(f'{width} default single player and host',await page.locator('#setup-players .setup-person').count()==1 and await page.locator('#setup-hosts .setup-person').count()==1)
    await page.locator('#setup-player-count').fill('3')
