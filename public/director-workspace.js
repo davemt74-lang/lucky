@@ -11,6 +11,7 @@
  const inputs = shell.querySelector('.director-studio-inputs');
  const links = shell.querySelector('.director-studio-links');
  const phoneStatus = $('director-studio-phone-status');
+ const gamePanel = $('director-game-panel');
  const director = $('camera-director');
  const monitors = director?.querySelector('.director-monitors');
  const switcher = director?.querySelector(':scope > .director-toolbar');
@@ -39,6 +40,7 @@
   </header>
   <div class="director-workspace-body">
    <nav class="director-workspace-rail" aria-label="Director tools">
+    <button type="button" data-director-panel="game" aria-controls="director-workspace-drawer" aria-expanded="false"><span aria-hidden="true">✦</span>Game</button>
     <button type="button" data-director-panel="cameras" aria-controls="director-workspace-drawer" aria-expanded="false"><span aria-hidden="true">▣</span>Cameras</button>
     <button type="button" data-director-panel="sessions" aria-controls="director-workspace-drawer" aria-expanded="false"><span aria-hidden="true">▤</span>Sessions</button>
     <button type="button" data-director-panel="scenes" aria-controls="director-workspace-drawer" aria-expanded="false"><span aria-hidden="true">▦</span>Scenes</button>
@@ -49,6 +51,7 @@
     <button type="button" data-director-panel="settings" aria-controls="director-workspace-drawer" aria-expanded="false"><span aria-hidden="true">⚙</span>Settings</button>
    </nav>
    <div class="director-workspace-content">
+    <section class="director-workspace-game-strip" id="director-workspace-game-strip" aria-label="Live game status"><span>LIVE GAME</span><strong id="director-workspace-game-name">Waiting for Spin the Wheel…</strong><span id="director-workspace-game-player">—</span><span id="director-workspace-game-prize">—</span><button type="button" class="btn btn-outline" data-director-panel="game">Game controls</button></section>
     <section class="director-workspace-outputs" aria-label="Live switching monitors"><div id="director-workspace-monitors"></div><div id="director-workspace-switcher"></div></section>
     <section class="director-workspace-multiview" aria-label="Live camera inputs"><header><div><h2>Live Camera Inputs</h2><span id="director-workspace-source-count">0 connected</span></div><button type="button" class="btn btn-outline" data-director-panel="cameras">＋ Add camera</button></header><div id="director-workspace-grid"></div><div id="director-workspace-phone-note"></div></section>
     <section class="director-workspace-timeline" aria-label="Recording session timeline"><header><div><h2>Session Timeline</h2><span id="director-workspace-timeline-summary">Select a session to view recorded takes</span></div><div class="director-workspace-timeline-actions"><button class="btn btn-outline" type="button" id="director-workspace-timeline-refresh">↻ Refresh</button><a class="btn btn-outline" id="director-workspace-editor-link" aria-disabled="true" href="admin.php?tab=recordings">Open full editor ↗</a></div></header><div id="director-workspace-take"></div><div class="director-workspace-timeline-scroll"><div id="director-workspace-timeline-lanes" role="list" aria-label="Uploaded recordings by camera"><p class="director-workspace-empty">Open a recording session to load media.</p></div></div><p class="director-workspace-timeline-foot">Grouped recordings use estimated offsets. Fine alignment and edits are saved in the full multicamera editor.</p></section>
@@ -68,6 +71,9 @@
  // production surface, including installations without an account menu.
  if (globalHeader) globalHeader.remove();
  const target = name => workspace.querySelector(`[data-director-content="${name}"]`);
+ const gameDrawer=document.createElement('div');gameDrawer.dataset.directorContent='game';gameDrawer.hidden=true;
+ workspace.querySelector('.director-workspace-drawer-scroll').prepend(gameDrawer);
+ if (gamePanel) gameDrawer.append(gamePanel);
  target('sessions').append(session);
  if (links) target('sessions').append(links);
  const rawGrid = grid.parentElement;
@@ -93,7 +99,7 @@
 
  const drawer = $('director-workspace-drawer');
  const backdrop = $('director-workspace-drawer-backdrop');
- const panelNames = ['cameras','sessions','scenes','media','graphics','audio','live','settings'];
+ const panelNames = ['game','cameras','sessions','scenes','media','graphics','audio','live','settings'];
  let openName = '', previousFocus = null, timelineTimer = null, timelineGeneration = 0;
  function closePanel(restoreFocus = true) {
   if (drawer.hidden) return;

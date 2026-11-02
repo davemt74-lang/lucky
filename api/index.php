@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-require __DIR__.'/../lib/Bootstrap.php';require_once __DIR__.'/../lib/CloudGameUpdates.php';require_once __DIR__.'/../lib/GamePackageInstaller.php';require_once __DIR__.'/../lib/GamePackageActivation.php';require_once __DIR__.'/../lib/CloudGamePackageDownload.php';require_once __DIR__.'/../lib/GamePublisherChannels.php';require_once __DIR__.'/../lib/GameCatalog.php';require_once __DIR__.'/../lib/ProductCatalog.php';require_once __DIR__.'/../lib/ControllerGame.php';require_once __DIR__.'/../lib/PrizeDecision.php';require_once __DIR__.'/../lib/GameSessionLifecycle.php';require_once __DIR__.'/../lib/GamePluginCapabilities.php';require_once __DIR__.'/../lib/RecordingSessions.php';require_once __DIR__.'/../lib/PartyStudio.php';require_once __DIR__.'/../lib/CostumeGameplay.php';headerSecurity();
+require __DIR__.'/../lib/Bootstrap.php';require_once __DIR__.'/../lib/CloudGameUpdates.php';require_once __DIR__.'/../lib/GamePackageInstaller.php';require_once __DIR__.'/../lib/GamePackageActivation.php';require_once __DIR__.'/../lib/CloudGamePackageDownload.php';require_once __DIR__.'/../lib/GamePublisherChannels.php';require_once __DIR__.'/../lib/GameCatalog.php';require_once __DIR__.'/../lib/ProductCatalog.php';require_once __DIR__.'/../lib/ControllerGame.php';require_once __DIR__.'/../lib/PrizeDecision.php';require_once __DIR__.'/../lib/GameSessionLifecycle.php';require_once __DIR__.'/../lib/GamePluginCapabilities.php';require_once __DIR__.'/../lib/RecordingSessions.php';require_once __DIR__.'/../lib/PartyStudio.php';require_once __DIR__.'/../lib/CostumeGameplay.php';require_once __DIR__.'/../lib/LiveGameDirector.php';headerSecurity();
 $action=strval($_GET['action']??'');$method=$_SERVER['REQUEST_METHOD']??'GET';
 function setting(PDO $db,string $game='spin-wheel'):array {
  $q=$db->prepare('SELECT * FROM game_settings WHERE game_id=?');$q->execute([$game]);$r=$q->fetch();
@@ -162,6 +162,17 @@ try {
    $game=strval($_GET['game']??'spin-wheel');GameRegistry::module($game);
    $row=CurrentGame::row($db,$game);
    success(['data'=>$row?getSessionView($db,(string)$row['id']):null]);
+  }
+  if($action==='director_context'){
+   requireAdmin();$session=(string)($_GET['session']??'');
+   if($session===''){
+    require_once __DIR__.'/../lib/CurrentGame.php';
+    $row=CurrentGame::row($db,'spin-wheel');
+    if(!$row)success(['context'=>null]);
+    $session=(string)$row['id'];
+   }
+   $row=sessionRow($db,$session);$state=stateFromRow($row);
+   success(['context'=>LiveGameDirector::context($db,$state,(int)$_SESSION['admin_id'])]);
   }
   if($action==='session')success(getSessionView($db,strval($_GET['id']??'')));
   if($action==='watch')success(['view'=>getSessionView($db,strval($_GET['id']??''),true,strval($_GET['token']??''))]);
@@ -370,6 +381,23 @@ try {
   success(['id'=>$id],201);
  }
  $in=jsonInput();
+ if($action==='director_action'){
+  $id=(string)($in['session']??'');$key=(string)($in['requestKey']??'');
+  $db->beginTransaction();try{
+   $row=sessionRow($db,$id,true);$state=stateFromRow($row);
+   if((int)($in['expectedVersion']??-1)!==(int)$state['version']&&!LiveGameDirector::hasRequest($state,$key))
+    throw new DomainException('The game changed on another screen. Refresh and retry.',409);
+   $result=LiveGameDirector::apply($db,$state,(int)$_SESSION['admin_id'],$in);
+   if($result['changed']){
+    saveState($db,$state);
+    audit($db,'director.game-action',$id,['type'=>$result['event']['type'],'eventId'=>$result['event']['id'],
+     'claimId'=>$result['event']['claimId']??null]);
+   }
+   $db->commit();
+  }catch(Throwable $e){$db->rollBack();throw $e;}
+  success(['changed'=>$result['changed'],'eventId'=>$result['event']['id']??null,
+   'context'=>LiveGameDirector::context($db,$state,(int)$_SESSION['admin_id'])]);
+ }
  if($action==='costume_item_action'){
   $id=(string)($in['session']??'');$key=(string)($in['requestKey']??'');
   $db->beginTransaction();try{
