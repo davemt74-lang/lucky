@@ -31,11 +31,13 @@ try{
  }else{
   if($action==='public_list'&&$method==='GET')success(['broadcasts'=>DirectorBroadcast::publicList($db)]);
   $id=(string)($data['id']??'');$key=(string)($data['key']??'');
-  if($action==='watch'&&$method==='GET')success(DirectorBroadcast::watch($db,$id,$key));
+  // POST is supported for embedded game/TV viewers so the private invitation
+  // never enters request URLs or access logs; legacy GET viewers remain valid.
+  if($action==='watch'&&in_array($method,['GET','POST'],true))success(DirectorBroadcast::watch($db,$id,$key));
   if($action==='offer'&&$method==='POST'){
    DirectorBroadcast::offer($db,$id,$key,(string)($data['viewer']??''),(string)($data['sdp']??''));success(['queued'=>true],201);
   }
-  if($action==='poll'&&$method==='GET')success(DirectorBroadcast::answerForViewer($db,$id,$key,(string)($data['viewer']??'')));
+  if($action==='poll'&&in_array($method,['GET','POST'],true))success(DirectorBroadcast::answerForViewer($db,$id,$key,(string)($data['viewer']??'')));
  }
  throw new DomainException('Unknown Program signaling action.',404);
 }catch(Throwable $e){error_log('Lucky Director Live View: '.get_class($e).' '.$e->getMessage());errorOut($e);}
