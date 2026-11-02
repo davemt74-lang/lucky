@@ -2,6 +2,12 @@
  'use strict';
  const L=window.Lucky,$=L.$;
  const wheel=new LuckyWheel($('live-wheel'));
+ // A second computer may run the Director while this browser remains on gameplay.
+ const directorLink=document.createElement('a');directorLink.id='open-live-game-director';
+ directorLink.className='btn btn-outline';directorLink.href='director.php';
+ directorLink.target='_blank';directorLink.rel='noopener noreferrer';
+ directorLink.textContent='✦ Open Live Game Director ↗';
+ document.querySelector('.console-menu-actions')?.append(directorLink);
  let proofStates={},proofSessionId='',proofPending=false;
  let currentOffer=null,offerBusy=false,offerRouted=new Set();
  let wheelOutcome=null;
@@ -152,6 +158,7 @@
  }
  function render(){
   const view=data?.view;const live=['active','paused'].includes(view?.status);const active=view?.status==='active';
+  directorLink.href=view?.id?'director.php?game='+encodeURIComponent(view.id):'director.php';
   const roster=view?.multiplayer,players=roster?.players||[],current=players[roster?.turnIndex||0];
   const turnCard=$('game-turn-card');if(turnCard){
    turnCard.hidden=!roster;

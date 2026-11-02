@@ -1,0 +1,31 @@
+.director-workspace-game-strip{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;padding:.65rem .85rem;border:1px solid #315b73;border-radius:.65rem;background:linear-gradient(110deg,#112b3f,#10192e);min-width:0}
+.director-workspace-game-strip>span:first-child{font-size:.68rem;font-weight:850;letter-spacing:.14em;color:#75d9eb}
+.director-workspace-game-strip strong{color:#f5d895;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+.director-workspace-game-strip>span{font-size:.78rem;color:#c1d3e7}
+.director-workspace-game-strip .btn{margin-left:auto;font-size:.75rem;padding:.4rem .65rem}
+.director-game-panel{background:transparent;border:0;box-shadow:none;padding:.3rem;min-width:0}
+.director-game-heading{display:flex;align-items:start;justify-content:space-between;gap:.5rem;flex-wrap:wrap}
+.director-game-heading h2{margin:.15rem 0;font-size:1.35rem;color:#f5db9e}
+.director-game-heading p{margin:.3rem 0;font-size:.8rem;line-height:1.4;color:#b7cadb}
+.director-game-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.4rem;margin:.85rem 0}
+.director-game-summary>div{min-width:0;border:1px solid #354e6a;background:#102034;border-radius:.55rem;padding:.6rem}
+.director-game-summary span{display:block;font-size:.63rem;color:#97adca;letter-spacing:.07em}
+.director-game-summary strong{display:block;font-size:.85rem;margin-top:.28rem;overflow-wrap:anywhere}
+.director-game-controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem}
+.director-game-controls>section{min-width:0;border:1px solid #344b65;background:#0e1d31;padding:.75rem;border-radius:.65rem;display:flex;flex-direction:column;gap:.5rem;align-items:stretch}
+.director-game-controls h3,.director-game-moments-heading h3{margin:.1rem 0 .5rem;font-size:.98rem}
+.director-game-controls label{font-size:.78rem;display:flex;flex-direction:column;gap:.3rem;color:#c4d1e1}
+.director-game-controls select,.director-game-controls input{width:100%;min-width:0;background:#091525;border:1px solid #48627d;color:#f0f5fd;border-radius:.4rem;padding:.55rem}
+.director-game-controls .mini-label{margin:.1rem 0;color:#9cb4ca;line-height:1.4;font-size:.69rem}
+.director-game-cues{display:flex;flex-wrap:wrap;gap:.4rem}
+.director-game-cues .btn{font-size:.76rem;padding:.4rem .6rem}
+.director-game-record{display:flex;flex-wrap:wrap;gap:.4rem}
+.director-game-record button{flex:1 1 130px}
+.director-game-moments-heading{margin:1.05rem 0 .45rem;display:flex;align-items:center;justify-content:space-between}
+.director-game-moments{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.4rem}
+.director-game-moments li{border:1px solid #344a63;border-radius:.5rem;background:#0c1b2e;padding:.6rem;display:grid;gap:.22rem;overflow-wrap:anywhere}
+.director-game-moments strong{font-size:.78rem;color:#e8f0fd}
+.director-game-moments small{font-size:.71rem;color:#9cb5cf}
+.director-game-links{display:flex;flex-wrap:wrap;gap:.5rem;margin:.75rem 0}
+.director-game-panel #director-game-feedback{font-size:.75rem;overflow-wrap:anywhere}
+@media(max-width:900px){.director-game-controls{grid-template-columns:1fr}.director-game-summary{grid-template-columns:1fr}.director-workspace-game-strip strong{flex:1 1 100%}.director-workspace-game-strip .btn{margin-left:0}}

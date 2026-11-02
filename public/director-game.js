@@ -1,0 +1,152 @@
+/* V5Q32A: server-synchronized Spin the Wheel control for a separate Director computer. */
+(() => {
+ 'use strict';
+ const $=id=>document.getElementById(id);
+ if(!$('director-game-panel')||!window.Lucky)return;
+ const L=window.Lucky;
+ const validId=id=>typeof id==='string'&&/^[a-f0-9]{32}$/.test(id);
+ const params=new URL(location.href).searchParams;
+ let gameId=validId(params.get('game'))?params.get('game'):'';
+ let context=null,requestPending=false,refreshPending=false,signature='',lastClaim='',operatorDirty=false;
+ let lastStudioAttempt=0,openingRecording='';
+ const feedback=(message,error=false)=>{
+  const node=$('director-game-feedback');node.textContent=message;node.classList.toggle('is-error',error);
+ };
+ const active=()=>context&&['active','paused'].includes(context.game?.status);
+ const label=(id,message)=>{const node=$(id);if(node)node.textContent=message;};
+ const cueNames=[['turn_intro','Introduce turn'],['prize_reveal','Reveal prize'],
+  ['reaction','Player reaction'],['costume_focus','Costume close-up'],
+  ['celebration','Celebration'],['scene_cut','Scene change']];
+
+ function fillClaims(){
+  const select=$('director-game-claim'),claims=context?.game?.claims||[];
+  const old=select.value,newest=claims.at(-1)?.id||'';
+  const selected=claims.some(c=>c.id===old)?old:newest;
+  const chooseNew=Boolean(newest&&newest!==lastClaim);
+  select.replaceChildren(new Option(claims.length?'Choose a prize':'No awarded prizes yet',''));
+  for(const claim of claims)select.add(new Option(`${claim.playerName||'Player'} · ${claim.name}`,claim.id));
+  select.value=chooseNew?newest:selected;
+  if(chooseNew){operatorDirty=false;lastClaim=newest;}
+  if(!claims.length)lastClaim='';
+ }
+ function fillOperators(){
+  const select=$('director-game-operator'),claimId=$('director-game-claim').value;
+  const assigned=context?.assignments?.[claimId]||'';
+  const old=select.value;
+  select.replaceChildren(new Option('No cameraman assigned',''));
+  for(const operator of context?.operators||[]){
+   const option=new Option(`${operator.name}${operator.approved?' · connected':' · not approved'}`,operator.pairId);
+   option.disabled=!operator.approved;select.add(option);
+  }
+  const oldValid=old===''||(context?.operators||[]).some(o=>o.pairId===old&&o.approved);
+  const candidate=operatorDirty&&oldValid?old:assigned;
+  select.value=[...select.options].some(o=>o.value===candidate&&!o.disabled)?candidate:'';
+ }
+ function renderMoments(){
+  const moments=context?.moments||[];
+  label('director-game-moment-count',`${moments.length} moment${moments.length===1?'':'s'}`);
+  const root=$('director-game-moments');root.replaceChildren();
+  for(const moment of moments.slice(-40).reverse()){
+   const entry=document.createElement('li'),title=document.createElement('strong'),meta=document.createElement('small');
+   title.textContent=moment.label||moment.type||'Game event';
+   let stamp='';try{stamp=new Date(moment.at).toLocaleTimeString([], {hour:'numeric',minute:'2-digit',second:'2-digit'});}catch(_){}
+   const offset=Number(moment.offsetMs);
+   const clock=moment.offsetMs!==null&&Number.isFinite(offset)
+    ?` · estimated ${Math.floor(offset/60000)}:${String(Math.floor(offset%60000/1000)).padStart(2,'0')} in take`
+    :' · outside recorded take';
+   meta.textContent=`${stamp}${clock}`;
+   entry.append(title,meta);root.append(entry);
+  }
+  if(!moments.length){const item=document.createElement('li');item.textContent='Game, prize, costume and show moments will appear here.';root.append(item);}
+ }
+ function updateCapture(){
+  const studio=window.LuckyDirectorStudio?.state?.();
+  const linked=Boolean(context?.recording?.id&&studio?.recordingSession===context.recording.id);
+  const start=$('director-studio-take-start'),stop=$('director-studio-take-stop');
+  $('director-game-record-start').disabled=!linked||!start||start.disabled;
+  $('director-game-record-stop').disabled=!linked||!stop||stop.disabled;
+ }
+ function maybeOpenRecording(){
+  const id=context?.recording?.id;
+  if(!validId(id))return;
+  if(window.LuckyDirectorStudio?.state?.().recordingSession===id)return;
+  if(Date.now()-lastStudioAttempt<5000||openingRecording===id)return;
+  if(![...$('director-studio-session').options].some(option=>option.value===id))return;
+  lastStudioAttempt=Date.now();openingRecording=id;
+  Promise.resolve(window.LuckyDirectorStudio?.open(id)).catch(()=>{}).finally(()=>{openingRecording='';updateCapture();});
+ }
+ function render(){
+  const state=context?.game;
+  const status=state?`${state.status.toUpperCase()} · ${state.players.length} players / ${state.hosts.length} hosts`:'No Spin the Wheel session';
+  const player=state?.currentPlayer?.name||'—',prize=state?.latestPrize?.name||'Awaiting first prize';
+  label('director-game-status',status);
+  label('director-game-current-player',player);
+  label('director-game-latest-prize',prize);
+  label('director-workspace-game-name',state?[state.party,state.theme].filter(Boolean).join(' · ')||'Spin the Wheel':'Waiting for Spin the Wheel…');
+  label('director-workspace-game-player',state?`Turn: ${player}`:'—');
+  label('director-workspace-game-prize',state?`Prize: ${prize}`:'—');
+  const stateSignature=JSON.stringify({game:state,operators:context?.operators,assignments:context?.assignments,moments:context?.moments,recording:context?.recording});
+  if(stateSignature!==signature){
+   signature=stateSignature;
+   fillClaims();fillOperators();renderMoments();
+  }
+  $('director-game-open-wheel').href=state?`game.php?session=${encodeURIComponent(state.id)}`:'game.php';
+  $('director-game-open-editor').href=context?.recording?.id
+   ?`recording-editor.php?session=${encodeURIComponent(context.recording.id)}`:'admin.php?tab=recordings';
+  $('director-game-assign').disabled=!active()||!$('director-game-claim').value||requestPending;
+  $('director-game-next').disabled=!active()||state.players.length<2||requestPending;
+  $('director-game-cues').querySelectorAll('button').forEach(button=>{button.disabled=!active()||requestPending;});
+  maybeOpenRecording();updateCapture();
+ }
+ async function refresh(manual=false){
+  if(refreshPending||requestPending)return;
+  refreshPending=true;
+  try{
+   const options=gameId?{query:{session:gameId}}:{};
+   const response=await L.api('director_context',options);
+   context=response.context||null;
+   if(context?.game?.id)gameId=context.game.id;
+   if(manual)feedback(context?'Live game refreshed. This screen follows changes made on the game computer.':'No active Spin the Wheel game found.');
+   render();
+  }catch(e){feedback(`Game sync: ${e.message}`,true);}
+  finally{refreshPending=false;}
+ }
+ async function act(action,fields={}){
+  if(!active()||requestPending)return;
+  requestPending=true;render();
+  try{
+   const response=await L.api('director_action',{body:{session:gameId,expectedVersion:context.game.version,
+    requestKey:L.idempotency(),action,note:$('director-game-note').value.trim(),...fields}});
+   context=response.context;gameId=context.game.id;signature='';operatorDirty=false;render();
+   feedback(response.changed?'Show action saved and synchronized with the game screen.':'No change needed.');
+  }catch(e){feedback(`${e.message} Refreshing the synchronized game state…`,true);}
+  finally{requestPending=false;render();void refresh();}
+ }
+ for(const [key,name] of cueNames){
+  const button=document.createElement('button');button.type='button';button.className='btn btn-outline';button.textContent=name;
+  button.addEventListener('click',()=>void act('cue',{cue:key,claimId:$('director-game-claim').value||''}));
+  $('director-game-cues').append(button);
+ }
+ $('director-game-claim').addEventListener('change',()=>{operatorDirty=false;fillOperators();render();});
+ $('director-game-operator').addEventListener('change',()=>{operatorDirty=true;});
+ $('director-game-assign').addEventListener('click',()=>void act('assign_camera',{
+  claimId:$('director-game-claim').value,pairId:$('director-game-operator').value}));
+ $('director-game-next').addEventListener('click',()=>void act('next_player',{claimId:''}));
+ $('director-game-refresh').addEventListener('click',()=>void refresh(true));
+ $('director-game-record-start').addEventListener('click',()=>{
+  updateCapture();if(!$('director-game-record-start').disabled)$('director-studio-take-start').click();
+ });
+ $('director-game-record-stop').addEventListener('click',()=>{
+  updateCapture();if(!$('director-game-record-stop').disabled)$('director-studio-take-stop').click();
+ });
+ $('director-game-open-wheel').target='_blank';$('director-game-open-wheel').rel='noopener noreferrer';
+ $('director-game-open-editor').target='_blank';$('director-game-open-editor').rel='noopener noreferrer';
+ window.addEventListener('lucky:director-take-start',updateCapture);
+ window.addEventListener('lucky:director-take-stop',updateCapture);
+ window.addEventListener('lucky:director-studio-open',updateCapture);
+ window.addEventListener('lucky:director-studio-close',updateCapture);
+ render();void refresh(true);
+ if(validId(params.get('game')))document.querySelector('[data-director-panel="game"]')?.click();
+ setInterval(()=>{if(!document.hidden)void refresh();},1400);
+ setInterval(updateCapture,1000);
+})();
