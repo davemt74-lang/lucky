@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-require __DIR__.'/../lib/Bootstrap.php';require_once __DIR__.'/../lib/CloudGameUpdates.php';require_once __DIR__.'/../lib/GamePackageInstaller.php';require_once __DIR__.'/../lib/GamePackageActivation.php';require_once __DIR__.'/../lib/CloudGamePackageDownload.php';require_once __DIR__.'/../lib/GamePublisherChannels.php';require_once __DIR__.'/../lib/GameCatalog.php';require_once __DIR__.'/../lib/ProductCatalog.php';require_once __DIR__.'/../lib/ControllerGame.php';require_once __DIR__.'/../lib/PrizeDecision.php';require_once __DIR__.'/../lib/GameSessionLifecycle.php';require_once __DIR__.'/../lib/GamePluginCapabilities.php';require_once __DIR__.'/../lib/RecordingSessions.php';headerSecurity();
+require __DIR__.'/../lib/Bootstrap.php';require_once __DIR__.'/../lib/CloudGameUpdates.php';require_once __DIR__.'/../lib/GamePackageInstaller.php';require_once __DIR__.'/../lib/GamePackageActivation.php';require_once __DIR__.'/../lib/CloudGamePackageDownload.php';require_once __DIR__.'/../lib/GamePublisherChannels.php';require_once __DIR__.'/../lib/GameCatalog.php';require_once __DIR__.'/../lib/ProductCatalog.php';require_once __DIR__.'/../lib/ControllerGame.php';require_once __DIR__.'/../lib/PrizeDecision.php';require_once __DIR__.'/../lib/GameSessionLifecycle.php';require_once __DIR__.'/../lib/GamePluginCapabilities.php';require_once __DIR__.'/../lib/RecordingSessions.php';require_once __DIR__.'/../lib/PartyStudio.php';headerSecurity();
 $action=strval($_GET['action']??'');$method=$_SERVER['REQUEST_METHOD']??'GET';
 function setting(PDO $db,string $game='spin-wheel'):array {
  $q=$db->prepare('SELECT * FROM game_settings WHERE game_id=?');$q->execute([$game]);$r=$q->fetch();
@@ -86,6 +86,14 @@ try {
  if($method==='GET'){
   if($action==='health')success(['service'=>'Lucky Game Hub','installed'=>true,'database'=>'connected','build'=>'5P']);
   if($action==='manifest')success(['games'=>GameRegistry::manifest()]);
+  if($action==='party_studio'){
+   requireAdmin();success(PartyStudio::catalog($db));
+  }
+  if($action==='paired_phones'){
+   requireAdmin();
+   $q=$db->prepare("SELECT id,device_name AS name FROM controller_pairs WHERE host_admin_id=? AND status='paired' AND paired_expires_at>UTC_TIMESTAMP() ORDER BY device_name,id");
+   $q->execute([$_SESSION['admin_id']]);success(['phones'=>$q->fetchAll()]);
+  }
   if($action==='game_catalog'){
    requireAdmin();success(['games'=>GameCatalog::all()]);
   }
@@ -362,6 +370,32 @@ try {
   success(['id'=>$id],201);
  }
  $in=jsonInput();
+ if($action==='player_phone_assign'){
+  $id=(string)($in['session']??'');
+  $db->beginTransaction();try{
+   $row=sessionRow($db,$id,true);$state=stateFromRow($row);
+   if($state['game']!=='spin-wheel'||!in_array($state['status'],['active','paused'],true))throw new DomainException('Only a running wheel game can assign phones.',409);
+   if((int)($in['expectedVersion']??-1)!==(int)$state['version'])throw new DomainException('Game roster changed. Refresh and retry.',409);
+   PartyStudio::assignPhone($db,$state,(string)($in['playerId']??''),(string)($in['pairId']??''),(int)$_SESSION['admin_id']);
+   saveState($db,$state);audit($db,'player.phone-assigned',$id,['playerId'=>$in['playerId']??'','assigned'=>!empty($in['pairId'])]);
+   $db->commit();
+  }catch(Throwable $e){$db->rollBack();throw $e;}
+  success(['data'=>['session'=>$state,'view'=>GameRegistry::module($state['game'])->publicView($state)]]);
+ }
+ if(in_array($action,['party_studio_save','party_studio_delete'],true)){
+  $section=(string)($in['section']??'');
+  $db->beginTransaction();try{
+   if($action==='party_studio_save'){
+    $result=PartyStudio::save($db,$section,$in);
+    audit($db,'party-studio.save',null,['section'=>$section,'id'=>$result['id']]);
+   }else{
+    PartyStudio::delete($db,$section,$in['id']??null);
+    $result=['id'=>$in['id']];audit($db,'party-studio.delete',null,['section'=>$section,'id'=>$result['id']]);
+   }
+   $db->commit();
+  }catch(Throwable $e){$db->rollBack();throw $e;}
+  success(['record'=>$result]);
+ }
  if(in_array($action,['package_create','package_save','package_select','package_delete','package_publish'],true)){
   $db->beginTransaction();
   try{
@@ -490,6 +524,7 @@ try {
     $config=$pkg['config'];
    }
    $s=GameRegistry::module($game)->createSession($config,bin2hex(random_bytes(16)));
+   if($game==='spin-wheel')$s['multiplayer']=PartyStudio::roster($db,is_array($in['multiplayer']??null)?$in['multiplayer']:[]);
    if(isset($pkg))$s['prizePackage']=['id'=>$pkg['id'],'name'=>$pkg['name'],'phoneCameraEnabled'=>$pkg['phoneCameraEnabled']];
    GameFoundation::checkSession(GameRegistry::module($game),$s,(string)($s['id']??''));
    $viewToken=token();$q=$db->prepare('INSERT INTO game_sessions(id,game_id,status,version,state_json,viewer_token) VALUES (?,?,?,?,?,?)');

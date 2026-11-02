@@ -1,0 +1,17 @@
+.multiplayer-dialog{width:min(860px,calc(100vw - 22px));max-width:860px;max-height:92vh;overflow:auto}
+.multiplayer-dialog .platform-dialog-content{width:auto;max-width:none;display:flex;flex-direction:column;gap:1rem}
+.multiplayer-setup-grid,.multiplayer-setup-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem}
+.multiplayer-setup-grid label{display:flex;flex-direction:column;gap:.35rem}
+.multiplayer-setup-columns section{min-width:0}
+.setup-person{display:grid;grid-template-columns:minmax(0,1fr);gap:.4rem;background:#111d31;border:1px solid #45546d;border-radius:.75rem;padding:.75rem;margin:.6rem 0}
+.setup-person strong{color:#f1d08a}
+.setup-person .setup-name,.setup-person select{width:100%;min-width:0}
+.setup-costume-pieces{padding-left:1.4rem;font-size:.85rem;color:#b9ccdd;margin:.2rem 0}
+.game-turn-card{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem;margin-top:1rem}
+.game-turn-card h2,.game-turn-card h3,.game-turn-card p{margin:.3rem 0}
+.game-turn-card ol{margin:.6rem 0;padding-left:1.4rem}
+.game-player-phones{grid-column:1/-1;border-top:1px solid #45546d;padding-top:.85rem}
+.game-player-phones .platform-control-row{justify-content:space-between}
+.game-phone-row{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin:.5rem 0}
+.game-phone-row select{max-width:280px;flex:1 1 220px}
+@media(max-width:690px){.multiplayer-setup-grid,.multiplayer-setup-columns,.game-turn-card{grid-template-columns:minmax(0,1fr)}.multiplayer-dialog{max-height:96vh;margin:auto}}

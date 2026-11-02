@@ -3,6 +3,20 @@ declare(strict_types=1);
 require_once __DIR__.'/MontagePlan.php';
 /** Idempotent session-end highlight suggestions. Never renders or overwrites user edits. */
 final class MontageAutoDraft {
+ /** Label auto-generated clips by the player and turn that owns each claim. Never change originals or manual edits. */
+ public static function withTurnLabels(array $source,array $state):array {
+  $owners=[];
+  foreach($state['claims']??[] as $claim){
+   if(!empty($claim['id'])&&!empty($claim['playerName']))
+    $owners[$claim['id']]=['name'=>$claim['playerName'],'turn'=>(int)($claim['turnNumber']??0)];
+  }
+  foreach($source as &$clip){
+   $owner=$owners[$clip['claim_id']??'']??null;if(!$owner)continue;
+   $prefix=($owner['turn']>0?'Turn '.$owner['turn'].' · ':'').$owner['name'].' · ';
+   $clip['title']=substr($prefix.(string)($clip['title']??'Clip'),0,120);
+  }
+  return $source;
+ }
  public static function decisions(array $source):array {
   if(!$source)return [];
   // Preserve the session's claim order, but favor reaction video within each prize.
@@ -64,7 +78,10 @@ final class MontageAutoDraft {
   $q=$db->prepare('SELECT 1 FROM montage_projects WHERE session_id=?');$q->execute([$session]);
   if($q->fetchColumn())return false; // Manual work always takes precedence.
   $q=$db->prepare('SELECT * FROM claim_media WHERE session_id=? ORDER BY sort_order,created_at,id LIMIT 512');$q->execute([$session]);
-  $project=self::decisions($q->fetchAll());if(!$project)return false;
+  $source=$q->fetchAll();
+  $q=$db->prepare('SELECT state_json FROM game_sessions WHERE id=?');$q->execute([$session]);
+  $state=json_decode((string)$q->fetchColumn(),true)?:[];
+  $project=self::decisions(self::withTurnLabels($source,$state));if(!$project)return false;
   $q=$db->prepare('INSERT IGNORE INTO montage_projects (session_id,edit_json) VALUES (?,?)');
   $q->execute([$session,json_encode($project,JSON_THROW_ON_ERROR)]);
   return $q->rowCount()===1;

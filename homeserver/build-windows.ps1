@@ -23,13 +23,13 @@ function Download([string]$name,[string]$url,[string]$hash='', [string]$algorith
 $phpZip=Download 'php.zip' 'https://downloads.php.net/~windows/releases/archives/php-8.4.26-nts-Win32-vs17-x64.zip' 'da68394f9193b7f6b89d0c76861a4034ae10efee7fd55a7255d8118c2acf70d7'
 $dbZip=Download 'mariadb.zip' 'https://archive.mariadb.org/mariadb-11.8.5/winx64-packages/mariadb-11.8.5-winx64.zip' '75332dc1f437d9ecee253c2d751d02a69628b109ddd031006f8a8d9ba59dbe0d'
 $caddyZip=Download 'caddy.zip' 'https://github.com/caddyserver/caddy/releases/download/v2.10.2/caddy_2.10.2_windows_amd64.zip' '88347875f0cd4b5e26bb39cd1f359613f932d54158d560e03244004d1ba6e61aae0cd625ba7c913bd46df096ef973fef2249396b0bb81143414378cb4447aeb8' 'SHA512'
-$ffmpegZip=Download 'ffmpeg.zip' 'https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-10-16-13-04/ffmpeg-n9.0.2-28-g669f5ab083-win64-gpl-shared-9.0.zip'
+$ffmpegZip=Download 'ffmpeg.zip' 'https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-11-01-12-49/ffmpeg-n9.0.2-42-gd7643a0fe3-win64-gpl-shared-9.0.zip'
 $ffmpegDigest=(Get-FileHash $ffmpegZip -Algorithm SHA256).Hash.ToLowerInvariant()
 # Verify the pinned FFmpeg GitHub release digest using an authenticated CI token.
 if(!$env:GITHUB_TOKEN){throw 'GITHUB_TOKEN required for authenticated FFmpeg asset verification.'}
 $headers=@{'User-Agent'='LuckyGameHubBuild';'Authorization'="Bearer $env:GITHUB_TOKEN";'Accept'='application/vnd.github+json'}
-$ffrelease=Invoke-RestMethod -Headers $headers -Uri 'https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/tags/autobuild-2026-10-16-13-04'
-$asset=$ffrelease.assets|Where-Object {$_.name -eq 'ffmpeg-n9.0.2-28-g669f5ab083-win64-gpl-shared-9.0.zip'}|Select-Object -First 1
+$ffrelease=Invoke-RestMethod -Headers $headers -Uri 'https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/tags/autobuild-2026-11-01-12-49'
+$asset=$ffrelease.assets|Where-Object {$_.name -eq 'ffmpeg-n9.0.2-42-gd7643a0fe3-win64-gpl-shared-9.0.zip'}|Select-Object -First 1
 if(!$asset -or !$asset.digest -or !$asset.digest.StartsWith('sha256:')){throw 'Pinned FFmpeg asset digest unavailable'}
 if($ffmpegDigest -ne $asset.digest.Substring(7)){throw 'FFmpeg digest mismatch'}
 # Build the application and runtime directories.
@@ -72,7 +72,7 @@ $manifest=[ordered]@{
  phpVersion='8.4.26'; phpSha256=(Get-FileHash $phpZip -Algorithm SHA256).Hash.ToLowerInvariant()
  mariadbVersion='11.8.5'; mariadbSha256=(Get-FileHash $dbZip -Algorithm SHA256).Hash.ToLowerInvariant()
  caddyVersion='2.10.2'; caddySha512=(Get-FileHash $caddyZip -Algorithm SHA512).Hash.ToLowerInvariant()
- ffmpegBuild='n9.0.2-28-g669f5ab083'; ffmpegSha256=$ffmpegDigest
+ ffmpegBuild='n9.0.2-42-gd7643a0fe3'; ffmpegSha256=$ffmpegDigest
 }
 $manifest |ConvertTo-Json -Depth 3 |Set-Content -LiteralPath (Join-Path $stage 'RUNTIME_MANIFEST.json') -Encoding UTF8
 $required=@('php\php.exe','php\php-cgi.exe','mariadb\bin\mariadbd.exe','caddy.exe','ffmpeg\bin\ffmpeg.exe')

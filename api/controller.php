@@ -53,7 +53,7 @@ try {
     $q=$db->prepare("SELECT admin_id FROM audit_log WHERE session_id=? AND event='session.start' ORDER BY id ASC LIMIT 1");$q->execute([$id]);$adminId=(int)$q->fetchColumn();
     if($adminId<=0)throw new DomainException('Game host unavailable.',403);
     $q=$db->prepare("SELECT COUNT(*) FROM controller_pairs WHERE host_admin_id=? AND ((status IN ('inviting','pending') AND invite_expires_at>UTC_TIMESTAMP()) OR (status='paired' AND paired_expires_at>UTC_TIMESTAMP()))");$q->execute([$adminId]);
-    if((int)$q->fetchColumn()>=8)throw new DomainException('The host has reached the phone controller limit.',429);
+    if((int)$q->fetchColumn()>=ControllerPairing::MAX_ACTIVE)throw new DomainException('The host has reached the phone controller limit.',429);
     $newId=bin2hex(random_bytes(16));$token=bin2hex(random_bytes(32));$secret=bin2hex(random_bytes(32));
     $q=$db->prepare("INSERT INTO controller_pairs (id,host_admin_id,invite_hash,controller_hash,device_name,status,invite_expires_at) VALUES (?,?,?,?,?,'pending',UTC_TIMESTAMP()+INTERVAL 5 MINUTE)");
     $q->execute([$newId,$adminId,ControllerPairing::tokenHash($secret),ControllerPairing::tokenHash($token),$name]);
@@ -329,7 +329,7 @@ try {
  if($action==='invite'){
   $db->beginTransaction();try{
    $q=$db->prepare("SELECT COUNT(*) FROM controller_pairs WHERE host_admin_id=? AND ((status IN ('inviting','pending') AND invite_expires_at>UTC_TIMESTAMP()) OR (status='paired' AND paired_expires_at>UTC_TIMESTAMP()))");$q->execute([$adminId]);
-   if((int)$q->fetchColumn()>=8)throw new DomainException('Disconnect an old phone before making another invitation.');
+   if((int)$q->fetchColumn()>=ControllerPairing::MAX_ACTIVE)throw new DomainException('Disconnect an old phone before making another invitation.');
    $id=bin2hex(random_bytes(16));$secret=bin2hex(random_bytes(32));
    $q=$db->prepare("INSERT INTO controller_pairs(id,host_admin_id,invite_hash,invite_expires_at) VALUES (?,?,?,UTC_TIMESTAMP()+INTERVAL 5 MINUTE)");
    $q->execute([$id,$adminId,ControllerPairing::tokenHash($secret)]);
@@ -338,7 +338,7 @@ try {
   success(['id'=>$id,'url'=>ControllerPairing::inviteUrl($id,$secret),'expiresInSeconds'=>300],201);
  }
  if($action==='list'){
-  $q=$db->prepare('SELECT id,device_name,status,invite_expires_at,paired_expires_at,created_at FROM controller_pairs WHERE host_admin_id=? ORDER BY created_at DESC LIMIT 30');$q->execute([$adminId]);
+  $q=$db->prepare('SELECT id,device_name,status,invite_expires_at,paired_expires_at,created_at FROM controller_pairs WHERE host_admin_id=? ORDER BY created_at DESC LIMIT 100');$q->execute([$adminId]);
   $rows=$q->fetchAll();foreach($rows as &$row)$row['status']=ControllerPairing::status($row);unset($row);
   success(['pairs'=>$rows]);
  }

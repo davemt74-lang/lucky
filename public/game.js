@@ -35,6 +35,37 @@
  }
 
  let data=null,busy=false,stopVoice=null,lastVersion=0,activeId='',viewerUrl='',syncedSpin=0,initialSync=true,syncPending=false;
+ let pairedPhones=[];
+ async function refreshPairedPhones(){
+  try{const result=await L.api('paired_phones');pairedPhones=result.phones||[];render();}
+  catch(e){msg('Phone assignments: '+e.message,true);}
+ }
+ function paintPhoneAssignments(){
+  const root=$('game-phone-assignments');if(!root)return;
+  const players=data?.session?.multiplayer?.players||[],session=data?.view?.id||'';
+  const signature=JSON.stringify([session,players.map(p=>[p.id,p.name,p.phonePairId]),pairedPhones]);
+  if(root.dataset.signature===signature)return;
+  root.dataset.signature=signature;root.replaceChildren();
+  for(const player of players){
+   const row=document.createElement('label');row.className='game-phone-row';
+   const name=document.createElement('strong');name.textContent=player.name;
+   const select=document.createElement('select');select.setAttribute('aria-label',player.name+' phone assignment');
+   select.add(new Option('No phone · host controlled',''));
+   for(const phone of pairedPhones)select.add(new Option(phone.name,phone.id));
+   const old=player.phonePairId||'';
+   if(old&&![...select.options].some(o=>o.value===old))select.add(new Option('Disconnected phone (reassign)',old));
+   select.value=old;
+   select.onchange=async()=>{
+    select.disabled=true;
+    try{
+     const r=await L.api('player_phone_assign',{body:{session,playerId:player.id,pairId:select.value,expectedVersion:data.view.version}});
+     data.session=r.data.session;data.view=r.data.view;lastVersion=data.view.version;
+     msg((select.value?'Phone assigned to ':'Phone removed from ')+player.name+'.');
+    }catch(e){msg(e.message,true);}finally{root.dataset.signature='';render();}
+   };
+   row.append(name,select);root.append(row);
+  }
+ }
  let returningToDashboard=false;
  const endedRemotely=(before,after)=>before?.id&&before.id===after?.id&&
   ['active','paused'].includes(before.status)&&after.status==='ended';
@@ -121,6 +152,23 @@
  }
  function render(){
   const view=data?.view;const live=['active','paused'].includes(view?.status);const active=view?.status==='active';
+  const roster=view?.multiplayer,players=roster?.players||[],current=players[roster?.turnIndex||0];
+  const turnCard=$('game-turn-card');if(turnCard){
+   turnCard.hidden=!roster;
+   if(roster){
+    $('game-current-player').textContent=current?.name||'No active player';
+    $('game-current-costume').textContent=current?.costume?`${current.costume.name} · ${current.costume.items.map(p=>p.name).join(' + ')}`:'No costume selected';
+    $('game-party-theme').textContent=[roster.party?.name,roster.theme?.name].filter(Boolean).join(' · ')||`${players.length} players · ${(roster.hosts||[]).length} hosts`;
+    const history=$('game-turn-history'),sig=JSON.stringify(roster.turnHistory);
+    if(history.dataset.signature!==sig){history.dataset.signature=sig;history.replaceChildren();
+     for(const turn of (roster.turnHistory||[]).slice(-12).reverse()){
+      const item=document.createElement('li');item.textContent=`${turn.playerName} · ${turn.prizeName}`;history.append(item);
+     }
+    }
+   }
+  }
+  paintPhoneAssignments();
+  const playerPhonesCard=$('game-player-phones');if(playerPhonesCard)playerPhonesCard.hidden=!live;
   const claimsPanel=document.querySelector('.host-claims-column');if(claimsPanel)claimsPanel.hidden=!live;
    const cameraState=$('host-phone-camera-state');if(cameraState){cameraState.hidden=!live;
     if(live)cameraState.textContent=data?.session?.prizePackage?.phoneCameraEnabled===false?
@@ -254,13 +302,16 @@
   }catch(e){msg('Game sync retrying: '+e.message,true);}finally{syncPending=false;}
  }
  async function start(){if(busy||data?.view?.status==='active')return;
+  let multiplayer;
+  try{multiplayer=await window.LuckyGameSetup.open();if(!multiplayer)return;}
+  catch(e){msg('Multiplayer setup is unavailable: '+e.message+'. Run upgrade.php if needed.',true);return;}
   // Request browser camera permission while Start Game has a real desktop click gesture.
   // Actual capture and history live exclusively on proof.php.
   if(navigator.mediaDevices?.getUserMedia){navigator.mediaDevices.getUserMedia({video:true,audio:false}).then(stream=>{
     stream.getTracks().forEach(t=>t.stop());try{sessionStorage.setItem('lucky-cameras-authorized','1');}catch(_){}
    }).catch(()=>{/* Permission can still be granted from the proof page. */});}
   busy=true;render();
-  try{const r=await L.api('start',{body:{game:'spin-wheel'}});data=r.data;if(new URL(location.href).searchParams.has('session'))history.replaceState(null,'','game.php?session='+encodeURIComponent(data.view.id));activeId=data.view.id;lastVersion=data.view.version;syncedSpin=0;proofStates={};updateProofStates();refreshThumbs(true);msg('Game started with '+(data.session?.prizePackage?.name||'the selected prizes')+'! Spin whenever you are ready.');L.beep('bonus');L.speak('Welcome to Spin the Wheel. Start spinning!');}
+  try{const r=await L.api('start',{body:{game:'spin-wheel',multiplayer}});data=r.data;if(new URL(location.href).searchParams.has('session'))history.replaceState(null,'','game.php?session='+encodeURIComponent(data.view.id));activeId=data.view.id;lastVersion=data.view.version;syncedSpin=0;proofStates={};updateProofStates();refreshThumbs(true);msg('Game started with '+(data.session?.prizePackage?.name||'the selected prizes')+'! '+(data.view?.multiplayer?.players?.[0]?.name||'Player 1')+' goes first.');L.beep('bonus');L.speak('Welcome to Spin the Wheel. '+(data.view?.multiplayer?.players?.[0]?.name||'Player 1')+', you are first!');}
   catch(e){msg(e.message,true);}finally{busy=false;render();}}
  async function decideOffer(choice){
   if(!currentOffer||currentOffer.status!=='pending'||!data?.view?.id)return;
@@ -529,10 +580,11 @@
  window.LuckyHostRemote=remoteCommand;
 
  $('start-game').onclick=start;$('spin-game').onclick=spin;$('pause-game').onclick=pause;$('end-game').onclick=end;
+ $('game-refresh-phones').onclick=refreshPairedPhones;
  $('copy-viewer').onclick=()=>{navigator.clipboard?.writeText(viewerUrl).then(()=>msg('Display link copied.')).catch(()=>{$('viewer-link').select();});};
  $('voice-toggle').onclick=()=>{if(stopVoice){stopVoice();stopVoice=null;$('voice-toggle').textContent='🎙 Enable listening';L.note('voice-status','Microphone off.');return;}
    stopVoice=L.listen(text=>voiceInput(text).catch(e=>L.note('voice-status',e.message,true)),m=>L.note('voice-status',m));$('voice-toggle').textContent='⏹ Stop listening';};
- Promise.all([refresh(),L.loadTracks(),refreshGamePackages()]).then(()=>{
+ Promise.all([refresh(),L.loadTracks(),refreshGamePackages(),refreshPairedPhones()]).then(()=>{
   L.bindMusic();
   const params=new URLSearchParams(location.search);
   if(params.get('spin')==='1'){

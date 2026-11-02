@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__.'/ClaimMedia.php';
 require_once __DIR__.'/MontageClaimTimeline.php';
+require_once __DIR__.'/MontageAutoDraft.php';
 
 /** Shared trusted upload pipeline for Admin and capability-scoped paired phones. */
 final class ClaimMediaUpload {
@@ -68,15 +69,17 @@ final class ClaimMediaUpload {
    if($kind==='video'){
     $q=$db->prepare('SELECT * FROM claim_media WHERE id=?');$q->execute([$id]);$newRow=$q->fetch();
     $q=$db->prepare('SELECT * FROM claim_media WHERE session_id=? ORDER BY sort_order,created_at,id');$q->execute([$sessionId]);$allMedia=$q->fetchAll();
+    $state=stateFromRow(sessionRow($db,$sessionId));$claimOrder=array_column($state['claims']??[],'id');
+    $labeledMedia=MontageAutoDraft::withTurnLabels($allMedia,$state);
     $q=$db->prepare('SELECT edit_json FROM montage_projects WHERE session_id=? FOR UPDATE');$q->execute([$sessionId]);$previous=$q->fetchColumn();
     if($previous!==false)$edits=json_decode((string)$previous,true,512,JSON_THROW_ON_ERROR);
     else{
-     $edits=[];foreach($allMedia as $existing)if($existing['id']!==$id)
+     $edits=[];foreach($labeledMedia as $existing)if($existing['id']!==$id)
       $edits[]=['id'=>$existing['id'],'instanceId'=>$existing['id'],'title'=>$existing['title'],'trimStartMs'=>(int)$existing['trim_start_ms'],'trimEndMs'=>(int)$existing['trim_end_ms'],'photoDurationMs'=>(int)$existing['photo_duration_ms'],'transition'=>'fade'];
     }
     if(!is_array($edits))throw new RuntimeException('Saved timeline needs repair.');
-    $state=stateFromRow(sessionRow($db,$sessionId));$claimOrder=array_column($state['claims']??[],'id');
-    $edits=MontageClaimTimeline::apply($edits,$allMedia,$newRow,$claimOrder,$replaceClipId!==''?$replaceClipId:null);
+    $labeledNew=MontageAutoDraft::withTurnLabels([$newRow],$state)[0];
+    $edits=MontageClaimTimeline::apply($edits,$allMedia,$labeledNew,$claimOrder,$replaceClipId!==''?$replaceClipId:null);
     $q=$db->prepare('INSERT INTO montage_projects(session_id,edit_json) VALUES (?,?) ON DUPLICATE KEY UPDATE edit_json=VALUES(edit_json)');
     $q->execute([$sessionId,json_encode($edits,JSON_THROW_ON_ERROR)]);
    }

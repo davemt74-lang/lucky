@@ -21,6 +21,9 @@ window.Lucky={
  money:c=>'$'+Number(c/100).toFixed(2),speak:()=>{},beep:()=>{},idempotency:()=> 'test_nonce',
 };
 window.fetch=async()=>new Response(JSON.stringify({ok:true,states:{}}));
+// Package chooser tests predate V5Q30's interactive participant setup.
+// Model a confirmed default roster so host package/video behavior is isolated.
+window.LuckyGameSetup={open:async()=>({partyId:'',themeId:'',players:[{name:'',costumeId:'',phonePairId:''}],hosts:[{name:'',costumeId:''}]})};
 </script>"""
 HTML='<html><head><base href="http://127.0.0.1/"></head><body>'+BODY+BOOT+'<script>'+CLIENT.replace('</script','<\\/script')+'</script><script>'+PROFILES.replace('</script','<\\/script')+'</script><script>'+LIVE.replace('</script','<\\/script')+'</script></body></html>'
 async def main():

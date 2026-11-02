@@ -35,7 +35,10 @@ async def main():
   page=await browser.new_page(viewport={'width':1280,'height':900})
   page.set_default_timeout(6000);page.on('pageerror',lambda e:errors.append(str(e)))
   # mock game script needed to establish exact claim context; do not depend on a DB fixture
-  script=MOCK_CAM+(BASE/'public/proof-sequence.js').read_text()+'\n'+(BASE/'public/claim-capture.js').read_text()+'\n'+(BASE/'public/game.js').read_text()
+  # This fixture exercises camera consent, not the interactive multiplayer setup.
+  # Return the default solo roster that a user would confirm in that setup.
+  solo_setup="window.LuckyGameSetup={open:async()=>({players:[{name:'',costumeId:''}],hosts:[{name:'',costumeId:''}]})};\n"
+  script=MOCK_CAM+(BASE/'public/proof-sequence.js').read_text()+'\n'+(BASE/'public/claim-capture.js').read_text()+'\n'+solo_setup+(BASE/'public/game.js').read_text()
   markup=html_page('game.php',script,MOCK.replace("window.__state='active'","window.__state='ended'"))
   await page.set_content(markup,wait_until='domcontentloaded')
   await page.wait_for_function('window.LuckyCapture && document.querySelector("#start-game")')

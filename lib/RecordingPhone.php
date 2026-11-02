@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__.'/ControllerPairing.php';
 require_once __DIR__.'/ClaimMedia.php';
+require_once __DIR__.'/PartyStudio.php';
 
 /** Capability-scoped recording access for already approved phone controllers. */
 final class RecordingPhone {
@@ -141,6 +142,12 @@ final class RecordingPhone {
    if((int)$usage['total']>=ClaimMedia::MAX_CLIPS_PER_SESSION||(int)$usage['used']+$bytes>ClaimMedia::MAX_SESSION_BYTES)
     throw new DomainException('Recording session media limit reached.',413);
    $key='p-'.$pairId;$sourceName='Paired phone · '.substr($pairId,0,8);
+   $g=$db->prepare('SELECT game_session_id FROM recording_sessions WHERE id=?');$g->execute([$sessionId]);
+   $gameSessionId=$g->fetchColumn();
+   if(is_string($gameSessionId)&&$gameSessionId!==''){
+    $operator=PartyStudio::cameraOperator($db,$gameSessionId,$pairId);
+    if($operator)$sourceName=substr('Player camera · '.$operator['name'],0,120);
+   }
    $source=RecordingSessions::source($db,(int)$pair['host_admin_id'],$sessionId,['key'=>$key,'kind'=>'phone','name'=>$sourceName]);
    if(!is_dir(dirname($path))&&!mkdir(dirname($path),0700,true))throw new RuntimeException('Could not create private recording folder.');
    if(!move_uploaded_file((string)$file['tmp_name'],$path))throw new RuntimeException('Failed to save recording.');$moved=true;@chmod($path,0600);
