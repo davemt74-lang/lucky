@@ -2,7 +2,7 @@
  'use strict';
  const L=window.Lucky,$=L.$;
  if(!$('studio-parties-form'))return;
- let library={parties:[],themes:[],costumes:[]};
+ let library={parties:[],themes:[],costumes:[],actions:[{id:'equip',name:'Equip',kind:'equip'},{id:'remove',name:'Remove',kind:'remove'}]};
  const sections=['parties','themes','costumes'];
  const form=section=>$('studio-'+section+'-form');
  const field=(section,name)=>form(section).elements.namedItem(name);
@@ -11,6 +11,7 @@
  const named=(name,value='',placeholder='')=>{const input=make('input');input.name=name;input.value=value;input.placeholder=placeholder;input.maxLength=100;return input;};
  const picker=(name,values,value='')=>{const select=make('select');select.name=name;values.forEach(([id,label])=>select.add(new Option(label,id)));select.value=value;return select;};
  const costumeChoices=()=>[['','No costume'],...library.costumes.map(c=>[c.id,c.name])];
+ const actions=()=>library.actions||[{id:'equip',name:'Equip',kind:'equip'},{id:'remove',name:'Remove',kind:'remove'}];
  const themeChoices=()=>[['','No theme'],...library.themes.map(t=>[t.id,t.name])];
  const rowControl=(row,list)=>{
   const up=make('button','btn btn-outline','↑');up.type='button';up.title='Move layer up';
@@ -22,12 +23,25 @@
   row.append(up,down,del);
  };
  function numberLayers(list){[...list.children].forEach((row,i)=>{const label=row.querySelector('.party-layer-label');if(label)label.textContent=`Layer ${i+1}`;});}
+ const newItemId=()=>('item-'+(window.crypto?.randomUUID?.().replaceAll('-','').slice(0,24)||Date.now().toString(36)+Math.random().toString(36).slice(2,9)));
+ function itemActions(row,selected=['equip','remove']){
+  const root=row.querySelector('.party-studio-item-actions');root.replaceChildren();
+  root.append(make('strong','','Available actions'));
+  for(const action of actions()){
+   const label=make('label','party-studio-check');label.title=action.description||'';
+   const input=make('input');input.type='checkbox';input.name='itemAction';input.value=action.id;input.checked=selected.includes(action.id);
+   label.append(input,document.createTextNode(action.name));root.append(label);
+  }
+ }
  function addItem(item={}){
   const list=$('studio-costume-items');if(list.children.length>=32){notice('costumes','Limit: 32 items per costume.',true);return;}
   const row=make('div','party-studio-item');const label=make('strong','party-layer-label');
+  row.dataset.itemId=item.id||newItemId();
   row.append(label,named('itemName',item.name||'','Item name'));
   row.append(picker('itemCategory',[['Clothing','Clothing'],['Accessory','Accessory'],['Prop','Prop'],['Makeup','Makeup'],['Footwear','Footwear'],['Other','Other']],item.category||'Accessory'));
-  row.append(named('itemNotes',item.notes||'','Notes / gameplay cue'));rowControl(row,list);list.append(row);numberLayers(list);
+  row.append(named('itemNotes',item.notes||'','Notes / gameplay cue'));
+  row.append(make('div','party-studio-item-actions'));itemActions(row,item.actionIds||['equip','remove']);
+  rowControl(row,list);list.append(row);numberLayers(list);
  }
  function addAttendee(attendee={}){
   const list=$('studio-attendees');if(list.children.length>=100){notice('parties','Limit: 100 attendees per party.',true);return;}
@@ -72,14 +86,14 @@
   });
  });}
  async function load(){
-  try{library=await L.api('party_studio');paintLists();renderThemeCostumes();refreshChoices();}
+  try{library=await L.api('party_studio');paintLists();paintActions();renderThemeCostumes();refreshChoices();}
   catch(e){sections.forEach(section=>notice(section,e.message+' · Run upgrade.php if this is the first time using Party Studio.',true));}
  }
  const collect=section=>{
   const result={section,id:field(section,'id').value,name:field(section,'name').value.trim(),description:field(section,'description').value.trim()};
   if(section==='costumes'){
-   result.items=[...$('studio-costume-items').children].map(row=>({name:row.querySelector('[name=itemName]').value.trim(),category:row.querySelector('[name=itemCategory]').value,
-    notes:row.querySelector('[name=itemNotes]').value.trim()}));
+   result.items=[...$('studio-costume-items').children].map(row=>({id:row.dataset.itemId,name:row.querySelector('[name=itemName]').value.trim(),category:row.querySelector('[name=itemCategory]').value,
+    notes:row.querySelector('[name=itemNotes]').value.trim(),actionIds:[...row.querySelectorAll('[name=itemAction]:checked')].map(e=>e.value)}));
   }else if(section==='themes'){
    result.accent=field(section,'accent').value;
    result.costumeIds=[...$('studio-theme-costumes input:checked')].map(input=>input.value);
@@ -95,19 +109,55 @@
    event.preventDefault();const submit=form(section).querySelector('[type=submit]');submit.disabled=true;
    try{
     const result=await L.api('party_studio_save',{body:collect(section)});
-    library=await L.api('party_studio');choose(section,result.record.id);notice(section,'Saved successfully.');
+    library=await L.api('party_studio');paintActions();choose(section,result.record.id);notice(section,'Saved successfully.');
    }catch(e){notice(section,e.message,true);}finally{submit.disabled=false;}
   };
   document.querySelector(`[data-studio-new="${section}"]`).onclick=()=>choose(section);
   document.querySelector(`[data-studio-delete="${section}"]`).onclick=async()=>{
    const id=field(section,'id').value;if(!id)return;
    const name=field(section,'name').value;if(!confirm('Delete '+name+'? Existing game snapshots will remain unchanged.'))return;
-   try{await L.api('party_studio_delete',{body:{section,id}});library=await L.api('party_studio');choose(section);notice(section,'Deleted '+name+'.');}
+   try{await L.api('party_studio_delete',{body:{section,id}});library=await L.api('party_studio');paintActions();choose(section);notice(section,'Deleted '+name+'.');}
    catch(e){notice(section,e.message,true);}
   };
   document.querySelector(`[data-tab="${section}"]`).addEventListener('click',()=>{if(!library[section].length)void load();});
  });
  document.querySelector('[data-studio-add="attendee"]').onclick=()=>addAttendee();
  document.querySelector('[data-studio-add="item"]').onclick=()=>addItem();
+ const actionForm=$('studio-actions-form'),actionStatus=$('studio-actions-status');
+ const editAction=entry=>{
+  actionForm.hidden=false;actionForm.elements.namedItem('id').value=entry?.id||'';
+  actionForm.elements.namedItem('name').value=entry?.name||'';
+  actionForm.elements.namedItem('description').value=entry?.description||'';
+  $('studio-action-delete').hidden=!entry;actionStatus.textContent='';actionForm.elements.namedItem('name').focus();
+ };
+ function paintActions(){
+  const root=$('studio-actions-list');root.replaceChildren();
+  for(const action of actions()){
+   const wrapper=make('div','party-studio-action');
+   wrapper.append(make('strong','',action.name),make('small','',action.description||'No description'));
+   if(action.kind==='cue'){
+    const edit=make('button','btn btn-outline','Edit');edit.type='button';edit.onclick=()=>editAction(action);wrapper.append(edit);
+   }else wrapper.append(make('span','party-studio-action-built-in','Built in'));
+   root.append(wrapper);
+  }
+  for(const row of $('studio-costume-items').children){
+   const selected=[...row.querySelectorAll('[name=itemAction]:checked')].map(e=>e.value);itemActions(row,selected);
+  }
+ }
+ $('studio-action-new').onclick=()=>editAction(null);
+ $('studio-action-cancel').onclick=()=>{actionForm.hidden=true;};
+ actionForm.onsubmit=async event=>{
+  event.preventDefault();const submit=actionForm.querySelector('[type=submit]');submit.disabled=true;
+  try{
+   await L.api('costume_action_save',{body:{id:actionForm.elements.namedItem('id').value,
+    name:actionForm.elements.namedItem('name').value.trim(),description:actionForm.elements.namedItem('description').value.trim()}});
+   library=await L.api('party_studio');paintActions();actionForm.hidden=true;notice('costumes','Master action saved. Select it on the desired costume items, then save the costume.');
+  }catch(e){actionStatus.textContent=e.message;actionStatus.classList.add('platform-error');}finally{submit.disabled=false;}
+ };
+ $('studio-action-delete').onclick=async()=>{
+  const id=actionForm.elements.namedItem('id').value;if(!id||!confirm('Delete this master action?'))return;
+  try{await L.api('costume_action_delete',{body:{id}});library=await L.api('party_studio');paintActions();actionForm.hidden=true;notice('costumes','Action deleted.');}
+  catch(e){actionStatus.textContent=e.message;actionStatus.classList.add('platform-error');}
+ };
  void load();
 })();

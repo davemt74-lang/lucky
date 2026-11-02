@@ -43,23 +43,85 @@ final class PartyStudio {
   return $rows;
  }
  public static function catalog(PDO $db):array {
-  return ['costumes'=>self::rows($db,'costumes'),'themes'=>self::rows($db,'themes'),'parties'=>self::rows($db,'parties')];
+  return ['costumes'=>self::rows($db,'costumes'),'themes'=>self::rows($db,'themes'),'parties'=>self::rows($db,'parties'),'actions'=>self::costumeActions($db)];
+ }
+ public static function costumeActions(PDO $db):array {
+  $actions=[['id'=>'equip','name'=>'Equip','description'=>'Put this costume item on.','kind'=>'equip'],
+   ['id'=>'remove','name'=>'Remove','description'=>'Take this costume item off.','kind'=>'remove']];
+  foreach($db->query('SELECT id,name,description FROM lucky_costume_actions ORDER BY name,id')->fetchAll() as $row)
+   $actions[]=['id'=>$row['id'],'name'=>$row['name'],'description'=>$row['description'],'kind'=>'cue'];
+  return $actions;
+ }
+ public static function saveAction(PDO $db,array $input):array {
+  $id=self::id($input['id']??'',true);if($id==='')$id=bin2hex(random_bytes(16));
+  $name=self::label($input['name']??null,80);
+  $description=self::label($input['description']??'',240,false);
+  $q=$db->prepare('INSERT INTO lucky_costume_actions(id,name,description) VALUES (?,?,?) ON DUPLICATE KEY UPDATE name=VALUES(name),description=VALUES(description)');
+  $q->execute([$id,$name,$description]);return ['id'=>$id];
+ }
+ public static function deleteAction(PDO $db,mixed $raw):void {
+  $id=self::id($raw);
+  foreach(self::rows($db,'costumes') as $costume)foreach($costume['items'] as $item)
+   if(in_array($id,$item['actionIds']??['equip','remove'],true))
+    throw new DomainException('Remove this action from costume items before deleting it.',409);
+  $q=$db->prepare('DELETE FROM lucky_costume_actions WHERE id=?');$q->execute([$id]);
+  if($q->rowCount()!==1)throw new DomainException('Costume action not found.',404);
+ }
+ private static function actionDefinitions(PDO $db,array $items):array {
+  $all=[];foreach(self::costumeActions($db) as $action)$all[$action['id']]=$action;
+  foreach($items as &$item){
+   $selected=$item['actionIds']??['equip','remove'];$item['actions']=[];
+   foreach($selected as $id){
+    if(!isset($all[$id]))throw new DomainException('Selected costume action no longer exists.',422);
+    $item['actions'][]=$all[$id];
+   }
+  }unset($item);
+  return $items;
+ }
+ /** Resolve selected prize item links against the reusable costume library. */
+ public static function prizeCostumeMap(PDO $db,array $config):array {
+  $links=[];
+  foreach($config['pools']??[] as $pool)foreach($pool['prizes']??[] as $prize)
+   if(is_array($prize['costumeItem']??null))$links[$prize['id']]=$prize['costumeItem'];
+  if(!$links)return [];
+  $costumes=[];foreach(self::rows($db,'costumes') as $costume)$costumes[$costume['id']]=$costume;
+  $resolved=[];
+  foreach($links as $prizeId=>$link){
+   $costume=$costumes[$link['costumeId']]??null;
+   if(!$costume)throw new DomainException('Prize '.$prizeId.' references a deleted costume.',422);
+   $found=null;
+   foreach($costume['items'] as $item)if($item['id']===$link['itemId']){$found=$item;break;}
+   if(!$found)throw new DomainException('Prize '.$prizeId.' references a missing costume layer.',422);
+   $resolved[$prizeId]=['costumeId'=>$costume['id'],'costumeName'=>$costume['name'],
+    'itemId'=>$found['id'],'itemName'=>$found['name'],'category'=>$found['category'],'layer'=>(int)$found['layer'],
+    'actions'=>self::actionDefinitions($db,[$found])[0]['actions']];
+  }
+  return $resolved;
  }
  private static function record(PDO $db,string $table,string $id):?array {
   foreach(self::rows($db,$table) as $row)if($row['id']===$id)return $row;
   return null;
  }
- private static function costumeItems(mixed $raw):array {
+ private static function costumeItems(PDO $db,mixed $raw):array {
   if(!is_array($raw)||count($raw)>32)throw new DomainException('A costume supports up to 32 individual items.',422);
-  $items=[];
+  $items=[];$seen=[];$allowed=[];foreach(self::costumeActions($db) as $action)$allowed[$action['id']]=true;
   foreach($raw as $i=>$item){
    if(!is_array($item))throw new DomainException('Invalid costume item.',422);
+   $id=is_string($item['id']??null)&&preg_match('/^[a-zA-Z0-9_-]{1,40}$/D',$item['id'])?$item['id']:'item-'.($i+1);
+   if(isset($seen[$id]))throw new DomainException('Costume item IDs must be unique.',422);$seen[$id]=true;
+   $ids=$item['actionIds']??['equip','remove'];
+   if(!is_array($ids)||count($ids)>32)throw new DomainException('Invalid costume action selection.',422);
+   $selected=[];foreach($ids as $actionId){
+    if(!is_string($actionId)||!isset($allowed[$actionId]))throw new DomainException('Unknown selected costume action.',422);
+    $selected[$actionId]=true;
+   }
    $items[]=[
-    'id'=>is_string($item['id']??null)&&preg_match('/^[a-zA-Z0-9_-]{1,40}$/D',$item['id'])?$item['id']:'item-'.($i+1),
+    'id'=>$id,
     'name'=>self::label($item['name']??null,100),
     'category'=>self::label($item['category']??'Accessory',50),
     'layer'=>$i+1,
-    'notes'=>self::label($item['notes']??'',300,false)
+    'notes'=>self::label($item['notes']??'',300,false),
+    'actionIds'=>array_keys($selected)
    ];
   }
   return $items;
@@ -78,7 +140,16 @@ final class PartyStudio {
   $id=self::id($input['id']??'',true);if($id==='')$id=bin2hex(random_bytes(16));
   $name=self::label($input['name']??null);$description=self::label($input['description']??'',500,false);
   if($section==='costumes'){
-   $items=self::costumeItems($input['items']??[]);
+   $items=self::costumeItems($db,$input['items']??[]);
+   if($db->query("SHOW TABLES LIKE 'prize_packages'")->fetchColumn()){
+    $present=array_fill_keys(array_column($items,'id'),true);
+    foreach($db->query('SELECT config_json FROM prize_packages') as $package){
+     $config=self::decode((string)$package['config_json']);
+     foreach($config['pools']??[] as $pool)foreach($pool['prizes']??[] as $prize)
+      if(($prize['costumeItem']['costumeId']??'')===$id&&!isset($present[$prize['costumeItem']['itemId']??'']))
+       throw new DomainException('Remove prize links before deleting attached costume items.',409);
+    }
+   }
    $q=$db->prepare('INSERT INTO lucky_costumes(id,name,description,items_json) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE name=VALUES(name),description=VALUES(description),items_json=VALUES(items_json)');
    $q->execute([$id,$name,$description,json_encode($items,JSON_THROW_ON_ERROR)]);
   }elseif($section==='themes'){
@@ -103,6 +174,14 @@ final class PartyStudio {
    foreach(self::rows($db,'themes') as $theme)if(in_array($id,$theme['costumeIds'],true))throw new DomainException('Remove this costume from its themes first.',409);
    foreach(self::rows($db,'parties') as $party)foreach($party['attendees'] as $person)
     if(($person['costumeId']??'')===$id)throw new DomainException('Remove this costume from party attendees first.',409);
+   if($db->query("SHOW TABLES LIKE 'prize_packages'")->fetchColumn()){
+    foreach($db->query('SELECT config_json FROM prize_packages') as $package){
+     $config=self::decode((string)$package['config_json']);
+     foreach($config['pools']??[] as $pool)foreach($pool['prizes']??[] as $prize)
+      if(($prize['costumeItem']['costumeId']??'')===$id)
+       throw new DomainException('Remove this costume from prize collections before deleting it.',409);
+    }
+   }
   }
   $q=$db->prepare('DELETE FROM '.$table.' WHERE id=?');$q->execute([$id]);
   if($q->rowCount()!==1)throw new DomainException('Record not found.',404);
@@ -135,7 +214,7 @@ final class PartyStudio {
     }
     $name=self::label($person['name']??'',100,false);
     $people[]=['id'=>$role.'-'.($i+1),'name'=>$name!==''?$name:ucfirst($role).' '.($i+1),'role'=>$role,
-     'costume'=>$costume?['id'=>$costume['id'],'name'=>$costume['name'],'items'=>$costume['items']]:null,
+     'costume'=>$costume?['id'=>$costume['id'],'name'=>$costume['name'],'items'=>self::actionDefinitions($db,$costume['items'])]:null,
      'phonePairId'=>$phone];
    }
    return $people;

@@ -865,14 +865,23 @@ function renderBin(){const bin=$('editor-media-bin');if(!bin)return;bin.replaceC
    inform('Microphone audio attached to '+target.title+'. Save the edit to keep the change.');
   }catch(e){audioStatus('Audio save failed: '+e.message);button.disabled=false;}
  }
+ function applyGameMomentCaption(moment){
+  if(movieMode)return inform('Stop the movie preview before editing game moment captions.',true);
+  const clip=moment.claimId?clips.find(c=>c.claimId===moment.claimId):chosen;
+  if(!clip)return inform(moment.claimId?'Capture or add footage from this prize before adding its moment caption.':'Select a clip before applying this costume cue.',true);
+  const caption=window.LuckyEditorMoments.caption(moment).replace(/[\u0000-\u001f]/g,' ').slice(0,120);
+  if(!overlayClip(clip,caption,'bottom','medium'))return inform('That game moment cannot be used as a clip caption.',true);
+  select(clip.instanceId);
+ }
  async function updateCaptureClaims(){
   const picker=$('studio-proof-claim');if(!picker)return;
   picker.replaceChildren(new Option('Select a claimed prize',''));
   $('camera-enable').disabled=true;
   window.LuckyCapture?.show('','','Prize',[]);
-  if(!session)return;
+  if(!session){window.LuckyEditorMoments?.render(null,applyGameMomentCaption);return;}
   try{
    const data=await L.api('session',{query:{id:session}});
+   window.LuckyEditorMoments?.render(data.session,applyGameMomentCaption);
    const claims=data.session?.claims||[];
    for(const c of claims)picker.add(new Option(`${c.name} · ${c.tier.toUpperCase()}`,c.id));
    const apply=()=>{
@@ -886,7 +895,7 @@ function renderBin(){const bin=$('editor-media-bin');if(!bin)return;bin.replaceC
    };
    picker.onchange=apply;
    $('camera-ready-message').textContent=claims.length?'Select a claimed prize to capture footage.':'This game has no claims yet; prize proof is attached to existing claims.';
-  }catch(e){inform('Cannot load claimed prizes for camera capture: '+e.message,true);}
+  }catch(e){window.LuckyEditorMoments?.render(null,applyGameMomentCaption);inform('Cannot load claimed prizes for camera capture: '+e.message,true);}
  }
  let syncingPhoneMedia=false;
  async function receiveCapturedClip(e){

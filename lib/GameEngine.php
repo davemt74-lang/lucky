@@ -50,7 +50,15 @@ final class GameEngine {
                     $proof[]=['label'=>$label,'seconds'=>$seconds];
                 }
                 $used[$id]=true;$sum+=$amount;
-                $items[]=['id'=>$id,'name'=>trim($name),'cents'=>$amount,'url'=>$url,'image'=>$image,'videoUrl'=>$videoUrl,'description'=>$description,'proofAngles'=>$proof];
+                $validatedPrize=['id'=>$id,'name'=>trim($name),'cents'=>$amount,'url'=>$url,'image'=>$image,'videoUrl'=>$videoUrl,'description'=>$description,'proofAngles'=>$proof];
+                $linked=$p['costumeItem']??null;
+                if($linked!==null&&$linked!==[]){
+                    if(!is_array($linked)||!preg_match('/^[a-f0-9]{32}$/D',(string)($linked['costumeId']??''))||
+                       !preg_match('/^[a-zA-Z0-9_-]{1,40}$/D',(string)($linked['itemId']??'')))
+                        throw new DomainException('Attached prize costume item is invalid.',422);
+                    $validatedPrize['costumeItem']=['costumeId'=>$linked['costumeId'],'itemId'=>$linked['itemId']];
+                }
+                $items[]=$validatedPrize;
             }
             if($sum>$pool['budgetCents']) throw new DomainException($tier.' prizes exceed their budget.');
             $validated[$tier]=['budgetCents'=>$pool['budgetCents'],'prizes'=>$items];
@@ -107,7 +115,9 @@ final class GameEngine {
         $new=self::validateConfig($new);
         foreach($s['claims'] as $claim){
             $p=self::prize(['pools'=>$new['pools']],$claim['tier'],$claim['prizeId']);
-            if($p===null||$p['name']!==$claim['name']||$p['cents']!==$claim['cents'])
+            if($p===null||$p['name']!==$claim['name']||$p['cents']!==$claim['cents']||
+               ($p['costumeItem']['costumeId']??'')!==($claim['costumeItem']['costumeId']??'')||
+               ($p['costumeItem']['itemId']??'')!==($claim['costumeItem']['itemId']??''))
                 throw new DomainException('Cannot delete or change an awarded prize while this game is active.');
         }
         foreach($s['slots'] as $slot){if(!empty($slot['prizeId']) && !self::prize(['pools'=>$new['pools']],$slot['tier'],$slot['prizeId']))
@@ -180,11 +190,23 @@ final class GameEngine {
             'playerId'=>$currentPlayer['id'],'playerName'=>$currentPlayer['name'],'turnNumber'=>$turnNumber];
         $claim=['id'=>bin2hex(random_bytes(16)),'prizeId'=>$pick['id'],'tier'=>$tier,'name'=>$pick['name'],
             'cents'=>$pick['cents'],'url'=>$pick['url'],'image'=>$pick['image'],'videoUrl'=>$pick['videoUrl']??'','description'=>$pick['description']??'','slot'=>$slotIndex===null?null:$slotIndex+1,
-            'at'=>gmdate('c'),'method'=>'spin','playerId'=>$currentPlayer['id'],'playerName'=>$currentPlayer['name'],'turnNumber'=>$turnNumber];
+            'at'=>gmdate('c'),'method'=>'spin','playerId'=>$currentPlayer['id'],'playerName'=>$currentPlayer['name'],'turnNumber'=>$turnNumber,
+            'costumeItem'=>$s['prizeCostumeMap'][$pick['id']]??null];
         $s['claims'][]=$claim;
         if($players){
             $roster['turnHistory'][]=['turnNumber'=>$turnNumber,'playerId'=>$currentPlayer['id'],
-                'playerName'=>$currentPlayer['name'],'claimId'=>$claim['id'],'prizeName'=>$claim['name'],'at'=>$claim['at']];
+                'playerName'=>$currentPlayer['name'],'claimId'=>$claim['id'],'prizeName'=>$claim['name'],
+                'costumeItem'=>$claim['costumeItem'],'at'=>$claim['at']];
+            if(is_array($claim['costumeItem'])){
+                $linked=$claim['costumeItem'];
+                $roster['players'][$turnIndex]['prizeCostumeItems'][]=[
+                    'id'=>'claim-'.$claim['id'],'originId'=>$linked['itemId'],
+                    'name'=>$linked['itemName'],'category'=>$linked['category'],'layer'=>$linked['layer'],
+                    'costumeId'=>$linked['costumeId'],'costumeName'=>$linked['costumeName'],
+                    'prizeName'=>$claim['name'],'claimId'=>$claim['id'],'equipped'=>false,
+                    'actions'=>$linked['actions']??[['id'=>'equip','name'=>'Equip','kind'=>'equip'],['id'=>'remove','name'=>'Remove','kind'=>'remove']]
+                ];
+            }
             $roster['turnIndex']=($turnIndex+1)%count($players);
         }
         if($slotIndex!==null){
@@ -226,14 +248,19 @@ final class GameEngine {
         // never the host's internal pairing identifiers.
         $roster=$s['multiplayer']??null;
         if(is_array($roster)){
-            foreach(['players','hosts'] as $role)foreach($roster[$role]??[] as $i=>$person)unset($roster[$role][$i]['phonePairId']);
+            foreach(['players','hosts'] as $role)foreach($roster[$role]??[] as $i=>$person){
+                unset($roster[$role][$i]['phonePairId']);
+                foreach($roster[$role][$i]['prizeCostumeItems']??[] as $j=>$item)unset($roster[$role][$i]['prizeCostumeItems'][$j]['claimId']);
+            }
             foreach($roster['turnHistory']??[] as $i=>$turn)unset($roster['turnHistory'][$i]['claimId']);
+            foreach($roster['costumeEvents']??[] as $i=>$event)unset($roster['costumeEvents'][$i]['claimId'],$roster['costumeEvents'][$i]['requestKey']);
         }
         return ['id'=>$s['id'],'game'=>$s['game'],'status'=>$s['status'],'version'=>$s['version'],'slots'=>array_map(
             function($slot)use($s){$p=$slot['prizeId']?self::prize($s,$slot['tier'],$slot['prizeId']):null;
                 return ['tier'=>$slot['tier'],'name'=>$p['name']??'Waiting for replacement','value'=>$p['cents']??0,'pending'=>$slot['pending']];},$s['slots']),
           'pendingBonus'=>$s['pendingBonus'],'claims'=>array_map(fn($c)=>['name'=>$c['name'],'tier'=>$c['tier'],'cents'=>$c['cents'],'at'=>$c['at'],'slot'=>$c['slot'],
-             'playerId'=>$c['playerId']??null,'playerName'=>$c['playerName']??null,'turnNumber'=>$c['turnNumber']??null],$s['claims']),
+             'playerId'=>$c['playerId']??null,'playerName'=>$c['playerName']??null,'turnNumber'=>$c['turnNumber']??null,
+             'costumeItem'=>$c['costumeItem']??null],$s['claims']),
           'multiplayer'=>$roster,
           'spinCount'=>$s['spinCount'],'lastSpin'=>$s['lastSpin']??null,'spinPending'=>SpinReveal::pending($s),
           'bonusSlices'=>array_values(array_map(fn($p)=>['name'=>$p['name'],'cents'=>$p['cents'],'tier'=>'bonus','kind'=>'prize'],

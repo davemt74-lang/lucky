@@ -157,17 +157,19 @@
    turnCard.hidden=!roster;
    if(roster){
     $('game-current-player').textContent=current?.name||'No active player';
-    $('game-current-costume').textContent=current?.costume?`${current.costume.name} · ${current.costume.items.map(p=>p.name).join(' + ')}`:'No costume selected';
+    $('game-current-costume').textContent=[current?.costume?`${current.costume.name} · ${current.costume.items.map(p=>p.name).join(' + ')}`:'No costume selected',
+     ...(current?.prizeCostumeItems||[]).map(p=>`🎁 ${p.name} (${p.equipped?'equipped':'not equipped'})`)].join(' · ');
     $('game-party-theme').textContent=[roster.party?.name,roster.theme?.name].filter(Boolean).join(' · ')||`${players.length} players · ${(roster.hosts||[]).length} hosts`;
     const history=$('game-turn-history'),sig=JSON.stringify(roster.turnHistory);
     if(history.dataset.signature!==sig){history.dataset.signature=sig;history.replaceChildren();
      for(const turn of (roster.turnHistory||[]).slice(-12).reverse()){
-      const item=document.createElement('li');item.textContent=`${turn.playerName} · ${turn.prizeName}`;history.append(item);
+      const item=document.createElement('li');item.textContent=`${turn.playerName} · ${turn.prizeName}${turn.costumeItem?' · 🎭 '+turn.costumeItem.itemName:''}`;history.append(item);
      }
     }
    }
   }
   paintPhoneAssignments();
+  window.LuckyCostumeGameplay?.render(data);
   const playerPhonesCard=$('game-player-phones');if(playerPhonesCard)playerPhonesCard.hidden=!live;
   const claimsPanel=document.querySelector('.host-claims-column');if(claimsPanel)claimsPanel.hidden=!live;
    const cameraState=$('host-phone-camera-state');if(cameraState){cameraState.hidden=!live;
@@ -577,6 +579,10 @@
  queueWheelFit();
  
  window.addEventListener('lucky:paired-phones',e=>{const count=$('host-phone-count');if(count)count.textContent=Number(e.detail?.count||0)>0?String(e.detail.count):'';});
+ window.addEventListener('lucky:costume-action',e=>{
+  if(!e.detail?.data?.view||e.detail.data.view.id!==data?.view?.id)return;
+  data=e.detail.data;lastVersion=data.view.version;render();
+ });
  window.LuckyHostRemote=remoteCommand;
 
  $('start-game').onclick=start;$('spin-game').onclick=spin;$('pause-game').onclick=pause;$('end-game').onclick=end;
