@@ -27,13 +27,31 @@ $caddy=Join-Path $Installation 'runtime\caddy.exe'
 $fixtureParent=$runnerRoot.TrimEnd('\')
 $fixture=Join-Path $fixtureParent ('lucky-g7a-network-'+[Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $fixture | Out-Null
-$script:checks=@();$result='failed';$failure=''
+$script:checks=@();$script:publicationSnapshots=@();$result='failed';$failure=''
 function Assert-G7A([bool]$Condition,[string]$Name){
  if(!$Condition){throw ('FAIL '+$Name)}
  $script:checks+=@($Name);Write-Host ('PASS '+$Name)
 }
 function Reject-G7A([scriptblock]$Operation,[string]$Name){
  $rejected=$false;try{& $Operation}catch{$rejected=$true};Assert-G7A $rejected $Name
+}
+function Snapshot-G7APublication([string]$Phase,[string]$Path){
+ $acl=Get-Acl -LiteralPath $Path
+ $owner=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+ $rules=@($acl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier]))
+ $snapshot=[ordered]@{phase=$Phase;utc=[DateTime]::UtcNow.ToString('o');
+  modifiedUtc=[IO.File]::GetLastWriteTimeUtc($Path).ToString('o');
+  protected=$acl.AreAccessRulesProtected;ownerMatchesCurrent=($acl.GetOwner([Security.Principal.SecurityIdentifier]).Value -ceq $owner);
+  inheritedRules=@($rules | Where-Object {$_.IsInherited}).Count;
+  unexpectedRules=@($rules | Where-Object {$_.AccessControlType -ne [Security.AccessControl.AccessControlType]::Allow -or $_.IdentityReference.Value -notin @($owner,'S-1-5-18')}).Count}
+ $script:publicationSnapshots+=@($snapshot)
+ Write-Host ('NETWORK_HELPER_SNAPSHOT '+($snapshot | ConvertTo-Json -Compress))
+}
+function Assert-G7APrivatePublication([string]$Path,[string]$Label){
+ $acl=Get-Acl -LiteralPath $Path;$owner=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+ $rules=@($acl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier]))
+ Assert-G7A ($acl.AreAccessRulesProtected -and $acl.GetOwner([Security.Principal.SecurityIdentifier]).Value -ceq $owner -and
+  @($rules | Where-Object {$_.IsInherited -or $_.AccessControlType -ne [Security.AccessControl.AccessControlType]::Allow -or $_.IdentityReference.Value -notin @($owner,'S-1-5-18')}).Count -eq 0) $Label
 }
 function Address-G7A([string]$Address,[string]$Alias='Ethernet',[string]$State='Preferred',[int]$Index=4){
  return [pscustomobject]@{IPAddress=$Address;InterfaceAlias=$Alias;AddressState=$State;InterfaceIndex=$Index}
@@ -142,17 +160,28 @@ try{
  $target=Join-Path $private 'homeserver-network.json'
  $sentinel=Join-Path $private 'config.php';[IO.File]::WriteAllText($sentinel,'unrelated configuration bytes')
  Write-HomeServerNetworkPublication $private $lan
+ Snapshot-G7APublication 'initial-create' $target
  $raw=[IO.File]::ReadAllBytes($target);$metadata=[IO.File]::ReadAllText($target) | ConvertFrom-Json
  Assert-G7A ($metadata.version -eq 1 -and $metadata.origin -ceq ('https://'+$lan+':8843') -and @($metadata.PSObject.Properties).Count -eq 2) 'Private publication contains exactly the agreed version/origin schema'
  Assert-G7A ($raw.Length -lt 8192 -and !($raw[0] -eq 239 -and $raw[1] -eq 187 -and $raw[2] -eq 191)) 'Publication is bounded UTF-8 without a BOM'
- $acl=Get-Acl -LiteralPath $target;$owner=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value
- $rules=@($acl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier]))
- Assert-G7A ($acl.AreAccessRulesProtected -and $acl.GetOwner([Security.Principal.SecurityIdentifier]).Value -ceq $owner -and
-  @($rules | Where-Object {$_.IsInherited -or $_.AccessControlType -ne [Security.AccessControl.AccessControlType]::Allow -or $_.IdentityReference.Value -notin @($owner,'S-1-5-18')}).Count -eq 0) 'Native metadata ACL is private to the launcher identity and SYSTEM from creation'
+ Assert-G7APrivatePublication $target 'Native metadata ACL is private to the launcher identity and SYSTEM from creation'
  [IO.File]::SetLastWriteTimeUtc($target,[DateTime]::UtcNow.AddMinutes(-2))
+ Snapshot-G7APublication 'different-origin-before-replace' $target
  Write-HomeServerNetworkPublication $private '10.20.30.40'
+ Snapshot-G7APublication 'different-origin-after-replace' $target
  $renewed=[IO.File]::ReadAllText($target) | ConvertFrom-Json
  Assert-G7A ($renewed.origin -ceq 'https://10.20.30.40:8843' -and ([DateTime]::UtcNow-[IO.File]::GetLastWriteTimeUtc($target)).TotalSeconds -lt 5) 'Atomic native renewal changes the origin and advances the freshness lease'
+ Assert-G7APrivatePublication $target 'Atomic native replacement preserves the private owner, protection and access rules'
+ foreach($round in @(1,2,3)){
+  $sameBytes=[IO.File]::ReadAllText($target)
+  [IO.File]::SetLastWriteTimeUtc($target,[DateTime]::UtcNow.AddMinutes(-2))
+  Snapshot-G7APublication ('same-origin-'+$round+'-before') $target
+  Write-HomeServerNetworkPublication $private '10.20.30.40'
+  Snapshot-G7APublication ('same-origin-'+$round+'-after') $target
+  Assert-G7A ([IO.File]::ReadAllText($target) -ceq $sameBytes -and
+   ([DateTime]::UtcNow-[IO.File]::GetLastWriteTimeUtc($target)).TotalSeconds -lt 5) ('Same-origin atomic renewal '+$round+' advances the lease without changing bytes')
+  Assert-G7APrivatePublication $target ('Same-origin atomic renewal '+$round+' preserves its private ACL for the next heartbeat')
+ }
  Assert-G7A (@(Get-ChildItem -LiteralPath $private -Filter 'homeserver-network-*.tmp').Count -eq 0) 'Successful atomic publication leaves no temporary stages'
  $saved=[IO.File]::ReadAllText($target)
  Reject-G7A {Write-HomeServerNetworkPublication $private '127.0.0.1'} 'Loopback address cannot be published as a phone origin'
@@ -191,8 +220,8 @@ finally{
   [IO.Directory]::Delete($Path)
  }
  try{
-  [ordered]@{result=$result;checks=$script:checks;failure=$failure;launcherSha256=(Get-FileHash -LiteralPath $launcher -Algorithm SHA256).Hash} |
-   ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $EvidenceDir 'homeserver-network-g7a.json') -Encoding UTF8
+  [ordered]@{result=$result;checks=$script:checks;publicationSnapshots=$script:publicationSnapshots;failure=$failure;launcherSha256=(Get-FileHash -LiteralPath $launcher -Algorithm SHA256).Hash} |
+   ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $EvidenceDir 'homeserver-network-g7a.json') -Encoding UTF8
  }finally{
   if(![string]::Equals([IO.Path]::GetDirectoryName($fixture),$fixtureParent,[StringComparison]::OrdinalIgnoreCase) -or [IO.Path]::GetFileName($fixture) -notmatch '^lucky-g7a-network-[a-f0-9]{32}$'){
    throw 'Refusing cleanup outside the exact owned network fixture.'

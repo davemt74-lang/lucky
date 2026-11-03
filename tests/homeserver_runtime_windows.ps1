@@ -50,6 +50,7 @@ $script:originalCgiBinary=$null
 $script:injectedCgiSid=$null
 $script:cgiAclChanged=$false
 $script:aclEvidence=@()
+$script:networkSnapshots=@()
 $suffix=[Guid]::NewGuid().ToString('N')
 $token=[Guid]::NewGuid().ToString('N')+[Guid]::NewGuid().ToString('N')
 $probeName='ci-hs-g5-'+$suffix+'.php'
@@ -86,6 +87,30 @@ function Read-G5RunLog {
  $text=Read-G5Log
  if($text.Length -lt $script:logStart){throw 'Supervisor log was unexpectedly truncated.'}
  return $text.Substring($script:logStart)
+}
+function Save-G7ANetworkSnapshot([string]$Phase,[bool]$BusyPending=$false){
+ # Only the nonsecret CI-owned runtime lease is inspected. Missing/withdrawn
+ # metadata is distinguished from an unchanged timestamp before cleanup runs.
+ $snapshot=[ordered]@{phase=$Phase;utc=[DateTime]::UtcNow.ToString('o');busyPending=$BusyPending;exists=$false}
+ try{
+  $entry=Get-Item -LiteralPath $networkMetadata -Force -ErrorAction SilentlyContinue
+  if($null -ne $entry){
+   $snapshot.exists=$true;$snapshot.attributes=$entry.Attributes.ToString()
+   $snapshot.modifiedUtc=[IO.File]::GetLastWriteTimeUtc($networkMetadata).ToString('o')
+   if(!$entry.PSIsContainer -and !($entry.Attributes -band [IO.FileAttributes]::ReparsePoint)){
+    $acl=Get-Acl -LiteralPath $networkMetadata
+    $owner=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+    $rules=@($acl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier]))
+    $snapshot.protected=$acl.AreAccessRulesProtected
+    $snapshot.ownerMatchesCurrent=$acl.GetOwner([Security.Principal.SecurityIdentifier]).Value -ceq $owner
+    $snapshot.inheritedRules=@($rules | Where-Object {$_.IsInherited}).Count
+    $snapshot.unexpectedRules=@($rules | Where-Object {$_.AccessControlType -ne [Security.AccessControl.AccessControlType]::Allow -or $_.IdentityReference.Value -notin @($owner,'S-1-5-18')}).Count
+   }
+  }
+ }catch{$snapshot.inspectionError=$_.Exception.GetType().FullName}
+ $script:networkSnapshots+=@($snapshot)
+ $script:networkSnapshots | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $EvidenceDir 'network-lifecycle-snapshots.json') -Encoding UTF8
+ Write-Host ('NETWORK_LIFECYCLE_SNAPSHOT '+($snapshot | ConvertTo-Json -Compress))
 }
 function Get-G5Identity([int]$ProcessId,[string]$ExpectedPath,[int]$ExpectedParent){
  $rows=@(Get-CimInstance Win32_Process -Filter ("ProcessId = "+$ProcessId))
@@ -461,6 +486,7 @@ $action=(string)($_GET['action']??'');$root=__DIR__.'/storage/ci-hs-g5-__SUFFIX_
 if($action==='health'){echo json_encode(['ok'=>true,'pid'=>getmypid(),'maxRequests'=>getenv('PHP_FCGI_MAX_REQUESTS'),'children'=>getenv('PHP_FCGI_CHILDREN')],JSON_THROW_ON_ERROR);exit;}
 if($action==='busy'){
  file_put_contents($root.'/busy-started',(string)getmypid(),LOCK_EX);sleep(15);
+ file_put_contents($root.'/busy-finished',(string)getmypid(),LOCK_EX);
  echo json_encode(['ok'=>true,'pid'=>getmypid()],JSON_THROW_ON_ERROR);exit;
 }
 require __DIR__.'/lib/Bootstrap.php';$db=db();$table='ci_runtime_g5___SUFFIX__';
@@ -510,10 +536,12 @@ try{
  $cgi=Get-G5Child $cgiPath;$database=Get-G5Child $dbPath;$web=Get-G5Child $caddyPath
  Assert-G5 ([int]$health.pid -eq $cgi.Id -and (Test-G5Listener 9017 $cgi.Id)) 'Health is served by the verified owned CGI listener'
  $network=Assert-G7ALiveNetwork $web.Id
+ Save-G7ANetworkSnapshot 'initial-ready'
  Assert-G7ASecondLauncher $network
  if($network.Lan){
   Wait-G5 {[IO.File]::GetLastWriteTimeUtc($networkMetadata) -gt $network.Modified} 20 'actual LAN lease renewal by the live launcher'
   Assert-G5 (([IO.File]::ReadAllText($networkMetadata) | ConvertFrom-Json).origin -ceq $network.Origin) 'G7A actual heartbeat atomically renews the same validated LAN origin'
+  Save-G7ANetworkSnapshot 'first-observed-renewal'
  }
  $seed=Invoke-G5 'seed' 'POST';$seeded=$true
  Assert-G5 ($seed.ok -and $seed.writes -eq 0) 'Persistent test data is seeded through the installed application database'
@@ -538,10 +566,17 @@ try{
  Assert-G5 ((Test-G5Identity $database) -and (Test-G5Identity $web)) 'CGI recovery preserves the existing database and Caddy processes'
  Assert-G5 ((Test-G5Identity $sentinel) -and (Test-G5Listener $sentinelPort $sentinel.Id)) 'Unrelated same-name CGI survives replacement'
  $beforeBusyLease=[IO.File]::GetLastWriteTimeUtc($networkMetadata)
+ Save-G7ANetworkSnapshot 'before-busy'
+ $busyLeaseObserved=$false;$busyLeaseDeadline=[DateTime]::UtcNow.AddSeconds(16)
  $busy=Start-G5Request 'busy'
  Wait-G5 {Test-Path -LiteralPath (Join-Path $fixturePath 'busy-started')} 5 'busy request start'
  $busyPid=[int][IO.File]::ReadAllText((Join-Path $fixturePath 'busy-started'))
  Assert-G5 ($busyPid -eq $cgi.Id) 'The long-running request occupies the current owned worker'
+ # The baseline must be inside the native busy interval; a heartbeat between
+ # request dispatch and PHP's start marker cannot count as busy-time renewal.
+ $beforeBusyLease=[IO.File]::GetLastWriteTimeUtc($networkMetadata)
+ Assert-G5 (!$busy.Task.IsCompleted -and !(Test-Path -LiteralPath (Join-Path $fixturePath 'busy-finished'))) 'Network-renewal baseline is sampled while the native busy request is still pending'
+ Save-G7ANetworkSnapshot 'busy-started-baseline' $true
  for($probeIndex=0;$probeIndex -lt 3;$probeIndex++){
   $short=New-G5Request 'health';$timedOut=$false;$shortResponse=$null
   try{$shortResponse=$shortClient.SendAsync($short).GetAwaiter().GetResult()}
@@ -550,9 +585,20 @@ try{
   Assert-G5 $timedOut 'A short health probe times out while the single CGI remains legitimately busy'
   Assert-G5 (Test-G5Identity $cgi) 'A short health timeout does not kill the living CGI worker'
  }
+ if($network.Lan){
+  while(!$busy.Task.IsCompleted -and [DateTime]::UtcNow -lt $busyLeaseDeadline){
+   if([IO.File]::GetLastWriteTimeUtc($networkMetadata) -gt $beforeBusyLease -and
+      !(Test-Path -LiteralPath (Join-Path $fixturePath 'busy-finished')) -and !$busy.Task.IsCompleted){
+    $busyLeaseObserved=$true;Save-G7ANetworkSnapshot 'renewal-during-busy' $true;break
+   }
+   Start-Sleep -Milliseconds 150
+  }
+ }
  $busyReply=Complete-G5Request $busy $true
  Assert-G5 ([int]$busyReply.pid -eq $cgi.Id -and (Test-G5Identity $cgi)) 'The full 15-second busy request retains its original CGI identity'
+ Save-G7ANetworkSnapshot 'after-busy'
  if($network.Lan){Assert-G5 ([IO.File]::GetLastWriteTimeUtc($networkMetadata) -gt $beforeBusyLease) 'G7A LAN freshness renews while a legitimate long PHP request is still running'}
+ if($network.Lan){Assert-G5 $busyLeaseObserved 'G7A advancing lease was observed before both the native busy completion marker and HTTP task completion'}
  Assert-G5 ((Test-G5Identity $database) -and (Test-G5Identity $web)) 'Multiple recovery supervisor ticks preserve database/Caddy and tolerate an exited render worker'
  $post=Start-G5Request 'write-and-wait' 'POST'
  Wait-G5 {Test-Path -LiteralPath (Join-Path $fixturePath 'post-committed')} 5 'committed POST receipt before CGI death'
@@ -643,6 +689,15 @@ try{
  $script:failure=$_.Exception.Message
  throw
 }finally{
+ # Capture the exact current-run trace and publication BEFORE any deliberate
+ # emergency child termination can emit an unrelated foundation-stop message.
+ try{Save-G7ANetworkSnapshot 'before-cleanup'}
+ catch{Write-Warning ('Runtime snapshot capture: '+$_.Exception.GetType().FullName)}
+ try{
+  if($script:runNumber -gt 0){
+   [IO.File]::WriteAllText((Join-Path $EvidenceDir 'supervisor-before-cleanup.log'),(Read-G5RunLog),(New-Object Text.UTF8Encoding($false)))
+  }
+ }catch{Write-Warning ('Runtime supervisor-log capture: '+$_.Exception.GetType().FullName)}
  $aclRestoreFailure=$null
  try{Restore-G5CgiAcl}catch{
   $aclRestoreFailure=$_.Exception.Message;$script:result='failed';$script:failure='ACL restoration failed: '+$aclRestoreFailure
@@ -674,7 +729,7 @@ try{
  [Environment]::SetEnvironmentVariable('PHP_FCGI_MAX_REQUESTS',$savedMax,'Process')
  [Environment]::SetEnvironmentVariable('PHP_FCGI_CHILDREN',$savedChildren,'Process')
  if($fixtureReserved){
-  foreach($file in @($probePath,$mediaPath,(Join-Path $fixturePath 'busy-started'),(Join-Path $fixturePath 'post-committed'))){
+  foreach($file in @($probePath,$mediaPath,(Join-Path $fixturePath 'busy-started'),(Join-Path $fixturePath 'busy-finished'),(Join-Path $fixturePath 'post-committed'))){
    if(Test-Path -LiteralPath $file -PathType Leaf){Remove-Item -LiteralPath $file -Force}
   }
   if(Test-Path -LiteralPath $fixturePath -PathType Container){Remove-Item -LiteralPath $fixturePath -Force}

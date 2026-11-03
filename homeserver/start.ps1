@@ -119,8 +119,12 @@ function Test-HomeServerLanListeners([string]$LanAddress,[int]$InterfaceIndex,[i
 }
 function Test-HomeServerLanReady([string]$LanAddress,[int]$InterfaceIndex,[Diagnostics.Process]$CaddyProcess){
  if($null -eq $CaddyProcess -or $CaddyProcess.HasExited){return $false}
- $addresses=@(Get-NetIPAddress -AddressFamily IPv4 -ErrorAction Stop)
- $listeners=@(Get-NetTCPConnection -State Listen -ErrorAction Stop)
+ $networkClock=[Diagnostics.Stopwatch]::StartNew()
+ try{$addresses=@(Get-NetIPAddress -AddressFamily IPv4 -ErrorAction Stop)}
+ finally{if($networkClock.ElapsedMilliseconds -ge 1000){try{Record ('LAN slow stage=addresses duration_ms='+$networkClock.ElapsedMilliseconds)}catch{}}}
+ $networkClock.Restart()
+ try{$listeners=@(Get-NetTCPConnection -State Listen -ErrorAction Stop)}
+ finally{if($networkClock.ElapsedMilliseconds -ge 1000){try{Record ('LAN slow stage=listeners duration_ms='+$networkClock.ElapsedMilliseconds)}catch{}}}
  return !( $CaddyProcess.HasExited ) -and (Test-HomeServerLanListeners $LanAddress $InterfaceIndex $CaddyProcess.Id $addresses $listeners)
 }
 $mutex=New-Object System.Threading.Mutex($false,'Local\LuckyGameHubHomeServer')
@@ -381,20 +385,29 @@ date.timezone=UTC
  }
  if(!$ready){throw 'Local game page did not become ready.'}
  function RefreshNetworkAdvertisement{
+  $refreshClock=[Diagnostics.Stopwatch]::StartNew();$publicationStage='readiness'
   try{
    if($ip -and (Test-HomeServerLanReady $ip $lanInterfaceIndex $caddyProc)){
-    Write-HomeServerNetworkPublication $storage $ip
+    $publicationStage='publish';$publicationClock=[Diagnostics.Stopwatch]::StartNew()
+    try{Write-HomeServerNetworkPublication $storage $ip}
+    finally{if($publicationClock.ElapsedMilliseconds -ge 1000){try{Record ('LAN slow stage=publish duration_ms='+$publicationClock.ElapsedMilliseconds)}catch{}}}
     if(!$script:networkAdvertised){Record ('LAN origin advertised: https://'+$ip+':8843')}
     $script:networkAdvertised=$true
    }else{
+    $publicationStage='withdraw'
     Remove-HomeServerNetworkPublication $storage
     if($script:networkAdvertised){Record 'LAN origin withdrawn: selected interface or owned listener is unavailable.'}
     $script:networkAdvertised=$false
    }
   }catch{
+   $publicationError=$_.Exception
+   $errorIdentity=' type='+$publicationError.GetType().FullName+' hresult='+$publicationError.HResult
+   if($null -ne $publicationError.InnerException){$errorIdentity+=' inner_type='+$publicationError.InnerException.GetType().FullName+' inner_hresult='+$publicationError.InnerException.HResult}
    try{Remove-HomeServerNetworkPublication $storage}catch{}
    $script:networkAdvertised=$false
-   try{Record 'LAN publication unavailable; local gameplay remains available. Check network/storage permissions.'}catch{}
+   try{Record ('LAN publication unavailable stage='+$publicationStage+$errorIdentity+'; local gameplay remains available. Check network/storage permissions.')}catch{}
+  }finally{
+   if($refreshClock.ElapsedMilliseconds -ge 1000){try{Record ('LAN slow stage=refresh duration_ms='+$refreshClock.ElapsedMilliseconds)}catch{}}
   }
  }
  RefreshNetworkAdvertisement
@@ -415,6 +428,8 @@ date.timezone=UTC
   # selected interface and exact owned listeners exist. Readers reject a file
   # older than 30 seconds if a hard-killed launcher cannot run cleanup.
   if([DateTime]::UtcNow -ge $nextNetworkLease){
+   $leaseLateMs=[Math]::Round(([DateTime]::UtcNow-$nextNetworkLease).TotalMilliseconds)
+   if($leaseLateMs -ge 1000){try{Record ('LAN slow stage=schedule late_ms='+$leaseLateMs)}catch{}}
    RefreshNetworkAdvertisement
    $nextNetworkLease=[DateTime]::UtcNow.AddSeconds(10)
   }
