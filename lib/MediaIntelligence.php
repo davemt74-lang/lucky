@@ -70,7 +70,7 @@ final class MediaIntelligence {
     $quiet=self::silences($log,$durationMs);
    }
    $signals=['durationMs'=>$durationMs,'sceneCutsMs'=>$scene,'silenceRanges'=>$quiet,'hasVideo'=>$hasVideo,'hasAudio'=>$hasAudio,'transcriptAvailable'=>false,'engine'=>'ffmpeg-local'];
-   $dir=dirname(self::cachePath($id));if(!is_dir($dir)&&!mkdir($dir,0700,true))throw new RuntimeException('Cannot create private analysis cache.');
+   $dir=dirname(self::cachePath($id));if(!is_dir($dir)&&!@mkdir($dir,0700,true)&&!is_dir($dir))throw new RuntimeException('Cannot create private analysis cache.');
    $file=self::cachePath($id);$temp=$file.'.'.bin2hex(random_bytes(5)).'.tmp';
    $encoded=json_encode(['version'=>self::VERSION,'fingerprint'=>self::fingerprint($path),'signals'=>$signals],JSON_THROW_ON_ERROR);
    if(file_put_contents($temp,$encoded,LOCK_EX)===false)throw new RuntimeException('Cannot cache media observations.');

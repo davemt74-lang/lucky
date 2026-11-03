@@ -11,6 +11,7 @@ if(($_GET['action']??'')==='avatar'){
  if(!is_file($file)){http_response_code(404);exit;}
  $mime=(new finfo(FILEINFO_MIME_TYPE))->file($file);
  if(!in_array($mime,['image/jpeg','image/png','image/webp'],true)){http_response_code(404);exit;}
+ try{releaseSessionLock();}catch(Throwable $e){errorOut($e);}
  header('Content-Type: '.$mime);header('X-Content-Type-Options: nosniff');header('Cache-Control: private, no-store');
  readfile($file);exit;
 }

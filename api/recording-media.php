@@ -13,6 +13,8 @@ try{
  $key=RecordingSessions::id((string)$file['storage_key']);$path=LUCKY_ROOT.'/storage/recording-assets/'.$key.'.bin';
  if(!is_file($path))throw new DomainException('Recording file unavailable.',404);
  $size=filesize($path);if($size===false||$size!==(int)$file['bytes'])throw new RuntimeException('Recording file integrity mismatch.');
+ // Owner/file validation is complete. Release before media headers so a close failure stays a valid JSON error.
+ releaseSessionLock();
  $start=0;$end=$size-1;$range=(string)($_SERVER['HTTP_RANGE']??'');
  if($range!==''){
   if(!preg_match('/^bytes=(\d*)-(\d*)$/D',$range,$m)||($m[1]===''&&$m[2]===''))throw new DomainException('Invalid media range.',416);

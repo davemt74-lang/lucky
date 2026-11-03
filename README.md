@@ -4,13 +4,14 @@ The current build identity is defined in [release.json](release.json). Deployed
 builds display that version and the exact source commit in the application footer;
 a source checkout is explicitly labeled as a source build.
 
-## Current maintenance release — V5Q32G2
+## Current maintenance release — V5Q32G3
 
-Section B of the codebase audit repairs phone-camera uploads, cancellation during
-Program publication, and active viewer heartbeats/counts. Regression tests exercise
-real multipart uploads with MariaDB, delayed publishing responses, and viewer
-activity/expiry in the standalone and embedded TV/game viewers. See the scoped
-release notes below for verification requirements and remaining field tests.
+Section C of the codebase audit releases PHP browser-session locks before slow
+AI/media analysis, media delivery and read-only publisher checks. Required login,
+CSRF and AI rate-limit writes still complete while locked. Real concurrent HTTP
+regressions verify responsiveness, persisted rate limits, logout and failure
+boundaries. This requires spare server workers; it does not add workers to the
+Windows HomeServer. Section B's camera and publishing repairs remain included.
 
 Section A's release gates remain in place: all executable suites are registered,
 async tests must finish, and publication requires complete Linux and Windows
@@ -21,10 +22,11 @@ cannot be silently replaced or reused for different source.
 For HostGator, download the **Full_Deploy.zip release asset**, upload it to the
 existing Lucky installation directory, and extract **once**. Do not upload the
 outer GitHub Actions artifact ZIP. Configuration, uploaded media and the database
-must be preserved. Section B introduces **no database migration**; older pending
+must be preserved. Section C introduces **no database migration**; older pending
 migrations still require their documented upgrade procedure.
 
 - [One-upload/one-extract deployment guide](docs/HOSTGATOR_DIRECT_DEPLOY.md)
+- [Section C scope, concurrency tests and hosting limits](docs/V5Q32G3_AUDIT_C.md)
 - [Section B scope, regression tests and field checks](docs/V5Q32G2_AUDIT_B.md)
 - [Section A scope, test gates and remaining limitations](docs/V5Q32G1_AUDIT_A.md)
 

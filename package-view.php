@@ -18,6 +18,7 @@ try{
   throw new DomainException('Session is pinned to another game release.',403);
  if(($state['status']??null)==='ended')throw new DomainException('Finished session cannot load executable content.',403);
  $role=(string)($_GET['role']??'host');
+ releaseSessionLock();
  $markup=PackageGameSandbox::document($id,$version,$role);
  // An opaque iframe origin prevents access to the host's cookies, DOM and APIs.
  // All outbound resource and network access is blocked. Parent handles inputs.

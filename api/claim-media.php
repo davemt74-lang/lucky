@@ -15,6 +15,8 @@ function mediaRow(PDO $db,string $id):array{
 function mediaStream(array $r,bool $head=false):never{
  $file=LUCKY_ROOT.'/storage/claim-media/'.$r['id'].'.bin';if(!is_file($file))throw new DomainException('Clip file missing.',404);
  $bytes=filesize($file);if($bytes<1)throw new DomainException('Clip file unavailable.',404);
+ // Preserve the administrator scope; release before any success media headers.
+ releaseSessionLock();
  $start=0;$end=$bytes-1;
  header('Content-Type: '.$r['mime']);header('Content-Disposition: inline; filename="clip"');header('Accept-Ranges: bytes');
  header('Cache-Control: private, no-store');
