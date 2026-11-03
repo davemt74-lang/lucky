@@ -130,6 +130,52 @@ function Test-HomeServerLanReady([string]$LanAddress,[int]$InterfaceIndex,[Diagn
  finally{if($networkClock.ElapsedMilliseconds -ge 1000){try{Record ('LAN slow stage=listeners duration_ms='+$networkClock.ElapsedMilliseconds)}catch{}}}
  return !( $CaddyProcess.HasExited ) -and (Test-HomeServerLanListeners $LanAddress $InterfaceIndex $CaddyProcess.Id $addresses $listeners)
 }
+function Invoke-HomeServerDatabaseProbe([string]$Binary,[string[]]$Arguments){
+ # Expected connection refusals write native stderr. Do not send that stream
+ # through PowerShell 5.1's error pipeline, where Stop aborts the retry loop.
+ # Capture both pipes asynchronously and discard them: credentials, arguments
+ # and native output never belong in the launcher log or its return value.
+ $info=New-Object Diagnostics.ProcessStartInfo
+ $info.FileName=$Binary;$info.UseShellExecute=$false;$info.CreateNoWindow=$true
+ $info.RedirectStandardOutput=$true;$info.RedirectStandardError=$true
+ $quoted=@($Arguments | ForEach-Object {if($_ -match '[\s"]' -or $_ -eq ''){'"'+($_ -replace '"','\"')+'"'}else{$_}})
+ $info.Arguments=$quoted -join ' '
+ $probe=New-Object Diagnostics.Process
+ $probe.StartInfo=$info
+ $started=$false;$stdout=$null;$stderr=$null
+ try{
+  if(!$probe.Start()){throw 'Native readiness client did not start.'}
+  $started=$true;$null=$probe.Handle
+  $stdout=$probe.StandardOutput.ReadToEndAsync();$stderr=$probe.StandardError.ReadToEndAsync()
+  if(!$probe.WaitForExit(3000)){return $false}
+  return $probe.ExitCode -eq 0
+ }catch{
+  throw [InvalidOperationException]::new('Local database readiness probe could not complete safely.')
+ }finally{
+  try{
+   # This retained object belongs only to the client created above. A timeout
+   # never kills or restarts MariaDB, another probe, or a process found by PID.
+   if($started -and !$probe.HasExited){$probe.Kill();if(!$probe.WaitForExit(3000)){throw 'Readiness client did not stop.'}}
+   if($null -ne $stdout){if(!$stdout.Wait(1000)){throw 'Readiness output did not close.'};$null=$stdout.GetAwaiter().GetResult()}
+   if($null -ne $stderr){if(!$stderr.Wait(1000)){throw 'Readiness error output did not close.'};$null=$stderr.GetAwaiter().GetResult()}
+  }catch{
+   throw [InvalidOperationException]::new('Local database readiness probe cleanup failed safely.')
+  }finally{$probe.Dispose()}
+ }
+}
+function Wait-HomeServerDatabase([Diagnostics.Process]$DatabaseProcess,[string]$ProbeBinary,[string[]]$ProbeArguments){
+ if($null -eq $DatabaseProcess){throw 'Local MariaDB process is unavailable.'}
+ # Retain the original startup budget. No steady-state HTTP liveness restart
+ # is introduced: this wait applies only to this launcher's starting database.
+ for($attempt=0;$attempt -lt 75;$attempt++){
+  Start-Sleep -Milliseconds 500
+  if($DatabaseProcess.HasExited){throw 'Local MariaDB exited during startup.'}
+  $ready=Invoke-HomeServerDatabaseProbe $ProbeBinary $ProbeArguments
+  if($DatabaseProcess.HasExited){throw 'Local MariaDB exited during startup.'}
+  if($ready){return}
+ }
+ throw 'Local MariaDB did not become ready.'
+}
 $mutex=New-Object System.Threading.Mutex($false,'Local\LuckyGameHubHomeServer')
 $held=$false
 $processes=@()
@@ -310,14 +356,7 @@ log-error=$($logs.Replace('\','/'))/mariadb-error.log
  $dbProc=Launch $mariadb @("--defaults-file=$dbconfig","--console") 'MariaDB'
  $dbAdmin=Join-Path $runtime 'mariadb\bin\mariadb-admin.exe'
  if(!(Test-Path $dbAdmin)){$dbAdmin=Join-Path $runtime 'mariadb\bin\mysqladmin.exe'}
- $dbReady=$false
- for($i=0;$i -lt 75;$i++){
-  Start-Sleep -Milliseconds 500
-  if($dbProc.HasExited){throw "MariaDB exited during startup (code $($dbProc.ExitCode))."}
-  & $dbAdmin --protocol=tcp --host=127.0.0.1 --port=3307 --user=root "--password=$rootSecret" ping 2>$null | Out-Null
-  if($LASTEXITCODE -eq 0){$dbReady=$true;break}
- }
- if(!$dbReady){throw 'Local MariaDB did not become ready.'}
+ Wait-HomeServerDatabase $dbProc $dbAdmin @('--protocol=tcp','--host=127.0.0.1','--port=3307','--user=root',("--password="+$rootSecret),'ping')
  $phpIni=Join-Path $data 'php.ini'
  $ext=(Join-Path $runtime 'php\ext').Replace('\','/')
  @"
