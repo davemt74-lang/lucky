@@ -33,6 +33,13 @@ jobs:
           done
           (cd dist/work && zip -qr ../Lucky_Game_Hub_V5Q32F1_Full_Deploy.zip .)
           unzip -t dist/Lucky_Game_Hub_V5Q32F1_Full_Deploy.zip | tail -n 1
+          # HostGator one-upload/one-extract contract: app files must be ZIP-root entries.
+          for required_root in index.php admin.php director.php api/director-live.php public/director-view.js; do
+            if ! unzip -p dist/Lucky_Game_Hub_V5Q32F1_Full_Deploy.zip "$required_root" >/dev/null; then
+              echo "Deployment ZIP is missing root-level $required_root"
+              exit 1
+            fi
+          done
           (cd dist && sha256sum Lucky_Game_Hub_V5Q32F1_Full_Deploy.zip > SHA256SUMS.txt)
           # Developer toolkit is independently downloadable; it does not
           # include a playable second consumer game or signing secrets.
@@ -63,3 +70,45 @@ jobs:
             dist/BUILD_INFO.txt
           if-no-files-found: error
           retention-days: 30
+  direct-release:
+    name: Direct HostGator deployment ZIP
+    needs: package
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Download verified deployment payload
+        uses: actions/download-artifact@v4
+        with:
+          name: lucky-v5q32f1-complete-deployment
+          path: release
+      - name: Publish a one-extract GitHub Release asset
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          deploy_zip=$(find release -maxdepth 1 -type f -name 'Lucky_Game_Hub_V*_Full_Deploy.zip' -print -quit)
+          test -n "$deploy_zip" && test -f "$deploy_zip"
+          filename=${deploy_zip##*/}
+          version=${filename#Lucky_Game_Hub_}
+          version=${version%_Full_Deploy.zip}
+          [[ "$version" =~ ^V[0-9A-Za-z]+$ ]] || { echo 'Invalid deployment version'; exit 1; }
+          tag=$(printf '%s' "$version" | tr '[:upper:]' '[:lower:]')
+          unzip -t "$deploy_zip" | tail -n 1
+          for required_root in index.php admin.php director.php api/director-live.php public/director-view.js; do
+            unzip -p "$deploy_zip" "$required_root" >/dev/null || { echo "Missing root entry $required_root"; exit 1; }
+          done
+          # One immutable, versioned release asset per certified deployment version.
+          # A rerun with an existing tag leaves the published ZIP unchanged.
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag already published; leaving its download untouched."
+          else
+            gh release create "$tag" "$deploy_zip" release/SHA256SUMS.txt release/BUILD_INFO.txt \
+              --target "$GITHUB_SHA" --title "Lucky Game Hub $version — Direct Deploy ZIP" \
+              --notes 'Download the Full_Deploy.zip directly, upload it to the existing HostGator installation directory, and extract once. No outer GitHub artifact ZIP or extra folder. Preserve existing storage/config.php, user uploads, and database data.'
+          fi
+          echo "Direct ZIP: https://github.com/$GH_REPO/releases/download/$tag/$filename"
