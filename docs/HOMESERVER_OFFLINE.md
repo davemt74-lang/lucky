@@ -8,6 +8,12 @@ release workflow for their outcomes. **Complete physical-device and
 internet-disconnected certification is still pending.** The hosted deployment
 ZIP is not a HomeServer installer.
 
+V5Q32G6 adds a shared resumable setup protocol, private complete configuration
+publication and native Windows hard-link/publication failure tests. Keep the
+private `storage/.setup-attempt.json` identity with the local secrets, database
+and media backup. A lost identity or corrupt existing configuration is a recovery
+error, not permission for setup to reset accounts. See [Section F](V5Q32G6_AUDIT_F.md).
+
 ## Non-negotiable product behavior
 
 - The Windows HomeServer install contains the web application, PHP runtime, MariaDB/MySQL-compatible database runtime, media encoder, and a launcher/supervisor. The offline product target is **no post-download internet dependency** for core installation or gameplay; the field gates below must verify it.
