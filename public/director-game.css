@@ -49,6 +49,18 @@
 .director-rundown-row-actions .btn{font-size:.72rem;padding:.33rem .44rem}
 .director-broadcast-url input{font-size:.8rem;padding:.65rem}
 .director-broadcast-url a[aria-disabled=true]{pointer-events:none;opacity:.55}
+.director-live-heading{display:flex;justify-content:space-between;align-items:center;gap:.8rem;flex-wrap:wrap}
+.director-live-heading h3{margin:0;color:#f3dfad;font-size:1.02rem}
+.director-live-heading p{margin:.25rem 0;font-size:.75rem;line-height:1.5;color:#a9c3d9}
+.director-live-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.5rem;margin:.65rem 0}
+.director-live-stats>div{border:1px solid #3c5873;border-radius:.5rem;padding:.65rem;background:#0b1c2a;min-width:0}
+.director-live-stats span{display:block;color:#99b9ca;font-size:.61rem;letter-spacing:.075em}
+.director-live-stats strong{display:block;color:#f1f6ff;font-size:1rem;margin-top:.25rem;overflow-wrap:anywhere}
+.director-show-permalink{border:1px solid #375776;border-radius:.5rem;padding:.7rem;display:grid;gap:.5rem;margin:.65rem 0;background:#0a2033;min-width:0}
+.director-show-permalink label{display:grid;gap:.35rem;font-size:.75rem;color:#d5e8f5}
+.director-show-permalink input{width:100%;min-width:0;padding:.6rem;background:#071625;color:#e4f5fd;border:1px solid #44627f;border-radius:.4rem}
+.director-show-permalink a[aria-disabled=true]{pointer-events:none;opacity:.5}
+@media(max-width:490px){.director-live-stats{grid-template-columns:1fr}.director-live-heading{align-items:start}}
 @media(max-width:1100px){.director-rundown-step{grid-template-columns:repeat(2,minmax(0,1fr))}.director-rundown-step>strong,.director-rundown-row-actions{grid-column:1/-1}}
 @media(max-width:900px){.director-game-controls{grid-template-columns:1fr}.director-game-summary{grid-template-columns:1fr}.director-workspace-game-strip strong{flex:1 1 100%}.director-workspace-game-strip .btn{margin-left:0}}
 @media(max-width:480px){.director-rundown-toolbar .btn{flex:1 1 auto}.director-rundown-step{grid-template-columns:1fr}.director-rundown-step>strong,.director-rundown-row-actions{grid-column:auto}}

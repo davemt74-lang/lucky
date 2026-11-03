@@ -34,7 +34,8 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
    'lib/migrations/v5q29e4b_multicamera_exports.sql',
    'lib/migrations/v5q29e4c_recording_profiles.sql',
    'lib/migrations/v5q29e4d1hf8c4_director_recordings.sql',
-   'lib/migrations/v5q29e4d1hf8c5_recording_live.sql'
+   'lib/migrations/v5q29e4d1hf8c5_recording_live.sql',
+   'lib/migrations/v5q32e1_permanent_show_url.sql'
   ] as $migrationFile){
    $migration=file_get_contents(__DIR__.'/'.$migrationFile);
    if($migration===false)throw new RuntimeException('Bundled migration is missing: '.$migrationFile);

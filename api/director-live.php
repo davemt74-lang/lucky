@@ -10,12 +10,20 @@ try{
  $method=(string)($_SERVER['REQUEST_METHOD']??'GET');$action=(string)($_GET['action']??'');
  if(!in_array($method,['GET','POST'],true))throw new DomainException('Unsupported method.',405);
  $data=$method==='POST'?jsonInput():$_GET;
- if(in_array($action,['publish','host_list','answer','stop'],true)){
+ if(in_array($action,['publish','host_list','answer','stop','show_link','host_status'],true)){
   requireAdmin();$host=(int)$_SESSION['admin_id'];
   if($method==='POST')assertCsrf();
+  if($action==='show_link'&&$method==='POST'){
+   SchemaGuard::require($db,['director_show_channels'],'Permanent Live Show URL');
+   $recording=(string)($data['recordingSession']??'');
+   success(['showId'=>DirectorBroadcast::ensureShow($db,$recording,$host)]);
+  }
+  if($action==='host_status'&&$method==='GET')
+   success(DirectorBroadcast::hostStatus($db,(string)($data['recordingSession']??''),$host));
   if($action==='publish'&&$method==='POST'){
    if(($data['consent']??false)!==true)throw new DomainException('Confirm explicit Program publishing consent.',403);
    $recording=(string)($data['recordingSession']??'');
+   if($recording!=='')SchemaGuard::require($db,['director_show_channels'],'Permanent Live Show URL');
    $out=$recording!==''?
     DirectorBroadcast::startRecording($db,$recording,$host,(string)($data['visibility']??'private'),($data['public_ack']??false)===true):
     DirectorBroadcast::start($db,(string)($data['session']??''),(string)($data['claim']??''),$host,(string)($data['visibility']??'private'),($data['public_ack']??false)===true);
@@ -29,6 +37,10 @@ try{
    DirectorBroadcast::stop($db,(string)($data['id']??''),$host);audit($db,'camera_director.stop');success(['stopped'=>true]);
   }
  }else{
+  if($action==='resolve_show'&&$method==='GET'){
+   SchemaGuard::require($db,['director_show_channels'],'Permanent Live Show URL');
+   success(DirectorBroadcast::resolveShow($db,(string)($data['show']??'')));
+  }
   if($action==='public_list'&&$method==='GET')success(['broadcasts'=>DirectorBroadcast::publicList($db)]);
   $id=(string)($data['id']??'');$key=(string)($data['key']??'');
   // POST is supported for embedded game/TV viewers so the private invitation
