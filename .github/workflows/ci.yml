@@ -34,6 +34,7 @@ jobs:
           php tests/v5q32c_live_program_display.php
           php tests/v5q32d_show_rundown.php
           php tests/v5q32e1_permanent_show.php
+          php tests/v5q32f1_turn_reliability.php
           php tests/v5q22_phone_controller_contract.php
           php tests/v5q22b_game_catalog.php
           php tests/v5q22c_cloud_updates.php
