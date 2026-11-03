@@ -15,15 +15,15 @@ final class DirectorBroadcast {
   if(!is_string($value)||!preg_match('/^[a-f0-9]{48}$/D',$value))throw new DomainException('Invalid broadcast invitation.',403);
   return $value;
  }
- private static function proof(PDO $db,string $session,string $claim,int $host):void {
+ private static function proof(PDO $db,string $session,string $claim,int $host,bool $lock=false):void {
   ControllerPairing::checkId($session);ControllerPairing::checkId($claim);
-  $q=$db->prepare('SELECT 1 FROM controller_proof_state WHERE session_id=? AND claim_id=? AND host_admin_id=? AND is_open=1 AND consent_ack=1 AND updated_at>UTC_TIMESTAMP()-INTERVAL 12 SECOND');
+  $q=$db->prepare('SELECT 1 FROM controller_proof_state WHERE session_id=? AND claim_id=? AND host_admin_id=? AND is_open=1 AND consent_ack=1 AND updated_at>UTC_TIMESTAMP()-INTERVAL 12 SECOND'.($lock?' FOR UPDATE':''));
   $q->execute([$session,$claim,$host]);
   if(!$q->fetchColumn())throw new DomainException('Open the current proof and accept recording consent before publishing.',403);
  }
- private static function recording(PDO $db,string $id,int $host):void {
+ private static function recording(PDO $db,string $id,int $host,bool $lock=false):void {
   self::id($id);
-  $q=$db->prepare("SELECT 1 FROM recording_sessions WHERE id=? AND owner_admin_id=? AND status IN ('draft','active')");
+  $q=$db->prepare("SELECT 1 FROM recording_sessions WHERE id=? AND owner_admin_id=? AND status IN ('draft','active')".($lock?' FOR UPDATE':''));
   $q->execute([$id,$host]);
   if(!$q->fetchColumn())throw new DomainException('Recording session is closed or not owned by this administrator.',403);
  }
@@ -111,14 +111,14 @@ final class DirectorBroadcast {
   else self::proof($db,(string)$row['session_id'],(string)$row['claim_id'],$host);
   return $row;
  }
- private static function viewer(PDO $db,string $id,string $key):array {
+ private static function viewer(PDO $db,string $id,string $key,bool $lock=false):array {
   self::id($id);
   $q=$db->prepare('SELECT b.*,r.recording_session_id FROM director_broadcasts b LEFT JOIN director_broadcast_recordings r ON r.broadcast_id=b.id
-    WHERE b.id=? AND b.updated_at>UTC_TIMESTAMP()-INTERVAL 14 SECOND');
+    WHERE b.id=? AND b.updated_at>UTC_TIMESTAMP()-INTERVAL 14 SECOND'.($lock?' FOR UPDATE':''));
   $q->execute([$id]);$row=$q->fetch(PDO::FETCH_ASSOC);
   if(!$row)throw new DomainException('The Program feed is no longer live.',403);
-  if($row['recording_session_id']!==null)self::recording($db,(string)$row['recording_session_id'],(int)$row['host_admin_id']);
-  else self::proof($db,(string)$row['session_id'],(string)$row['claim_id'],(int)$row['host_admin_id']);
+  if($row['recording_session_id']!==null)self::recording($db,(string)$row['recording_session_id'],(int)$row['host_admin_id'],$lock);
+  else self::proof($db,(string)$row['session_id'],(string)$row['claim_id'],(int)$row['host_admin_id'],$lock);
   if((string)$row['visibility']!=='public'){
    self::key($key);
    if(!hash_equals((string)$row['token_hash'],hash('sha256',$key)))
@@ -144,32 +144,53 @@ final class DirectorBroadcast {
   return array_map(static fn($row)=>['id'=>(string)$row['id']],$q->fetchAll(PDO::FETCH_ASSOC));
  }
  public static function offer(PDO $db,string $id,string $key,string $viewer,string $sdp):void {
-  self::viewer($db,$id,$key);self::id($viewer);PhoneLiveSignaling::sdp($sdp,'offer');
-  $db->prepare('DELETE FROM director_viewers WHERE updated_at<UTC_TIMESTAMP()-INTERVAL 30 SECOND')->execute();
-  $q=$db->prepare('SELECT COUNT(*) FROM director_viewers WHERE broadcast_id=?');$q->execute([$id]);
-  if((int)$q->fetchColumn()>=self::MAX_VIEWERS)throw new DomainException('This broadcast has reached its viewer limit.',409);
-  $db->prepare('INSERT INTO director_viewers(id,broadcast_id,offer_sdp,updated_at) VALUES (?,?,?,UTC_TIMESTAMP())')
-   ->execute([$viewer,$id,$sdp]);
+  self::id($viewer);PhoneLiveSignaling::sdp($sdp,'offer');
+  $db->beginTransaction();
+  try{
+   // Serialize admission on the broadcast, including concurrent last-slot requests.
+   // Locked authorization also keeps stop/revocation from racing this write.
+   self::viewer($db,$id,$key,true);
+   self::expireViewers($db,$id);
+   $q=$db->prepare('SELECT COUNT(*) FROM director_viewers WHERE broadcast_id=?');$q->execute([$id]);
+   if((int)$q->fetchColumn()>=self::MAX_VIEWERS)throw new DomainException('This broadcast has reached its viewer limit.',409);
+   $db->prepare('INSERT INTO director_viewers(id,broadcast_id,offer_sdp,updated_at) VALUES (?,?,?,UTC_TIMESTAMP())')
+    ->execute([$viewer,$id,$sdp]);
+   $db->commit();
+  }catch(Throwable $e){if($db->inTransaction())$db->rollBack();throw $e;}
  }
+ /** Poll is the per-viewer heartbeat, both before and after the SDP answer. */
  public static function answerForViewer(PDO $db,string $id,string $key,string $viewer):array {
-  self::viewer($db,$id,$key);self::id($viewer);
-  $q=$db->prepare('SELECT answer_sdp FROM director_viewers WHERE id=? AND broadcast_id=? AND updated_at>UTC_TIMESTAMP()-INTERVAL 30 SECOND');
-  $q->execute([$viewer,$id]);$answer=$q->fetchColumn();
-  if($answer===false)throw new DomainException('The viewer connection has expired.',409);
-  $db->prepare('UPDATE director_viewers SET updated_at=UTC_TIMESTAMP() WHERE id=? AND broadcast_id=?')->execute([$viewer,$id]);
-  return ['answer'=>$answer?:null];
+  self::id($viewer);
+  $db->beginTransaction();
+  try{
+   self::viewer($db,$id,$key,true);
+   // The expiry predicate belongs to the write: an expired row is never revived.
+   $db->prepare('UPDATE director_viewers SET updated_at=UTC_TIMESTAMP() WHERE id=? AND broadcast_id=? AND updated_at>UTC_TIMESTAMP()-INTERVAL 30 SECOND')
+    ->execute([$viewer,$id]);
+   $q=$db->prepare('SELECT answer_sdp FROM director_viewers WHERE id=? AND broadcast_id=? AND updated_at>UTC_TIMESTAMP()-INTERVAL 30 SECOND');
+   $q->execute([$viewer,$id]);$row=$q->fetch(PDO::FETCH_ASSOC);
+   if(!$row)throw new DomainException('The viewer connection has expired.',409);
+   // A repeat poll in the same second is valid even when UPDATE changed zero rows.
+   $db->commit();
+   return ['answer'=>$row['answer_sdp']?:null];
+  }catch(Throwable $e){if($db->inTransaction())$db->rollBack();throw $e;}
+ }
+ private static function expireViewers(PDO $db,string $id):void {
+  $db->prepare('DELETE FROM director_viewers WHERE broadcast_id=? AND updated_at<=UTC_TIMESTAMP()-INTERVAL 30 SECOND')->execute([$id]);
  }
  public static function offersForHost(PDO $db,string $id,int $host):array {
   self::host($db,$id,$host);
   $db->prepare('UPDATE director_broadcasts SET updated_at=UTC_TIMESTAMP() WHERE id=?')->execute([$id]);
-  $db->prepare('DELETE FROM director_viewers WHERE updated_at<UTC_TIMESTAMP()-INTERVAL 30 SECOND')->execute();
-  $q=$db->prepare('SELECT id,offer_sdp FROM director_viewers WHERE broadcast_id=? AND answer_sdp IS NULL ORDER BY created_at LIMIT 8');
+  self::expireViewers($db,$id);
+  $q=$db->prepare('SELECT id,offer_sdp FROM director_viewers WHERE broadcast_id=? AND answer_sdp IS NULL AND updated_at>UTC_TIMESTAMP()-INTERVAL 30 SECOND ORDER BY created_at LIMIT 8');
   $q->execute([$id]);
   return array_map(static fn($row)=>['id'=>$row['id'],'offer'=>$row['offer_sdp']],$q->fetchAll(PDO::FETCH_ASSOC));
  }
  public static function answer(PDO $db,string $id,int $host,string $viewer,string $sdp):void {
   self::host($db,$id,$host);self::id($viewer);PhoneLiveSignaling::sdp($sdp,'answer');
-  $q=$db->prepare('UPDATE director_viewers SET answer_sdp=?,updated_at=UTC_TIMESTAMP() WHERE id=? AND broadcast_id=? AND answer_sdp IS NULL');
+  // Host signaling is not viewer activity; explicitly suppress the column's
+  // ON UPDATE timestamp and never answer an already abandoned viewer.
+  $q=$db->prepare('UPDATE director_viewers SET answer_sdp=?,updated_at=updated_at WHERE id=? AND broadcast_id=? AND answer_sdp IS NULL AND updated_at>UTC_TIMESTAMP()-INTERVAL 30 SECOND');
   $q->execute([$sdp,$viewer,$id]);
   if($q->rowCount()!==1)throw new DomainException('Viewer already answered or disconnected.',409);
  }

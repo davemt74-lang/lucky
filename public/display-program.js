@@ -130,10 +130,11 @@
    if(!stateForConnection(connection))return;
    if(!answered)throw Error('Director did not answer. Keep Program published and try again.');
    launch.textContent='● Program connected';launch.disabled=false;
+   // Keep the admitted viewer active; watch only authorizes initial admission.
    while(stateForConnection(connection)){
     await new Promise(resolve=>setTimeout(resolve,3500));
     if(!stateForConnection(connection))break;
-    await request('watch',{id:connection.id,key:connection.key},'POST');
+    await request('poll',{id:connection.id,key:connection.key,viewer},'POST');
    }
   }catch(error){if(stateForConnection(connection))closeFeed('Live Program unavailable: '+error.message);}
  }

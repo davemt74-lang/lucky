@@ -82,9 +82,10 @@
   }
   if(!alive||version!==epoch)return;
   if(!answered)throw Error('The Director has not answered. Keep Program open, then reload.');
-  // Poll only the authenticated publication status, so revocation blanks stale video immediately.
+  // Keep this admitted viewer alive after negotiation, while rechecking the
+  // publication's consent, private invitation and expiry on every heartbeat.
   while(alive&&version===epoch){await new Promise(resolve=>setTimeout(resolve,3500));
-   if(!alive||version!==epoch)return;await request('watch',{id:liveId,key:liveKey});}
+   if(!alive||version!==epoch)return;await request('poll',{id:liveId,key:liveKey,viewer});}
  }
  function stopFeed(){
   epoch++;clearTimeout(retryTimer);clearTimeout(disconnectTimer);retryTimer=disconnectTimer=null;

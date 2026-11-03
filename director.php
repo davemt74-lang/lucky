@@ -73,7 +73,7 @@ shellStart('Camera Director','admin','director-studio-page');
 <script src="public/client.js" defer></script>
 <script src="public/camera-director.js?v=5q29e4d1hf8c4" defer></script>
 <script src="public/director-scenes.js?v=5q29e4d1hf8c4" defer></script>
-<script src="public/director-publish.js?v=5q32f1" defer></script>
+<script src="public/director-publish.js?v=5q32g2" defer></script>
 <script src="public/recording-live-host.js?v=5q29e4d1hf8c5" defer></script>
 <script src="public/director-studio.js?v=hf8d0h" defer></script>
 <script src="public/director-workspace.js?v=hf8c9-hf8d0e" defer></script>

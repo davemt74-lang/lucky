@@ -39,5 +39,5 @@ new version; reruns never overwrite published downloads. GitHub's automatic
 "Source code" downloads are not the deployment artifacts.
 
 Production installation and database migration remain separate administrator
-actions. Section A adds no migration; run upgrade.php only for documented pending
+actions. Sections A and B add no migration; run upgrade.php only for documented pending
 migrations from prior releases. Always back up the site and database first.
