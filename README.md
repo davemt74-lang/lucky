@@ -4,7 +4,27 @@ The current build identity is defined in [release.json](release.json). Deployed
 builds display that version and the exact source commit in the application footer;
 a source checkout is explicitly labeled as a source build.
 
-## Current maintenance release — V5Q32G6
+## Current maintenance release — V5Q32G7A
+
+Section G7A separates HomeServer's desktop address from its shareable LAN address.
+Phone, TV and Director invitations use the launcher's validated private-network
+HTTPS origin, never the desktop's `127.0.0.1` address. Without fresh LAN readiness,
+sharing reports unavailable while local gameplay continues. Host actions and
+private media requests stay on the current installation's origin.
+
+New HomeServer prize images/videos and package covers use portable local paths;
+educational uploads preserve their existing hosted URL behavior.
+Recognized old HomeServer loopback upload links can display on connected phones
+without changing stored records or relabeling unrelated third-party URLs.
+The desktop web listener binds explicitly to loopback and the LAN HTTPS listener
+to the selected private IPv4 interface. No firewall rule or certificate trust is
+installed automatically. After changing networks, restart HomeServer and reload
+open pages; guided phone/certificate onboarding is the next section.
+
+The Windows download remains a preview until the physical-device and offline
+field gates pass. See [G7A scope and acceptance gates](docs/V5Q32G7A_LAN_LINKS.md).
+
+### Included installation and runtime foundations
 
 Section F of the audit makes first installation resumable. Administrator creation,
 missing default settings and a durable installation receipt commit together.
@@ -63,6 +83,7 @@ uploading this release.** HomeServer applies the same schema checks and additive
 repairs on its next startup. Back up the existing database and storage first.
 
 - [One-upload/one-extract deployment guide](docs/HOSTGATOR_DIRECT_DEPLOY.md)
+- [G7A LAN sharing, listener restrictions and remaining phone setup](docs/V5Q32G7A_LAN_LINKS.md)
 - [Section F scope, installation recovery and release gates](docs/V5Q32G6_AUDIT_F.md)
 - [Section E scope, native worker checks and remaining limits](docs/V5Q32G5_AUDIT_E.md)
 - [HomeServer delivery status and physical-device acceptance](docs/HOMESERVER_OFFLINE.md)

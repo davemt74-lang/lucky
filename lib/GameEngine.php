@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__.'/InstallationUrls.php';
 require_once __DIR__.'/SpinReveal.php';
 
 /** Stateless, deterministic game rules. Database transactions protect calls to these methods. */
@@ -37,7 +38,7 @@ final class GameEngine {
                    !is_int($amount)||$amount<0||$amount>1000000000) throw new DomainException('Invalid or duplicate prize.');
                 $url=$p['url']??''; $image=$p['image']??''; $videoUrl=$p['videoUrl']??'';
                 $description=PrizeSmartText::validate($p['description']??'');
-                if(!is_string($url)||!self::validUrl($url)||!is_string($image)||!self::validUrl($image)||!is_string($videoUrl)||!self::validPrizeVideo($videoUrl))
+                if(!is_string($url)||!self::validUrl($url)||!is_string($image)||!self::validImage($image)||!is_string($videoUrl)||!self::validPrizeVideo($videoUrl))
                    throw new DomainException('Prize links must be blank or valid HTTP(S) URLs.');
                 $angles=$p['proofAngles']??[];
                 if(!is_array($angles)||count($angles)>4)throw new DomainException('Proof angles must have 0–4 camera views.',422);
@@ -83,7 +84,10 @@ final class GameEngine {
     }
     /** Uploaded prize videos use the same-origin protected media route; legacy URLs may be stored but are never playable. */
     public static function validPrizeVideo(string $url):bool {
-        return self::validUrl($url) || preg_match('~^api/index\\.php\\?action=prize_video&id=[a-f0-9]{32}$~D',$url)===1;
+        return self::validUrl($url) || InstallationUrls::validMediaPath($url,'prize_video');
+    }
+    public static function validImage(string $url):bool {
+        return self::validUrl($url) || InstallationUrls::validMediaPath($url,'prize_image');
     }
     public static function newSession(array $config, string $id): array {
         $cfg=self::validateConfig($config);

@@ -62,7 +62,7 @@
   if(options.some(p=>p.id===game?.selectedPackage))select.value=game.selectedPackage;
   select.disabled=!active||busy||game?.status==='active';
   const cover=$('phone-dashboard-package-image');if(cover){const p=options.find(x=>x.id===select.value);
-   if(p?.image){cover.src=p.image;cover.hidden=false;cover.onerror=()=>{cover.hidden=true;};}
+   if(p?.image){cover.src=window.LuckyInstallationUrls?.media(p.image)??p.image;cover.hidden=false;cover.onerror=()=>{cover.hidden=true;};}
    else{cover.hidden=true;cover.removeAttribute('src');}}
 
  }
@@ -177,8 +177,8 @@
  }
  function hasPrizeUpload(raw){
   if(typeof raw!=='string'||!raw||raw.length>2048)return false;
-  try{const url=new URL(raw,document.baseURI),base=new URL(document.baseURI);
-   return url.origin===base.origin&&url.pathname.endsWith('/api/index.php')&&
+  try{const url=new URL(window.LuckyInstallationUrls?.media(raw)??raw,document.baseURI),base=new URL(document.baseURI);
+   return url.origin===base.origin&&url.pathname===new URL('api/index.php',base).pathname&&
     url.searchParams.get('action')==='prize_video'&&/^[a-f0-9]{32}$/.test(url.searchParams.get('id')||'');
   }catch(_){return false;}
  }
@@ -196,7 +196,7 @@
  function showPrizeVideo(offer){
   clearPrizeVideo();if(!offer)return;
   const raw=String(offer.image||'');
-  if(raw){try{const src=new URL(raw,document.baseURI);
+  if(raw){try{const src=new URL(window.LuckyInstallationUrls?.media(raw)??raw,document.baseURI);
     if(['https:','http:'].includes(src.protocol)&&!src.username&&!src.password){
      const photo=$('phone-offer-photo');photo.src=src.href;photo.hidden=false;photo.onerror=()=>{photo.hidden=true;};
     }
@@ -218,7 +218,7 @@
   const proofCard=$('phone-proof-prize');if(proofCard){proofCard.hidden=!proofOffer;
    if(proofOffer){prizeDetails(proofOffer,'phone-proof-prize');
     $('phone-proof-prize-description').textContent=proofOffer.description||'';
-    const img=$('phone-proof-prize-photo');let image=null;try{image=new URL(proofOffer.image||'',document.baseURI);}catch(_){}
+    const img=$('phone-proof-prize-photo');let image=null;try{const raw=proofOffer.image||'';if(raw)image=new URL(window.LuckyInstallationUrls?.media(raw)??raw,document.baseURI);}catch(_){}
     if(image&&['https:','http:'].includes(image.protocol)&&!image.username&&!image.password){img.src=image.href;img.hidden=false;img.onerror=()=>{img.hidden=true;};}
     else{img.hidden=true;img.removeAttribute('src');}
     $('phone-proof-play-video').hidden=!hasPrizeUpload(proofOffer.videoUrl);

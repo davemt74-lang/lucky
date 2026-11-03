@@ -32,12 +32,9 @@
  window.addEventListener('lucky:proof-phase',event=>{if(['recording','countdown','processing'].includes(event.detail?.phase))closeVideo();});
  function playPrizeVideo(){
   if(window.LuckyCapture?.isBusy?.())throw Error('Finish recording before playing the prize video.');
-  let url;try{url=new URL(prizeVideoUrl,document.baseURI);}catch(_){throw Error('Upload a prize video first.');}
-  if(!url.pathname.endsWith('/api/index.php')||url.searchParams.get('action')!=='prize_video'||
-     !/^[a-f0-9]{32}$/.test(url.searchParams.get('id')||''))throw Error('Upload a prize video first.');
-  url=new URL('api/index.php?action=prize_video&id='+url.searchParams.get('id'),document.baseURI);
+  let url;try{url=new URL(window.LuckyInstallationUrls?.media(prizeVideoUrl)??prizeVideoUrl,document.baseURI);}catch(_){throw Error('Upload a prize video first.');}
   const base=new URL(document.baseURI);
-  if(url.origin!==base.origin||!url.pathname.endsWith('/api/index.php')||
+  if(url.origin!==base.origin||url.pathname!==new URL('api/index.php',base).pathname||url.username||url.password||url.hash||
      url.searchParams.get('action')!=='prize_video'||!/^[a-f0-9]{32}$/.test(url.searchParams.get('id')||''))
      throw Error('Upload a prize video first.');
   closeVideo();const el=document.createElement('video');el.controls=true;el.autoplay=true;el.playsInline=true;el.src=url.href;

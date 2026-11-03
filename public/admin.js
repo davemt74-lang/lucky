@@ -1,5 +1,11 @@
 (() => {
  'use strict';const L=Lucky,$=L.$;let settings=null,activeTier='tier1',history=[],sessions=[],readyGames=[],packages=[],packageId='',selectedPackage='',packageDirty=false,packagesAvailable=false;
+ const mediaUrl=raw=>window.LuckyInstallationUrls?.media(raw)??raw;
+ function storeMedia(raw){
+  if(window.LuckyInstallationUrls)return window.LuckyInstallationUrls.storeMedia(raw);
+  if(document.querySelector?.('meta[name="lucky-deployment"]')?.content==='homeserver')throw Error('HomeServer media addresses are unavailable. Reload this page before uploading.');
+  return new URL(raw,document.baseURI).href;
+ }
  const amount=s=>{const n=Number(s);if(!Number.isFinite(n)||n<0||n>10000000)throw Error('Invalid dollar amount.');return Math.round(n*100);};
  const cents=c=>(Number(c||0)/100).toFixed(2);
  const elem=(tag,txt='',cls='')=>{const e=document.createElement(tag);if(txt)e.textContent=txt;if(cls)e.className=cls;return e;};
@@ -9,6 +15,7 @@
  function setBudget(){settings.config.pools[activeTier].budgetCents=amount($('tier-budget').value);}
  function imagePreview(rootId,url,kind){
   const root=$(rootId);root.replaceChildren();
+  url=mediaUrl(url);
   if(!url){root.append(elem('span',kind==='photo'?'No photo uploaded':'No video uploaded','prize-edit-media-empty'));return;}
   if(kind==='photo'){
    const img=elem('img');img.alt='Uploaded prize photo';img.src=url;img.loading='lazy';img.onerror=()=>{root.replaceChildren(elem('span','Photo could not load','prize-edit-media-empty'));};root.append(img);
@@ -19,7 +26,7 @@
   }
  }
  function isUploadedVideo(raw){
-  try{const url=new URL(raw,document.baseURI);return url.pathname.endsWith('/api/index.php')&&
+  try{const url=new URL(mediaUrl(raw),document.baseURI),base=new URL(document.baseURI);return url.origin===base.origin&&url.pathname===new URL('api/index.php',base).pathname&&
     url.searchParams.get('action')==='prize_video'&&/^[a-f0-9]{32}$/.test(url.searchParams.get('id')||'');
   }catch(_){return false;}
  }
@@ -27,7 +34,7 @@
   const pool=settings.config.pools[activeTier],list=$('prize-items');list.replaceChildren();$('tier-budget').value=cents(pool.budgetCents);
   for(const p of pool.prizes){
    const card=elem('article','','prize-catalog-card');card.dataset.prizeId=p.id;
-   const photo=elem('div','','prize-catalog-art');if(p.image){const img=elem('img');img.src=p.image;img.alt='';img.loading='lazy';photo.append(img);}else photo.append(elem('span','✦','prize-catalog-placeholder'));
+   const photo=elem('div','','prize-catalog-art');if(p.image){const img=elem('img');img.src=mediaUrl(p.image);img.alt='';img.loading='lazy';photo.append(img);}else photo.append(elem('span','✦','prize-catalog-placeholder'));
    const info=elem('div','','prize-catalog-content');
    const heading=elem('div','','prize-catalog-heading');heading.append(elem('h3',p.name),elem('strong','$'+cents(p.cents),'prize-catalog-value'));
    const description=elem('p',String(p.description||'No description yet. Add a custom announcement for this prize.').replace(/\s+/g,' ').slice(0,170),'prize-catalog-excerpt');
@@ -70,7 +77,7 @@
   const uploadFile=async(kind,file)=>{if(!file||working)return;working=true;$('prize-edit-save').disabled=true;
    try{const data=new FormData();data.append(kind==='photo'?'image':'video',file);
     const response=await L.api(kind==='photo'?'image_upload':'prize_video_upload',{body:data});
-    draft[kind==='photo'?'image':'videoUrl']=new URL(response.path,document.baseURI).href;paintMedia();
+    draft[kind==='photo'?'image':'videoUrl']=storeMedia(response.path);paintMedia();
     $('prize-edit-status').textContent=(kind==='photo'?'Photo':'Video')+' uploaded. Save the prize to attach it.';
    }catch(e){$('prize-edit-status').textContent=e.message;}finally{working=false;$('prize-edit-save').disabled=false;$(kind==='photo'?'prize-edit-photo-upload':'prize-edit-video-upload').value='';}
   };
@@ -281,7 +288,7 @@
  const packageUpload=$('package-image-upload');
  if(packageUpload)packageUpload.onchange=async()=>{if(!packageUpload.files?.[0])return;
   try{const form=new FormData();form.append('image',packageUpload.files[0]);const r=await L.api('image_upload',{body:form});
-   $('package-image').value=new URL(r.path,document.baseURI).href;markPackageDirty();status('Package cover uploaded. Save package changes to attach it.');
+   $('package-image').value=storeMedia(r.path);markPackageDirty();status('Package cover uploaded. Save package changes to attach it.');
   }catch(e){status(e.message,true);}finally{packageUpload.value='';}
  };
  $('package-activate').onclick=async()=>{

@@ -49,7 +49,10 @@
  const status=(message,error=false)=>{info.textContent=message;info.classList.toggle('is-error',error);};
  function urlParts(raw){
   let url;
-  try{url=new URL(raw.trim(),document.baseURI);}catch(_){throw Error('Paste the Live View invitation from Camera Director.');}
+  try{
+   if(!window.LuckyInstallationUrls&&document.querySelector?.('meta[name="lucky-deployment"]')?.content==='homeserver')throw Error('HomeServer sharing is unavailable. Reload this page.');
+   url=window.LuckyInstallationUrls?window.LuckyInstallationUrls.localShare(raw.trim()):new URL(raw.trim(),document.baseURI);
+  }catch(_){throw Error('Paste a Live View invitation from this Lucky installation. If the network address changed, reload this page.');}
   const expected=new URL('live-view.php',document.baseURI);
   if(url.origin!==expected.origin||url.pathname!==expected.pathname||url.username||url.password||url.hash)
    throw Error('The invitation must be a Live View link from this Lucky site.');

@@ -108,5 +108,5 @@ shellStart('Video Studio','editor','editor-workspace');
  </dialog>
  <p id="editor-feedback" role="status" class="studio-feedback studio-feedback-overlay" aria-live="polite"></p><span id="editor-caption" class="sr-only" role="status">No clip playing.</span>
 </section>
-<link rel="stylesheet" href="public/editor-moments.css?v=5q31"><script src="public/client.js" defer></script><script src="public/proof-sequence.js?v=5q8b" defer></script><script src="public/editor-timeline.js?v=5q29a" defer></script><script src="public/editor-cue-tools.js?v=5q29c" defer></script><script src="public/editor-moments.js?v=5q31" defer></script><script src="public/editor.js?v=5q31" defer></script><script src="public/editor-video-ai.js?v=5q29c" defer></script><script src="public/ui-receiver.js?v=5q8" defer></script>
+<link rel="stylesheet" href="public/editor-moments.css?v=5q31"><script src="public/client.js?v=5q32g7a" defer></script><script src="public/proof-sequence.js?v=5q8b" defer></script><script src="public/editor-timeline.js?v=5q29a" defer></script><script src="public/editor-cue-tools.js?v=5q29c" defer></script><script src="public/editor-moments.js?v=5q31" defer></script><script src="public/editor.js?v=5q31" defer></script><script src="public/editor-video-ai.js?v=5q29c" defer></script><script src="public/ui-receiver.js?v=5q8" defer></script>
 <?php shellEnd(); ?>

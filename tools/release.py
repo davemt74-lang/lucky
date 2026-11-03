@@ -19,9 +19,10 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 REQUIRED = (
     'index.php', 'admin.php', 'director.php', 'install.php', 'upgrade.php',
-    'api/index.php', 'api/director-live.php', 'lib/Bootstrap.php',
+    'api/index.php', 'api/director-live.php', 'api/installation-urls.php', 'lib/Bootstrap.php',
     'lib/SchemaMigrations.php',
-    'lib/BuildVersion.php', 'public/director-view.js', 'public/director-publish.js',
+    'lib/BuildVersion.php', 'lib/InstallationUrls.php', 'public/installation-urls.js',
+    'public/director-view.js', 'public/director-publish.js',
     'storage/.htaccess', 'release.json',
     'proof.php', 'controller.php', 'camera.php', 'recording-editor.php',
     'game.php', 'live-view.php', 'api/phone-media.php',
@@ -156,9 +157,9 @@ def deploy_path(name: str) -> bool:
         return False
     if name == 'build-info.json':
         raise ReleaseError('build-info.json is generated; do not commit a stale build identity.')
-    if any(part == '.env' or part.startswith('.env.') for part in path.parts):
+    if any(part.lower() == '.env' or part.lower().startswith('.env.') for part in path.parts):
         raise ReleaseError('Environment/secret files cannot be packaged.')
-    if path.parts[0] == 'storage' and name not in STORAGE_PLACEHOLDERS:
+    if path.parts[0].lower() == 'storage' and name not in STORAGE_PLACEHOLDERS:
         raise ReleaseError(f'Private runtime data is tracked: {name}. Remove it from source before releasing.')
     return True
 

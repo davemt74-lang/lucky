@@ -40,7 +40,7 @@ final class PrizePackages {
   return true;
  }
  private static function image(mixed $value):string {
-  if(!is_string($value)||!GameEngine::validUrl($value))throw new DomainException('Use a valid package image HTTP(S) URL or leave blank.',422);
+  if(!is_string($value)||!GameEngine::validImage($value))throw new DomainException('Use an uploaded package image, a valid HTTP(S) URL, or leave blank.',422);
   return $value;
  }
  private static function budget(mixed $budget,array $config):?int {

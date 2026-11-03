@@ -3,18 +3,32 @@
  'use strict';
  const $=id=>document.getElementById(id),root=$('phone-pairing');if(!root)return;
  const state={csrf:null,connected:false,loading:false,receiving:root.dataset.controllerReceiver==='1'};
+ let invitePath='';
  const text=(s,bad=false)=>{const e=$('pair-host-status');e.textContent=s;e.classList.toggle('platform-error',bad);};
+ function shareUrl(raw){
+  if(window.LuckyInstallationUrls)return window.LuckyInstallationUrls.share(raw);
+  if(document.querySelector?.('meta[name="lucky-deployment"]')?.content==='homeserver')throw Error('HomeServer sharing is unavailable. Reload this page.');
+  return new URL(raw,document.baseURI);
+ }
  async function request(action,body={}){
   if(!state.csrf){const auth=await (await fetch('api/index.php?action=me',{credentials:'same-origin',cache:'no-store'})).json();state.csrf=auth.csrf;if(!state.csrf)throw Error('Please sign in as host.');}
   const response=await fetch('api/controller.php?action='+encodeURIComponent(action),{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF-Token':state.csrf},body:JSON.stringify(body),cache:'no-store'});
   const data=await response.json();if(!response.ok||!data.ok)throw Error(data.error||'Pairing request failed.');return data;
  }
  function secure(){return window.isSecureContext||['localhost','127.0.0.1'].includes(location.hostname);}
+ function renderInvite(){
+  $('pair-invite').hidden=true;$('pair-link').value='';$('pair-qr').replaceChildren();$('pair-copy').disabled=true;
+  if(!invitePath)return;
+  try{const href=shareUrl(invitePath).href;
+   $('pair-qr').innerHTML=LuckyQR.svg(href);$('pair-link').value=href;$('pair-invite').hidden=false;$('pair-copy').disabled=false;
+   text('Invitation ready. Scan the QR code and approve your phone when it appears.');
+  }catch(e){text(e.message,true);}
+ }
  async function invite(){if(state.loading)return;if(!secure()){text('Pairing requires HTTPS (or localhost).',true);return;}
   state.loading=true;$('pair-new').disabled=true;
-  try{const data=await request('invite');const href=new URL(data.url,document.baseURI).href;
-   $('pair-qr').innerHTML=LuckyQR.svg(href);$('pair-link').value=href;$('pair-invite').hidden=false;
-   text('Invitation ready. Scan the QR code and approve your phone when it appears.');await list();
+  invitePath='';renderInvite();
+  try{shareUrl('controller.php');const data=await request('invite');const url=shareUrl(data.url);
+   invitePath=url.pathname+url.search;renderInvite();await list();
   }catch(e){text(e.message,true);}finally{state.loading=false;$('pair-new').disabled=false;}
  }
  async function change(id,action){try{await request(action,{id});text(action==='approve'?'Phone approved. You can use its controls.':'Phone disconnected.');await list();}catch(e){text(e.message,true);}}
@@ -40,7 +54,8 @@
   }catch(e){/* Logged-out or offline tabs recover when host returns. */}finally{polling=false;}
  }
  $('pair-new').addEventListener('click',invite);
- $('pair-copy').addEventListener('click',()=>navigator.clipboard?.writeText($('pair-link').value).then(()=>text('Private pairing link copied.')).catch(()=>{ $('pair-link').select();text('Copy the highlighted link.'); }));
+ window.addEventListener('lucky:installation-urls',renderInvite);
+ $('pair-copy').addEventListener('click',()=>{renderInvite();if(!$('pair-link').value)return;navigator.clipboard?.writeText($('pair-link').value).then(()=>text('Private pairing link copied.')).catch(()=>{ $('pair-link').select();text('Copy the highlighted link.'); });});
  list();setInterval(()=>{if(document.visibilityState==='visible')list();},2000);
  // V5P.1: command reception/acknowledgment is handled by ui-receiver.js on host and TV.
 

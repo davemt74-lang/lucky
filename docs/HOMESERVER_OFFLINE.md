@@ -14,6 +14,16 @@ private `storage/.setup-attempt.json` identity with the local secrets, database
 and media backup. A lost identity or corrupt existing configuration is a recovery
 error, not permission for setup to reset accounts. See [Section F](V5Q32G6_AUDIT_F.md).
 
+V5Q32G7A advertises the launcher's validated RFC1918 IPv4 HTTPS address for phone,
+TV and Director invitations. The desktop listener binds to `127.0.0.1:8833` and
+the LAN listener to the selected private address on port `8843`. A private,
+short-lived network lease is refreshed while the selected interface and owned
+listeners remain available. Missing/stale LAN state disables new sharing, not
+local gameplay. Old open pages must be reloaded after a network change and the
+launcher restarted to select the new interface. See [G7A](V5Q32G7A_LAN_LINKS.md).
+This is address/readiness plumbing, **not** a certificate-trust or firewall
+onboarding wizard, nor proof of real-phone connectivity.
+
 ## Non-negotiable product behavior
 
 - The Windows HomeServer install contains the web application, PHP runtime, MariaDB/MySQL-compatible database runtime, media encoder, and a launcher/supervisor. The offline product target is **no post-download internet dependency** for core installation or gameplay; the field gates below must verify it.

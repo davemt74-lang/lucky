@@ -28,6 +28,7 @@ $data=Join-Path $env:LOCALAPPDATA 'LuckyGameHub'
 $storage=Join-Path $data 'storage'
 $ini=Join-Path $data 'php.ini'
 $config=Join-Path $storage 'config.php'
+$networkMetadata=Join-Path $storage 'homeserver-network.json'
 $supervisorLog=Join-Path $data 'logs\launcher.log'
 foreach($required in @($launcherPath,$cgiPath,$cliPath,$dbPath,$caddyPath,$systemPowerShell,$ini,$config)){
  if(!(Test-Path -LiteralPath $required -PathType Leaf)){throw "Missing installed certification dependency: $required"}
@@ -119,6 +120,86 @@ function Get-G5Child([string]$ExpectedPath){
 function Test-G5Listener([int]$Port,[int]$ProcessId){
  $listeners=@(Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction SilentlyContinue)
  return $listeners.Count -ge 1 -and @($listeners | Where-Object {[int]$_.OwningProcess -ne $ProcessId}).Count -eq 0
+}
+function Assert-G7APublicMetadata([string]$ExpectedOrigin){
+ # Use the untouched installed PHP endpoint through actual Caddy/FastCGI. In
+ # particular, this proves its Windows fstat mode/mtime reader accepts the
+ # launcher's protected atomic publication, not just a PowerShell JSON reader.
+ $request=New-Object System.Net.Http.HttpRequestMessage
+ $request.Method=[System.Net.Http.HttpMethod]::Get
+ $request.RequestUri=[Uri]'http://127.0.0.1:8833/api/installation-urls.php'
+ $request.Headers.Add('Cache-Control','no-store')
+ $response=$null
+ try{
+  $response=$client.SendAsync($request).GetAwaiter().GetResult()
+  $body=$response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+  Assert-G5 ([int]$response.StatusCode -eq 200) 'G7A installed PHP metadata endpoint succeeds without an administrator login'
+  $metadata=$body | ConvertFrom-Json
+  $names=@($metadata.PSObject.Properties | ForEach-Object {$_.Name} | Sort-Object)
+  Assert-G5 (($names -join ',') -ceq 'deployment,lanOrigin,leaseSeconds,ok' -and $metadata.ok -is [bool] -and
+   $metadata.ok -eq $true -and $metadata.deployment -ceq 'homeserver' -and $metadata.lanOrigin -ceq $ExpectedOrigin) 'G7A installed PHP returns exactly the expected deployment/origin/lease metadata and no account or secret fields'
+  $integerLease=$metadata.leaseSeconds -is [int] -or $metadata.leaseSeconds -is [long]
+  if($ExpectedOrigin -eq ''){
+   Assert-G5 ($integerLease -and $metadata.leaseSeconds -eq 0) 'G7A installed PHP preserves local-only availability without inventing a LAN lease'
+  }else{
+   Assert-G5 ($integerLease -and $metadata.leaseSeconds -gt 0 -and $metadata.leaseSeconds -le 30) 'G7A installed PHP reads the actual Windows publication as a fresh bounded LAN lease'
+  }
+  Assert-G5 ($null -ne $response.Headers.CacheControl -and $response.Headers.CacheControl.NoStore -and
+   !$response.Headers.Contains('Access-Control-Allow-Origin')) 'G7A installed metadata response is no-store and does not grant cross-origin browser access'
+ }finally{if($null -ne $response){$response.Dispose()};$request.Dispose()}
+ $request=New-Object System.Net.Http.HttpRequestMessage
+ $request.Method=[System.Net.Http.HttpMethod]::Get
+ $request.RequestUri=[Uri]'http://127.0.0.1:8833/storage/homeserver-network.json'
+ $response=$null
+ try{
+  $response=$client.SendAsync($request).GetAwaiter().GetResult()
+  Assert-G5 ([int]$response.StatusCode -eq 403) 'G7A actual Caddy denies direct HTTP access to private launcher metadata'
+ }finally{if($null -ne $response){$response.Dispose()};$request.Dispose()}
+}
+function Assert-G7ALiveNetwork([int]$WebProcessId){
+ Wait-G5 {(Read-G5RunLog).Contains('Local HomeServer ready:')} 15 'completed application/network startup readiness'
+ $desktop=@(Get-NetTCPConnection -State Listen -LocalPort 8833 -ErrorAction SilentlyContinue)
+ Assert-G5 ($desktop.Count -eq 1 -and $desktop[0].LocalAddress -ceq '127.0.0.1' -and [int]$desktop[0].OwningProcess -eq $WebProcessId) 'G7A actual desktop socket is bound only to loopback by the owned Caddy'
+ $configText=[IO.File]::ReadAllText((Join-Path $data 'Caddyfile'))
+ $sites=[regex]::Matches($configText,'(?m)^https://([0-9.]+):8843 \{')
+ Assert-G5 ($sites.Count -le 1) 'G7A generated runtime selects at most one LAN origin'
+ $lan=@(Get-NetTCPConnection -State Listen -LocalPort 8843 -ErrorAction SilentlyContinue)
+ if($sites.Count -eq 0){
+  Assert-G5 ($lan.Count -eq 0 -and !(Test-Path -LiteralPath $networkMetadata)) 'G7A local-only runtime has no LAN listener or advertised origin'
+  Assert-G7APublicMetadata ''
+  return [pscustomobject]@{Lan=$false;Origin='';Modified=[DateTime]::MinValue}
+ }
+ $address=$sites[0].Groups[1].Value
+ Assert-G5 ($lan.Count -eq 1 -and $lan[0].LocalAddress -ceq $address -and [int]$lan[0].OwningProcess -eq $WebProcessId) 'G7A actual HTTPS socket binds only the selected LAN address, never a wildcard'
+ $record=[IO.File]::ReadAllText($networkMetadata) | ConvertFrom-Json
+ $modified=[IO.File]::GetLastWriteTimeUtc($networkMetadata)
+ Assert-G5 ($record.version -eq 1 -and @($record.PSObject.Properties).Count -eq 2 -and $record.origin -ceq ('https://'+$address+':8843') -and
+  ([DateTime]::UtcNow-$modified).TotalSeconds -ge -5 -and ([DateTime]::UtcNow-$modified).TotalSeconds -lt 30) 'G7A ready publication matches the actual owned HTTPS socket and has a fresh bounded lease'
+ Assert-G7APublicMetadata ([string]$record.origin)
+ return [pscustomobject]@{Lan=$true;Origin=[string]$record.origin;Modified=$modified}
+}
+function Assert-G7ASecondLauncher($Network){
+ $arguments='-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "'+$launcherPath+'" -Smoke -NoBrowser'
+ $second=Start-Process -FilePath $systemPowerShell -ArgumentList $arguments -PassThru -WindowStyle Hidden
+ $null=$second.Handle
+ try{
+  Assert-G5 ($second.WaitForExit(10000) -and $second.ExitCode -eq 0) 'G7A second launcher exits harmlessly while the existing launcher owns its mutex'
+  if($Network.Lan){
+   $record=[IO.File]::ReadAllText($networkMetadata) | ConvertFrom-Json
+   Assert-G5 ($record.origin -ceq $Network.Origin) 'G7A non-owning launcher does not withdraw the live phone origin'
+  }else{Assert-G5 (!(Test-Path -LiteralPath $networkMetadata)) 'G7A non-owning launcher does not invent a LAN origin'}
+ }finally{
+  # Only descendants of the exact child created above could be faulty here.
+  # Retain native ownership even if a regression incorrectly ignored the mutex.
+  if(!$second.HasExited){
+   foreach($row in @(Get-CimInstance Win32_Process -Filter ("ParentProcessId = "+$second.Id) | Where-Object {$_.ExecutablePath -and $_.ExecutablePath.StartsWith($Installation+'\',[StringComparison]::OrdinalIgnoreCase)})){
+    $identity=Get-G5Identity ([int]$row.ProcessId) $row.ExecutablePath $second.Id
+    if(Test-G5Identity $identity){Stop-G5Verified $identity}
+   }
+   if(!$second.HasExited){$second.Kill();$null=$second.WaitForExit(3000)}
+  }
+  $second.Dispose()
+ }
 }
 function Assert-G5MutexFree {
  $mutex=New-Object System.Threading.Mutex($false,'Local\LuckyGameHubHomeServer')
@@ -214,9 +295,10 @@ function Wait-G5Exit($Process,[int]$Seconds,[int]$ForeignCgi=0){
  foreach($identity in $script:owned | Where-Object {$_.Parent -eq $Process.Id}){
   if(Test-G5Identity $identity){throw ('Owned process survived terminal cleanup: '+$identity.Id)}
  }
- foreach($port in @(3307,8833)){
+ foreach($port in @(3307,8833,8843)){
   Assert-G5 (@(Get-NetTCPConnection -State Listen -LocalPort $port -ErrorAction SilentlyContinue).Count -eq 0) ('Terminal cleanup removes its listener on port '+$port)
  }
+ Assert-G5 (!(Test-Path -LiteralPath $networkMetadata)) 'G7A terminal cleanup withdraws its phone-origin publication'
  if($ForeignCgi -eq 0){
   Assert-G5 (@(Get-NetTCPConnection -State Listen -LocalPort 9017 -ErrorAction SilentlyContinue).Count -eq 0) 'Terminal cleanup removes its owned CGI listener'
  }else{
@@ -419,11 +501,20 @@ try{
  $portPicker=New-Object Net.Sockets.TcpListener([Net.IPAddress]::Loopback,0)
  $portPicker.Start();$sentinelPort=([Net.IPEndPoint]$portPicker.LocalEndpoint).Port;$portPicker.Stop()
  $sentinel=Start-G5ForeignCgi $sentinelPort
+ # An interrupted old launch cannot leave a fresh-looking loopback QR behind.
+ # This exact reserved runtime leaf is disposable in the isolated installation.
+ [IO.File]::WriteAllText($networkMetadata,'{"version":1,"origin":"https://127.0.0.1:8843"}')
  $run=Start-G5Launcher
  $health=Wait-G5Health
  Assert-G5 ($health.maxRequests -ceq '0' -and $health.children -ceq '0') 'Inherited conflicting FastCGI settings are overridden in the actual PHP process'
  $cgi=Get-G5Child $cgiPath;$database=Get-G5Child $dbPath;$web=Get-G5Child $caddyPath
  Assert-G5 ([int]$health.pid -eq $cgi.Id -and (Test-G5Listener 9017 $cgi.Id)) 'Health is served by the verified owned CGI listener'
+ $network=Assert-G7ALiveNetwork $web.Id
+ Assert-G7ASecondLauncher $network
+ if($network.Lan){
+  Wait-G5 {[IO.File]::GetLastWriteTimeUtc($networkMetadata) -gt $network.Modified} 20 'actual LAN lease renewal by the live launcher'
+  Assert-G5 (([IO.File]::ReadAllText($networkMetadata) | ConvertFrom-Json).origin -ceq $network.Origin) 'G7A actual heartbeat atomically renews the same validated LAN origin'
+ }
  $seed=Invoke-G5 'seed' 'POST';$seeded=$true
  Assert-G5 ($seed.ok -and $seed.writes -eq 0) 'Persistent test data is seeded through the installed application database'
  $mediaHash=(Get-FileHash -LiteralPath $mediaPath -Algorithm SHA256).Hash
@@ -446,6 +537,7 @@ try{
  Assert-G5 ([int]$replacement.pid -eq $cgi.Id) 'Killing only the owned CGI produces a newly owned healthy CGI PID'
  Assert-G5 ((Test-G5Identity $database) -and (Test-G5Identity $web)) 'CGI recovery preserves the existing database and Caddy processes'
  Assert-G5 ((Test-G5Identity $sentinel) -and (Test-G5Listener $sentinelPort $sentinel.Id)) 'Unrelated same-name CGI survives replacement'
+ $beforeBusyLease=[IO.File]::GetLastWriteTimeUtc($networkMetadata)
  $busy=Start-G5Request 'busy'
  Wait-G5 {Test-Path -LiteralPath (Join-Path $fixturePath 'busy-started')} 5 'busy request start'
  $busyPid=[int][IO.File]::ReadAllText((Join-Path $fixturePath 'busy-started'))
@@ -460,6 +552,7 @@ try{
  }
  $busyReply=Complete-G5Request $busy $true
  Assert-G5 ([int]$busyReply.pid -eq $cgi.Id -and (Test-G5Identity $cgi)) 'The full 15-second busy request retains its original CGI identity'
+ if($network.Lan){Assert-G5 ([IO.File]::GetLastWriteTimeUtc($networkMetadata) -gt $beforeBusyLease) 'G7A LAN freshness renews while a legitimate long PHP request is still running'}
  Assert-G5 ((Test-G5Identity $database) -and (Test-G5Identity $web)) 'Multiple recovery supervisor ticks preserve database/Caddy and tolerate an exited render worker'
  $post=Start-G5Request 'write-and-wait' 'POST'
  Wait-G5 {Test-Path -LiteralPath (Join-Path $fixturePath 'post-committed')} 5 'committed POST receipt before CGI death'
@@ -535,6 +628,7 @@ try{
  Assert-G5 (!$script:cgiAclChanged) 'Original CGI owner/group, ordered permissions and protection are restored before the normal restart'
  $restart=Start-G5Launcher
  $health=Wait-G5Health;$cgi=Get-G5Child $cgiPath;$database=Get-G5Child $dbPath;$web=Get-G5Child $caddyPath
+ $null=Assert-G7ALiveNetwork $web.Id
  $receipt=Invoke-G5 'read'
  Assert-G5 ($receipt.marker -ceq $suffix -and $receipt.writes -eq 1) 'A subsequent full restart preserves the original durable DB receipt exactly once'
  Assert-G5 ((Get-FileHash -LiteralPath $config -Algorithm SHA256).Hash -ceq $configHash -and (Get-FileHash -LiteralPath $mediaPath -Algorithm SHA256).Hash -ceq $mediaHash) 'A subsequent full restart preserves configuration and uploaded-media bytes'

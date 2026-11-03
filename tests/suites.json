@@ -97,7 +97,9 @@
         "tests/v5q32g3_media_session_contract.php",
         "tests/schema_migrations_test.php",
         "tests/v5q32g5_homeserver_runtime_contract.php",
-        "tests/setup_configuration_test.php"
+        "tests/setup_configuration_test.php",
+        "tests/v5q32g7a_installation_urls.php",
+        "tests/installation_urls_test.js"
       ]
     },
     "database": {
@@ -141,7 +143,8 @@
         {
           "path": "tests/v5q32g6_homeserver_install_recovery_db.php",
           "timeout_seconds": 240
-        }
+        },
+        "tests/v5q32g7a_lan_pairing_db.php"
       ]
     },
     "browsers": {
@@ -246,7 +249,8 @@
         "tests/browser.py",
         "tests/v5n_console.py",
         "tests/v5p_pairing.py",
-        "tests/v5q32g2_publisher_lifecycle_browser.py"
+        "tests/v5q32g2_publisher_lifecycle_browser.py",
+        "tests/v5q32g7a_installation_urls_browser.py"
       ]
     },
     "video": {

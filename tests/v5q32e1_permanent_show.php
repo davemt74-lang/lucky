@@ -24,7 +24,7 @@ e1Check(str_contains($page,'data-show-id')&&str_contains($page,'OFF AIR'),'Perma
 e1Check(str_contains($viewer,"request('resolve_show'")&&str_contains($viewer,'stopFeed()'),'Viewer polls for restarted publications without URL changes');
 e1Check(str_contains($publisher,"visibility==='public'?(stableShowUrl()")&&str_contains($publisher,"visibility==='private'"),'Public share uses permalink while private retains bearer invitation');
 e1Check(str_contains($director,'id="director-show-url"')&&str_contains($director,'id="director-live-viewers"')&&str_contains($director,'id="director-live-health"'),'Live dashboard exposes permalink, viewer count and health');
-e1Check(str_contains($read('public/director-game.js'),"const url=live||stable")&&str_contains($read('public/director-game.js'),"open.href=url||'live-view.php'"),'Game Director shares standby permalink before publish');
+e1Check(str_contains($read('public/director-game.js'),"const url=live||stable")&&str_contains($read('public/director-game.js'),"LuckyInstallationUrls.localShare(url)")&&str_contains($read('public/director-game.js'),"open.href=local||'live-view.php'"),'Game Director shares standby permalink while Open keeps this installation origin');
 foreach(['install.php','upgrade.php','homeserver/initialize.php','homeserver/migrate.php'] as $file)e1Check(SchemaMigrationSourceContract::wired([$file],'migrations/v5q32e1_permanent_show_url.sql'),$file.' delegates to the shared stable URL migration');
 e1Check(str_contains($read('tools/release.py'),"'lib/migrations/v5q32e1_permanent_show_url.sql'")&&str_contains($read('.github/workflows/deploy.yml'),'tools/release.py build'),'Production ZIP requires show URL schema through the certified packager');
 echo "V5Q32E1 PERMANENT SHOW CONTRACT: 16/16\n";

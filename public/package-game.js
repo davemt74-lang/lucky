@@ -7,21 +7,27 @@
  let session=null,loading=false,ending=false,polling=false;
  const phonePanel=$('pkg-phone-panel');
  let lastPhoneURL='',hostCsrf='',phoneLoading=false;
+ function shareUrl(raw){
+  if(window.LuckyInstallationUrls)return window.LuckyInstallationUrls.share(raw);
+  if(document.querySelector?.('meta[name="lucky-deployment"]')?.content==='homeserver')throw Error('HomeServer sharing is unavailable. Reload this page.');
+  return new URL(raw,document.baseURI);
+ }
  function updatePhoneInvite(s){
   if(!phonePanel)return;
   const display=$('pkg-phone-invite');
   const live=s&&['active','paused'].includes(s.view.status);
   display.hidden=!live;
-  if(!live){lastPhoneURL='';$('pkg-phone-state').textContent='Start a game to enable the phone controller.';return;}
-  const href=new URL('package-controller.php?'+new URLSearchParams({
-    session:s.view.id,viewer:s.viewerToken
-  }),location.href).href;
+  if(!live){lastPhoneURL='';$('pkg-phone-link').value='';$('pkg-phone-qr').replaceChildren();$('pkg-phone-state').textContent='Start a game to enable the phone controller.';return;}
+  let href;
+  try{href=shareUrl('package-controller.php?'+new URLSearchParams({session:s.view.id,viewer:s.viewerToken})).href;}
+  catch(e){lastPhoneURL='';display.hidden=true;$('pkg-phone-link').value='';$('pkg-phone-qr').replaceChildren();$('pkg-phone-state').textContent=e.message;return;}
   if(lastPhoneURL!==href){
    lastPhoneURL=href;$('pkg-phone-link').value=href;
    if(window.LuckyQR)$('pkg-phone-qr').innerHTML=LuckyQR.svg(href);
   }
   $('pkg-phone-state').textContent='Scan the QR code and approve each phone below.';
  }
+ window.addEventListener('lucky:installation-urls',()=>updatePhoneInvite(session));
  async function hostController(action,body={}){
   if(!hostCsrf){const me=await L.getMe();hostCsrf=me.csrf;
    if(!hostCsrf)throw Error('Host sign-in required.');}

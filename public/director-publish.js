@@ -10,11 +10,19 @@
  // a cancelled request cannot arrive late and replace a newer publication.
  let publicationQueue=Promise.resolve();
  const stopLabel=$('director-unpublish').textContent;
- let showId='',viewerSessions=0,health='Idle',lastHeartbeat=0,relayConfigured=false,iceHealth='Idle';
+ let showId='',viewerSessions=0,health='Idle',lastHeartbeat=0,relayConfigured=false,iceHealth='Idle',sharingError='';
  const peers=new Map();
+ function shareUrl(raw){
+  if(window.LuckyInstallationUrls)return window.LuckyInstallationUrls.share(raw);
+  if(document.querySelector?.('meta[name="lucky-deployment"]')?.content==='homeserver')throw Error('HomeServer sharing is unavailable. Reload this page.');
+  return new URL(raw,document.baseURI);
+ }
+ const localUrl=raw=>window.LuckyInstallationUrls?window.LuckyInstallationUrls.localShare(raw):new URL(raw,document.baseURI);
  const stableShowUrl=()=>{
+  sharingError='';
   if(!/^[a-f0-9]{32}$/.test(showId))return '';
-  const url=new URL('live-view.php',document.baseURI);url.searchParams.set('show',showId);return url.href;
+  try{const url=shareUrl('live-view.php');url.searchParams.set('show',showId);return url.href;}
+  catch(e){sharingError=e.message;return '';}
  };
  function selectedVisibility(){return $('director-broadcast-visibility').value==='public'?'public':'private';}
  function visibilityUi(){
@@ -54,10 +62,23 @@
   $('director-broadcast-visibility').disabled=busy||!!active;
   $('director-publish-public-ack').disabled=!!active;
   const permanent=stableShowUrl();
+  if(sharingError)status(sharingError,true);
+  if(active){
+   try{
+    const url=shareUrl('live-view.php');url.searchParams.set('id',active.id);
+    if(active.visibility==='private')url.searchParams.set('key',active.key);
+    const shared=active.visibility==='public'?(permanent||url.href):url.href;
+    $('director-live-url').value=shared;$('director-open-live').href=localUrl(shared).href;
+   }catch(e){
+    // A stale network lease hides links, not the owned Program stream or the
+    // host's local signaling loop. A renewed lease rebuilds these addresses.
+    $('director-live-url').value='';$('director-open-live').removeAttribute('href');status(e.message,true);
+   }
+  }
   if($('director-show-url'))$('director-show-url').value=permanent;
   if($('director-show-copy'))$('director-show-copy').disabled=!permanent;
   if($('director-show-open')){
-   $('director-show-open').href=permanent||'#';
+   $('director-show-open').href=permanent?localUrl(permanent).href:'#';
    $('director-show-open').setAttribute('aria-disabled',String(!permanent));
   }
   if($('director-live-viewers'))$('director-live-viewers').textContent=(active?viewerSessions:0)+' / 8';
@@ -203,6 +224,7 @@
   const visibility=selectedVisibility();
   if(visibility==='public'&&!$('director-publish-public-ack').checked){status('Confirm that anyone may view this public broadcast.',true);return;}
   if(!window.RTCPeerConnection){status('Live View requires a WebRTC-capable browser.',true);return;}
+  try{shareUrl('live-view.php');}catch(e){status(e.message,true);return;}
   const attempt={version:++epoch,owner:proof,scope:{...proof},visibility,
    publicAck:visibility==='public'&&$('director-publish-public-ack').checked,stream:null,csrf:''};
   pending=attempt;refresh();
@@ -226,11 +248,11 @@
         (visibility==='private'&&!/^[a-f0-9]{48}$/.test(result.key||'')))
       throw Error('The server returned an invalid Live View invitation.');
      if(/^[a-f0-9]{32}$/.test(result.showId||''))showId=result.showId;
-     const url=new URL('live-view.php',document.baseURI);
+     const url=shareUrl('live-view.php');
      url.searchParams.set('id',result.id);
      if(visibility==='private')url.searchParams.set('key',result.key);
      const finalUrl=visibility==='public'?(stableShowUrl()||url.href):url.href;
-     $('director-live-url').value=finalUrl;$('director-open-live').href=finalUrl;
+     $('director-live-url').value=finalUrl;$('director-open-live').href=localUrl(finalUrl).href;
      $('director-live-link-label').textContent=visibility==='public'?'Permanent public show URL':'Private Live View invitation';
      active={id:result.id,key:result.key,visibility,startedMs:Date.now(),ice:result.ice||ICE,
       csrf:attempt.csrf,controller:new AbortController()};
@@ -303,6 +325,7 @@
  window.addEventListener('lucky:proof-close',()=>{proof=null;showId='';void stop(true);refresh();});
  window.addEventListener('lucky:director-program-ended',()=>{if(active||pending){status('The Program camera was disconnected; Live View is ending.',true);void stop(true);}});
  window.addEventListener('pagehide',()=>{proof=null;void stop(true);});
+ window.addEventListener('lucky:installation-urls',refresh);
  visibilityUi();refresh();void loadTurn();
  setInterval(()=>{if(!document.hidden)refresh();},1000);
  setInterval(()=>{if(!document.hidden)void refreshTelemetry();},4500);
