@@ -1,6 +1,6 @@
 {
-  "version": "V5Q32G4",
-  "installerVersion": "5.32.7.4",
+  "version": "V5Q32G5",
+  "installerVersion": "5.32.7.5",
   "sdkVersion": "V5Q24",
-  "section": "Audit D — shared installation and database-upgrade consistency"
+  "section": "Audit E — bounded Windows HomeServer worker recovery"
 }

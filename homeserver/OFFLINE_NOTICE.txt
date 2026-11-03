@@ -23,13 +23,18 @@ IMPORTANT:
    is available. No telemetry or remote license check is required.
 4. The application may be stopped by closing the HomeServer process.
    The optional startup shortcut can launch it at Windows sign-in.
+   The launcher can replace an exited PHP worker without restarting the local
+   database. Interrupted requests are not automatically replayed: check the
+   saved result before retrying. Repeated worker failures stop the stack and
+   record a diagnostic in the local logs.
 5. Uninstall removes the program, but user data remains in
    %LOCALAPPDATA%\LuckyGameHub until you deliberately erase it after backup.
 6. Unsigned pre-release Windows installers may display SmartScreen warnings.
    Check the checksum and installer source before running.
-7. Real Windows clean-install, WAN-disconnected, restart, mobile camera and
-   backup/restore certification is ongoing. Do not treat this preview as
-   a certified consumer release.
+7. Automated Windows install/restart/runtime checks are release gates.
+   Physical-device, WAN-disconnected, mobile camera and backup/restore
+   certification is ongoing. Do not treat this preview as a certified consumer
+   release.
 
 Bundled software has independent open-source licenses:
 PHP (PHP License), MariaDB (GPL-2.0), Caddy (Apache-2.0), FFmpeg (LGPL/GPL
@@ -39,4 +44,4 @@ be reviewed before commercial release.
 For exact runtime versions and verified input checksums, see RUNTIME_MANIFEST.json
 in the installation directory. Build inputs and instructions are in
 app/homeserver/build-windows.ps1; release gates are documented in
-app/docs/V5Q32G1_AUDIT_A.md.
+app/docs/V5Q32G1_AUDIT_A.md and app/docs/V5Q32G5_AUDIT_E.md.

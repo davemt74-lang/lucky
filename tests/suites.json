@@ -95,7 +95,8 @@
         "tests/v5q32g2_viewer_heartbeat.js",
         "tests/v5q32g3_session_release.php",
         "tests/v5q32g3_media_session_contract.php",
-        "tests/schema_migrations_test.php"
+        "tests/schema_migrations_test.php",
+        "tests/v5q32g5_homeserver_runtime_contract.php"
       ]
     },
     "database": {
