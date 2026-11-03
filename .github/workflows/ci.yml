@@ -1,10 +1,11 @@
 name: Lucky Game Hub CI
 concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  group: lucky-ci-${{ github.workflow }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 on:
   pull_request:
   workflow_dispatch:
+  workflow_call:
 permissions:
   contents: read
 jobs:
@@ -13,6 +14,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
@@ -20,103 +23,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify every executable test is registered exactly once
+        run: python3 tools/test_inventory.py --check
       - name: PHP syntax
         run: find . -type f -name '*.php' -print0 | xargs -0 -n1 php -l
       - name: JavaScript syntax
-        run: for f in public/*.js tests/*.js; do node --check "$f"; done
-      - name: PHP and browser-independent tests
-        run: |
-          php tests/engine.php
-          php tests/v5q30_multiplayer.php
-          php tests/v5q31_costume_actions.php
-          php tests/v5q32a_live_game_director.php
-          php tests/v5q32b_program_stage.php
-          php tests/v5q32c_live_program_display.php
-          php tests/v5q32d_show_rundown.php
-          php tests/v5q32e1_permanent_show.php
-          php tests/v5q32f1_turn_reliability.php
-          php tests/direct_deploy_contract.php
-          php tests/v5q22_phone_controller_contract.php
-          php tests/v5q22b_game_catalog.php
-          php tests/v5q22c_cloud_updates.php
-          php tests/v5q22e_game_packages.php
-          php tests/v5q22f_cloud_download.php
-          php tests/v5q22g_activation.php
-          php tests/v5q22h_phone_bridge.php
-          php tests/v5q23a_activation_recovery.php
-          php tests/v5q23a_phone_version.php
-          php tests/v5q23b_offline_media.php
-          php tests/v5q23c_publisher_channels.php
-          php tests/v5q24_plugin_permissions.php
-          node tests/v5q24_sdk_contract.js
-          node tests/v5q23b_sdk.js
-          node tests/v5q29a_timeline.js
-          node tests/v5q29c_cue_tools.js
-          python3 tests/v5q23b_game_sdk.py
-          php tests/v5q16_session_lifecycle.php
-          php tests/v5q18_foundation.php
-          php tests/spin_reveal.php
-          php tests/montage_claim_timeline.php
-          php tests/proof_handoff.php
-          php tests/prize_presentation.php
-          php tests/account_ui.php
-          php tests/catalog.php
-          php tests/pairing.php
-          php tests/v5q15c_upgrade_readiness.php
-          php tests/migration_sql.php
-          php tests/proof_config.php
-          php tests/montage.php
-          php tests/timeline_audio.php
-          php tests/timeline_visuals.php
-          php tests/timeline_layers.php
-          php tests/timeline_templates.php
-          php tests/auto_draft.php
-          php tests/proof_revisions.php
-          node tests/proof_plan.js
-          php tests/v5q25_session_contract.php
-          php tests/v5q25_prize_smart_tags.php
-          php tests/v5q26_movie_preview_contract.php
-          php tests/v5q26c_splash_contract.php
-          php tests/v5q28a_video_ai_contract.php
-          php tests/v5q29c_ai_skills.php
-          php tests/v5q29b_media_intelligence.php
-          php tests/v5q28b_phone_capture_contract.php
-          php tests/v5q29e1_recording_sessions_contract.php
-          php tests/v5q29e2_phone_camera_contract.php
-          php tests/v5q29e3_multicamera_contract.php
-          php tests/v5q29e4a_timeline_contract.php
-          php tests/v5q29e4b_export_plan.php
-          php tests/v5q29e4c_profiles_contract.php
-          php tests/v5q29e4d1_studio_contract.php
-          php tests/v5q29e4d1hf2_create_camera_contract.php
-          php tests/v5q29e4d1hf3_phone_camera_contract.php
-          php tests/v5q29e4d1hf4_camera_navigation_contract.php
-          php tests/v5q29e4d1hf6_chunks_contract.php
-          php tests/v5q29e4d1hf7_phone_live_contract.php
-          php tests/v5q29e4d1hf8a_director_contract.php
-          php tests/v5q29e4d1hf8b_director_live_contract.php
-          php tests/v5q29e4d1hf8c0_visibility_contract.php
-          php tests/v5q29e4d1hf8c1_director_clips_contract.php
-          php tests/v5q29e4d1hf8c2_scenes_contract.php
-          php tests/v5q29e4d1hf8c3_audio_contract.php
-          php tests/v5q29e4d1hf8c4_recording_director_contract.php
-          php tests/v5q29e4d1hf8c5_recording_live_contract.php
-          php tests/v5q29e4d1hf8c6_workspace_contract.php
-          php tests/v5q29e4d1hf8c7_director_sync_contract.php
-          php -l lib/RecordingHostMedia.php
-          php -l api/recording-host.php
-          php -l api/recording-export.php
-          php -l bin/recording-export-worker.php
-          php -l lib/RecordingExports.php
-          php -l lib/RecordingExportWorker.php
-          php -l lib/MulticameraEncoder.php
-          node --check public/recording-camera.js
-          node --check public/admin-recordings.js
-          node --check public/recording-editor.js
-          node tests/v5q25d_shared_camera_profiles.js
-          python tests/v5q25_game_entrypoint_contract.py
-          python tests/v5q25_recording_countdown_contract.py
-          python tests/v5q26b_admin_video_gallery_contract.py
+        run: for f in public/*.js sdk/*.js tests/*.js; do node --check "$f"; done
+      - name: Core behavioral and contract suites
+        run: python3 tools/test_inventory.py --group core
   prize-packages-db:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -133,175 +50,61 @@ jobs:
           --health-interval=5s --health-timeout=5s --health-retries=15
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
           extensions: pdo_mysql,mbstring
-      - name: Certify prize packages with real local MariaDB
-        run: |
-          php tests/v5q20_packages_db.php
-          php tests/v5q21_migration_db.php
-          php tests/v5q23a_real_mariadb.php
-          php tests/v5q24_plugin_mariadb.php
-          php tests/v5q24_phone_dashboard_db.php
-          php tests/v5q27d_phone_claims_db.php
-          php tests/v5q28b_phone_capture_db.php
-          php tests/v5q29e4d1hf6_chunks_db.php
-          php tests/v5q29e4d1hf7_phone_live_db.php
-          php tests/v5q29e4d1hf8b_director_live_db.php
-          php tests/v5q29e4d1hf8c0_visibility_db.php
-          php tests/v5q29e4d1hf8c2_scenes_db.php
-          php tests/v5q29e4d1hf8c4_recording_director_db.php
-          php tests/v5q32e1_permanent_show_db.php
-          php tests/v5q29e4d1hf8c5_recording_live_db.php
-          php tests/v5q29e4d1hf8c7_director_sync_db.php
-          php tests/v5q30_party_studio_db.php
-          php tests/v5q31_costume_actions_db.php
-          php tests/v5q32a_live_game_director_db.php
-          php tests/v5q29e1_recording_sessions_db.php
-          php tests/v5q29e2_phone_camera_db.php
-          php tests/v5q29e3_multicamera_db.php
-          php tests/v5q29e4a_timeline_db.php
-          php tests/v5q29e4b_export_db.php
-          php tests/v5q29e4c_profiles_db.php
-          php tests/v5q29e4d1_phone_camera_default_db.php
-  browsers:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Real MariaDB regression suites
+        run: python3 tools/test_inventory.py --group database
+  browsers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_mysql, fileinfo, mbstring, zip, curl
       - name: Install Chromium and Playwright
         run: |
           pip install playwright
-          # The GitHub Ubuntu image already includes Chromium's shared libraries.
-          # Avoid reinstalling dozens of apt packages through a slow mirror.
           python -m playwright install chromium
           CHROME=$(find "$HOME/.cache/ms-playwright" -type f -name chrome -path '*chrome-linux64*' | head -1)
           test -x "$CHROME"
           sudo ln -sf "$CHROME" /usr/bin/chromium
-      - name: Prepare local artifact folder
+      - name: Prepare isolated CI screenshot folder
         run: sudo mkdir -p /mnt/data && sudo chown "$USER" /mnt/data
-      - name: Proof capture and timeline regressions
-        run: |
-          python tests/v5q29e2_camera_browser.py
-          python tests/v5q29e3_multicamera_browser.py
-          python tests/v5q29e4a_timeline_browser.py
-          python tests/v5q29e4b_export_browser.py
-          python tests/v5q29e4c_profile_browser.py
-          python tests/v5q29e4d1_studio_browser.py
-          python tests/proof_admin_browser.py
-          python tests/proof_browser.py
-          python tests/v5q3_editor_browser.py
-          python tests/v5q5_postgame_browser.py
-          python tests/v5q6_proof_browser.py
-          python tests/v5q7_workspace_browser.py
-          python tests/v5q8_studio_browser.py
-          python tests/v5q8b_claim_camera_return_browser.py
-          python tests/v5q9_fullwidth_browser.py
-          python tests/v5q10_navigation_browser.py
-          python tests/v5q12_claim_camera_flow.py
-          python tests/v5q13_camera_review_browser.py
-          python tests/v5q30_multiplayer_browser.py
-          python tests/v5q31_costume_actions_browser.py
-          python tests/v5q32a_live_game_director_browser.py
-          python tests/v5q32b_program_stage_browser.py
-          python tests/v5q32c_live_program_display_browser.py
-          python tests/v5q32d_show_rundown_browser.py
-          python tests/v5q32e1_permanent_show_browser.py
-          python tests/v5q32f1_turn_reliability_browser.py
-          python tests/v5q13_phone_proof_browser.py
-          python tests/v5q14_single_proof_flow.py
-          python tests/v5q15b_prize_acceptance_browser.py
-          python tests/v5q14b_live_phone_handoff.py
-          python tests/v5q15c_phone_reconnect_browser.py
-          python tests/v5q15e_wheel_reveal_browser.py
-          python tests/v5q27c_wheel_parity_browser.py
-          python tests/v5q15f_phone_recording_browser.py
-          python tests/v5q15h_claim_thumbnails_browser.py
-          python tests/v5q15i_editor_tools_browser.py
-          python tests/v5q15j_editor_visuals_browser.py
-          python tests/v5q15k_host_viewport_browser.py
-          python tests/v5q15l_trim_browser.py
-          python tests/v5q15m_editor_tracks_browser.py
-          python tests/v5q15n_templates_browser.py
-          python tests/v5q15o_phone_prize_browser.py
-          python tests/v5q15p_toolbox_browser.py
-          python tests/v5q15q_tool_cards_browser.py
-          python tests/v5q16_admin_browser.py
-          python tests/v5q20_packages_browser.py
-          python tests/v5q20_phone_packages_browser.py
-          python tests/v5q22d_phone_end_game_browser.py
-          python tests/v5q22g_package_browser.py
-          python tests/v5q22h_phone_browser.py
-          python tests/v5q23a_phone_fault_browser.py
-          python tests/v5q23b_media_browser.py
-          python tests/v5q23c_publisher_browser.py
-          python tests/v5q24_sdk_browser.py
-          python tests/v5q24_phone_dashboard_browser.py
-          python tests/v5q25_admin_modals_browser.py
-          python tests/v5q25_desktop_video_browser.py
-          python tests/v5q25_package_live_browser.py
-          python tests/v5q25_phone_photo_video_browser.py
-          python tests/v5q25_session_scope_browser.py
-          python tests/v5q25c_catalog_tabs_browser.py
-          python tests/v5q26c_game_splash_browser.py
-          python tests/v5q25d_shared_cameras_browser.py
-          python tests/v5q26_movie_preview_browser.py
-          python tests/v5q26b_phone_lifecycle_browser.py
-          python tests/v5q26d_phone_navigation_browser.py
-          python tests/v5q27d_phone_claims_browser.py
-          python tests/v5q28a_video_ai_browser.py
-          python tests/v5q29b_media_ai_browser.py
-          python tests/v5q29c_cue_actions_browser.py
-          python tests/v5q29c_cue_integration_browser.py
-          python tests/v5q28b_phone_capture_browser.py
-          python tests/v5q29e4d1hf6_chunk_upload_browser.py
-          python tests/v5q29e4d1hf7_phone_live_browser.py
-          python tests/v5q29e4d1hf8a_director_browser.py
-          python tests/v5q29e4d1hf8b_director_live_browser.py
-          python tests/v5q29e4d1hf8c0_visibility_browser.py
-          python tests/v5q29e4d1hf8c1_director_clips_browser.py
-          python tests/v5q29e4d1hf8c2_scenes_browser.py
-          python tests/v5q29e4d1hf8c3_audio_browser.py
-          python tests/v5q29e4d1hf8c4_recording_director_browser.py
-          python tests/v5q29e4d1hf8c5_recording_live_browser.py
-          python tests/v5q29e4d1hf8c6_workspace_browser.py
-          python tests/v5q29e4d1hf8c7_director_sync_browser.py
-          python tests/v5q29e4d1hf8d0e_recording_library_browser.py
-          python tests/v5q29e4d1hf5_proof_camera_browser.py
-          python tests/v5q29d_multicamera_browser.py
-          python tests/v5q29a_timeline_browser.py
-          python tests/v5q26b_video_gallery_browser.py
-          python tests/v5q27b_host_chooser_scroll_browser.py
-      - name: Phone controller regressions
-        run: |
-          python tests/v5p2_navigation_voice.py
-          python tests/v5p_sync.py
-          timeout 90s python tests/v5p_button_sync.py
+      - name: Browser, phone, camera and editor regression suites
+        run: python3 tools/test_inventory.py --group browsers
   video-encode:
-    # Pinned LTS runner avoids slow-moving rolling-image multimedia mirrors.
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
-      - name: Install FFmpeg
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install FFmpeg when absent from runner
         run: |
           if command -v ffmpeg >/dev/null && command -v ffprobe >/dev/null; then
             ffmpeg -hide_banner -version | head -1
           else
-            # Azure's package mirror can take longer than the entire job
-            # timeout. Use Ubuntu's canonical archive for this CI-only tool.
-            # Runner images have multiple APT source formats. The old
-            # single-file replacement left Azure mirrors active and exhausted
-            # the 20-minute encode job timeout during dependency downloads.
-            # GitHub's ubuntu-24.04 image also uses mirror+file:/etc/apt/apt-mirrors.txt.
-            # If that mirrorlist still targets Azure, apt-get ignores rewritten .sources URLs.
+            # Use Ubuntu's canonical archive if a runner mirror is slow.
             for source in /etc/apt/apt-mirrors.txt /etc/apt/sources.list /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources; do
               [[ -f "$source" ]] || continue
               sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g; s|https://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' "$source"
@@ -313,10 +116,5 @@ jobs:
         run: |
           ffmpeg -hide_banner -v error -y -f lavfi -i color=c=blue:s=320x180:r=30 -f lavfi -i anullsrc -t 1 -c:v libx264 -c:a aac -shortest /tmp/lucky-smoke.mp4
           ffprobe -hide_banner -v error /tmp/lucky-smoke.mp4
-          php tests/timeline_audio_render.php
-          php tests/timeline_visual_render.php
-          php tests/timeline_layers_render.php
-          php tests/montage.php
-          php tests/auto_draft.php
-          php tests/v5q29b_media_ffmpeg.php
-          php tests/v5q29e4b_export_ffmpeg.php
+      - name: Real media rendering and export parity suites
+        run: python3 tools/test_inventory.py --group video

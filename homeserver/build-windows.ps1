@@ -5,8 +5,23 @@ param([string]$OutputDir=$env:RUNNER_TEMP)
 $ErrorActionPreference='Stop'
 $ProgressPreference='SilentlyContinue'
 $repo=(Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$stage=Join-Path $env:RUNNER_TEMP 'LuckyHomeServerStage'
-$downloads=Join-Path $env:RUNNER_TEMP 'LuckyHomeServerDownloads'
+$releaseSpec=Get-Content -LiteralPath (Join-Path $repo 'release.json') -Raw | ConvertFrom-Json
+$releaseVersion=[string]$releaseSpec.version
+$installerVersion=[string]$releaseSpec.installerVersion
+if($releaseVersion -cnotmatch '^V[0-9A-Za-z]{1,31}$'){throw 'Invalid release version in release.json'}
+if($installerVersion -notmatch '^\d{1,5}\.\d{1,5}\.\d{1,5}\.\d{1,5}$' -or
+   @($installerVersion.Split('.') | Where-Object {[int]$_ -gt 65535}).Count){throw 'Invalid Windows installer version in release.json'}
+$sourceCommit=(& git -C $repo rev-parse HEAD).Trim()
+if($LASTEXITCODE -ne 0 -or $sourceCommit -cnotmatch '^[a-f0-9]{40}$'){throw 'Cannot identify source commit'}
+$sourceTree=(& git -C $repo rev-parse 'HEAD^{tree}').Trim()
+if($LASTEXITCODE -ne 0 -or $sourceTree -cnotmatch '^[a-f0-9]{40}$'){throw 'Cannot identify source tree'}
+if($env:GITHUB_SHA -and $env:GITHUB_SHA -cne $sourceCommit){throw 'Checkout does not match the certified workflow commit'}
+& git -C $repo diff --quiet HEAD --
+if($LASTEXITCODE -ne 0){throw 'Commit tracked source changes before building a versioned Windows installer'}
+$installerName="Lucky_Game_Hub_HomeServer_${releaseVersion}_Setup.exe"
+$buildId=[Guid]::NewGuid().ToString('N')
+$stage=Join-Path $env:RUNNER_TEMP "LuckyHomeServerStage-$buildId"
+$downloads=Join-Path $env:RUNNER_TEMP "LuckyHomeServerDownloads-$buildId"
 $release=Join-Path $OutputDir 'lucky-homeserver-output'
 foreach($dir in @($stage,$downloads,$release)){New-Item -ItemType Directory -Force -Path $dir | Out-Null}
 function Download([string]$name,[string]$url,[string]$hash='', [string]$algorithm='SHA256'){
@@ -48,6 +63,9 @@ try{
   Copy-Item -LiteralPath $src -Destination $dst -Force
  }
 }finally{Pop-Location}
+# Generated provenance is additional to the tracked source-parity payload.
+$buildInfo=[ordered]@{version=$releaseVersion;commit=$sourceCommit;tree=$sourceTree}
+[IO.File]::WriteAllText((Join-Path $app 'build-info.json'),($buildInfo | ConvertTo-Json),(New-Object System.Text.UTF8Encoding($false)))
 # The supervisor launches from {app}\homeserver while the PHP initializer
 # remains private under {app}\app\homeserver.
 New-Item -ItemType Directory -Force -Path (Join-Path $stage 'homeserver') | Out-Null
@@ -68,7 +86,8 @@ New-Item -ItemType Directory -Force -Path $fftarget | Out-Null
 Copy-Item -Path (Join-Path $ffbin.FullName '*') -Destination $fftarget -Recurse -Force
 # Preserve dependency provenance so the binary installer is auditable.
 $manifest=[ordered]@{
- gitCommit=$env:GITHUB_SHA
+ appVersion=$releaseVersion; installerVersion=$installerVersion
+ gitCommit=$sourceCommit; gitTree=$sourceTree
  phpVersion='8.4.26'; phpSha256=(Get-FileHash $phpZip -Algorithm SHA256).Hash.ToLowerInvariant()
  mariadbVersion='11.8.5'; mariadbSha256=(Get-FileHash $dbZip -Algorithm SHA256).Hash.ToLowerInvariant()
  caddyVersion='2.10.2'; caddySha512=(Get-FileHash $caddyZip -Algorithm SHA512).Hash.ToLowerInvariant()
@@ -87,12 +106,12 @@ if(!$compiler){
  $compiler=@('C:\Program Files (x86)\Inno Setup 6\ISCC.exe','C:\Program Files\Inno Setup 6\ISCC.exe')|Where-Object {Test-Path $_}|Select-Object -First 1
 }
 if(!$compiler){throw 'Inno Setup compiler unavailable'}
-& $compiler "/DStageDir=$stage" "/DOutputDir=$release" (Join-Path $repo 'homeserver\installer.iss')
+& $compiler "/DStageDir=$stage" "/DOutputDir=$release" "/DAppVersion=$installerVersion" "/DReleaseVersion=$releaseVersion" (Join-Path $repo 'homeserver\installer.iss')
 if($LASTEXITCODE -ne 0){throw "Installer compile failed: $LASTEXITCODE"}
-$exe=Join-Path $release 'Lucky_Game_Hub_HomeServer_V5Q29E2_Setup.exe'
+$exe=Join-Path $release $installerName
 if(!(Test-Path $exe)){throw 'Installer output missing'}
 $hash=(Get-FileHash $exe -Algorithm SHA256).Hash.ToLowerInvariant()
-"$hash  Lucky_Game_Hub_HomeServer_V5Q29E2_Setup.exe" |Set-Content -LiteralPath (Join-Path $release 'SHA256SUMS.txt') -Encoding ASCII
+"$hash  $installerName" |Set-Content -LiteralPath (Join-Path $release 'SHA256SUMS.txt') -Encoding ASCII
 Copy-Item (Join-Path $stage 'RUNTIME_MANIFEST.json') $release
 Write-Host "EXE_READY=$exe"
 Write-Host "EXE_SHA256=$hash"

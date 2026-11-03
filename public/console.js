@@ -65,6 +65,7 @@
   if(ev.code==='Space'&&game()&&!menu()?.open){if(emit('spin'))ev.preventDefault();}
  });
  document.querySelectorAll('a.game-console-tile').forEach(a=>a.addEventListener('click',()=>{try{localStorage.setItem('lucky-last-game',a.dataset.game||'spin-wheel');}catch(_){}}));
+ document.getElementById('live-open-game-menu')?.addEventListener('click',toggleMenu);
  const resume=document.querySelector('[data-console-resume]');if(resume)resume.onclick=closeMenu;
  const pause=document.querySelector('[data-console-pause]');if(pause)pause.onclick=()=>{const b=document.getElementById('pause-game');if(b&&!b.disabled)b.click();};
  const end=document.querySelector('[data-console-end]');if(end)end.onclick=()=>{closeMenu();const b=document.getElementById('end-game');if(b&&!b.disabled)b.click();};

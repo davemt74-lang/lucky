@@ -1,10 +1,10 @@
 'use strict';
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
+const {test}=require('node:test');
 const sandbox={window:{}};
 vm.runInNewContext(fs.readFileSync(path.resolve(__dirname,'../public/editor-timeline.js'),'utf8'),sandbox);
 const t=sandbox.window.LuckyTimeline;
-let checks=0;
-function check(name,run){run();checks++;console.log('PASS '+name);}
+function check(name,run){test('Timeline: '+name,{timeout:1000},run);}
 check('history begins with no undo or redo',()=>{const h=t.history();h.reset({clips:[1],layers:{}});assert.equal(h.canUndo,false);assert.equal(h.canRedo,false);});
 check('undo, redo and branching do not leak shared state',()=>{
  const h=t.history(10);const current={clips:[{title:'Original'}],layers:{titles:[]}};
@@ -28,4 +28,3 @@ check('peak extraction uses actual samples from both audio channels',()=>{
  const peaks=Array.from(t.peakSamples(audio,4));assert.equal(peaks.length,4);assert.ok(peaks[0]>=.39&&peaks[1]>=.79&&peaks[3]>=.24);
  assert.equal(t.peakSamples({numberOfChannels:0,length:0},4).length,0);
 });
-console.log('V5Q.29A timeline utility assertions:',checks,'/',checks);
