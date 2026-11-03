@@ -41,6 +41,7 @@ function renderPoster(array $r,bool $head):never {
  if($r['status']!=='ready')throw new DomainException('Video is not finished.',409);
  $path=LUCKY_ROOT.'/storage/renders/'.$r['id'].'.jpg';
  if(!is_file($path)||!($size=filesize($path)))throw new DomainException('Movie thumbnail is unavailable.',404);
+ releaseSessionLock();
  header('Content-Type: image/jpeg');header('Content-Length: '.$size);header('Cache-Control: private, no-store');
  header('X-Content-Type-Options: nosniff');if($head)exit;
  readfile($path);exit;
@@ -49,6 +50,8 @@ function renderDownload(array $r,bool $head,bool $inline=false):never {
  if($r['status']!=='ready')throw new DomainException('Video has not finished rendering.',409);
  $path=LUCKY_ROOT.'/storage/renders/'.$r['id'].'.mp4';
  if(!is_file($path)||($bytes=filesize($path))===false||$bytes<1)throw new DomainException('Rendered file not available.',404);
+ // Rendering/queue mutations stay locked; release only this validated read before media headers.
+ releaseSessionLock();
  $start=0;$end=$bytes-1;
  header('Content-Type: video/mp4');header('Content-Disposition: '.($inline?'inline':'attachment').'; filename="lucky-game-'.$r['id'].'.mp4"');header('Accept-Ranges: bytes');header('Cache-Control: private, no-store');
  if(isset($_SERVER['HTTP_RANGE'])){

@@ -35,6 +35,21 @@ function isAdmin():bool {return isset($_SESSION['admin_id']) && is_int($_SESSION
 function requireAdmin():void {if(!isAdmin())throw new DomainException('Administrator login required.',403);}
 function csrf():string {if(empty($_SESSION['csrf']))$_SESSION['csrf']=bin2hex(random_bytes(32));return $_SESSION['csrf'];}
 function assertCsrf():void {$provided=$_SERVER['HTTP_X_CSRF_TOKEN']??'';if(!is_string($provided)||!hash_equals(csrf(),$provided))throw new DomainException('Invalid security token. Refresh and try again.',403);}
+/** Finish required session writes before slow work; the remaining snapshot is read-only. */
+function releaseSessionLock():void {
+ if(session_status()!==PHP_SESSION_ACTIVE)return;
+ // PHP may return true even when the save handler fails. Do not start a remote
+ // request or media response if session persistence emitted a write warning.
+ $warned=false;
+ set_error_handler(static function()use(&$warned):bool{$warned=true;return true;},E_WARNING);
+ try{$closed=session_write_close();}
+ catch(Throwable $e){throw new RuntimeException('Unable to save and close the browser session.',0,$e);}
+ finally{restore_error_handler();}
+ if($warned||!$closed||session_status()===PHP_SESSION_ACTIVE)
+  throw new RuntimeException('Unable to save and close the browser session.');
+ // Keep the request's authenticated identity for audit/read operations. Never
+ // reopen here: a later response must not overwrite concurrent logout/state.
+}
 function jsonInput():array {
  if((int)($_SERVER['CONTENT_LENGTH']??0)>2000000)throw new DomainException('Request is too large.',413);
  $text=file_get_contents('php://input');$obj=json_decode($text?:'{}',true);

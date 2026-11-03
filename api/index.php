@@ -23,6 +23,7 @@ function streamTrack(PDO $db,string $id):never {
  $path=LUCKY_ROOT.'/storage/audio/'.$id.'.audio';
  if(!is_file($path))throw new DomainException('Audio file missing.',404);
  $size=filesize($path);$start=0;$end=$size-1;
+ releaseSessionLock();
  header_remove('Cache-Control');header('Cache-Control: private, max-age=600');header('Accept-Ranges: bytes');header('Content-Type: '.$r['mime']);
  if(isset($_SERVER['HTTP_RANGE'])){
   $range=$_SERVER['HTTP_RANGE'];
@@ -48,6 +49,7 @@ function streamPrizeVideo(string $id):never {
  }
  if($file==='')throw new DomainException('Prize video unavailable.',404);
  $size=(int)filesize($file);$start=0;$end=$size-1;
+ releaseSessionLock();
  header_remove('Cache-Control');header('Cache-Control: private, no-store');
  header('X-Content-Type-Options: nosniff');header('Content-Type: '.$mime);header('Accept-Ranges: bytes');
  if(isset($_SERVER['HTTP_RANGE'])){
@@ -69,6 +71,7 @@ function streamPrizeImage(PDO $db,string $id):never {
  $q=$db->prepare('SELECT mime,bytes FROM prize_images WHERE id=?');$q->execute([$id]);$r=$q->fetch();
  if(!$r)throw new DomainException('Image not found.',404);
  $path=LUCKY_ROOT.'/storage/images/'.$id.'.img';if(!is_file($path))throw new DomainException('Image missing.',404);
+ releaseSessionLock();
  header_remove('Cache-Control');header('Cache-Control: public, max-age=86400');header('Content-Type: '.$r['mime']);header('Content-Length: '.filesize($path));
  readfile($path);exit;
 }
@@ -77,6 +80,7 @@ try {
  $db=db();
  if($action==='game_art'&&$method==='GET'){
   $art=GameCatalog::artwork(strval($_GET['id']??''),strval($_GET['file']??''));
+  releaseSessionLock();
   header('Content-Type: '.$art['mime']);header('Content-Length: '.$art['bytes']);
   header('Cache-Control: public, max-age=86400, immutable');readfile($art['path']);exit;
  }
@@ -276,6 +280,7 @@ try {
  }
  if($action==='game_publisher_check'){
   $input=jsonInput();$game=GameCatalog::slug($input['game']??null);
+  releaseSessionLock();
   $updates=GamePublisherChannels::check($game);
   audit($db,'game.publisher_checked',null,['game'=>$game,'releases'=>count($updates['releases'])]);
   success(['updates'=>$updates]);
@@ -291,6 +296,7 @@ try {
  }
  if($action==='game_update_check'){
   // No background or automatic network access. The operator explicitly requested this check.
+  releaseSessionLock();
   $updates=CloudGameUpdates::check();
   audit($db,'game_updates.checked',null,['releaseCount'=>count($updates['releases'])]);
   success(['updates'=>$updates]);

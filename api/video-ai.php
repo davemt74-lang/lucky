@@ -24,6 +24,7 @@ try {
   $result=ClaudeVault::disconnect();audit($db,'video_ai.claude_removed');success(['claude'=>$result]);
  }
  if($action==='test'){
+  releaseSessionLock();
   $text=ClaudeBridge::ask('Return exactly the word READY.','Connection check.',32);
   audit($db,'video_ai.claude_tested');success(['connected'=>trim($text)!=='','claude'=>ClaudeVault::status()]);
  }
@@ -36,6 +37,7 @@ try {
   if(!$clip)throw new DomainException('Recording is not part of this game.',404);
   if(!in_array($clip['kind'],['video','audio'],true))throw new DomainException('Still photos have no scene or silence timing.',422);
   $file=LUCKY_ROOT.'/storage/claim-media/'.$id.'.bin';
+  releaseSessionLock();
   $signals=MediaIntelligence::analyze($id,$clip['kind'],$file,(int)$clip['duration_ms']);
   audit($db,'video_ai.media_analyzed',$session,['kind'=>$clip['kind'],'id'=>$id,'remote'=>false]);
   success(['id'=>$id,'signals'=>MediaIntelligence::promptSignals($signals),'localOnly'=>true]);
@@ -62,6 +64,9 @@ try {
   $now=time();if(($now-(int)($_SESSION['video_ai_last_request']??0))<4)throw new DomainException('Please wait a few seconds between AI plans.',429);
   $_SESSION['video_ai_last_request']=$now;
   $prompt=json_encode(['skill'=>$skill,'instruction'=>$instruction,'context'=>$context],JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
+  // Persist the four-second reservation while locked, then let other requests
+  // use this browser session during the external proposal request.
+  releaseSessionLock();
   $text=trim(ClaudeBridge::ask(VideoEditorSkills::systemPrompt($skill),$prompt));
   if(preg_match('/^```(?:json)?\s*(.*?)\s*```$/is',$text,$m))$text=$m[1];
   try{$response=json_decode($text,true,512,JSON_THROW_ON_ERROR);}catch(JsonException $e){throw new DomainException('Claude did not return a valid edit proposal. Try again.',502);}
