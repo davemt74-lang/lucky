@@ -182,6 +182,26 @@ try{
    ([DateTime]::UtcNow-[IO.File]::GetLastWriteTimeUtc($target)).TotalSeconds -lt 5) ('Same-origin atomic renewal '+$round+' advances the lease without changing bytes')
   Assert-G7APrivatePublication $target ('Same-origin atomic renewal '+$round+' preserves its private ACL for the next heartbeat')
  }
+ # Model the observed Windows PowerShell 5.1 Security-module autoload failure
+ # in this child scope only. The same unchanged production writer must renew
+ # using the native descriptor API without resolving the unavailable cmdlet.
+ & {
+  function Get-Acl {
+   [CmdletBinding()]param([string]$LiteralPath)
+   throw [System.Management.Automation.CommandNotFoundException]::new('Isolated Get-Acl autoload failure fixture.')
+  }
+  $unavailable=$false
+  try{Get-Acl -LiteralPath $target -ErrorAction Stop | Out-Null}
+  catch [System.Management.Automation.CommandNotFoundException]{$unavailable=$true}
+  Assert-G7A $unavailable 'Negative control reproduces an unavailable Get-Acl command before renewal'
+  $sameBytes=[IO.File]::ReadAllText($target)
+  [IO.File]::SetLastWriteTimeUtc($target,[DateTime]::UtcNow.AddMinutes(-2))
+  Write-HomeServerNetworkPublication $private '10.20.30.40'
+  Assert-G7A ([IO.File]::ReadAllText($target) -ceq $sameBytes -and
+   ([DateTime]::UtcNow-[IO.File]::GetLastWriteTimeUtc($target)).TotalSeconds -lt 5) 'Atomic renewal succeeds with the Security-module cmdlet unavailable'
+ }
+ Snapshot-G7APublication 'unavailable-get-acl-after-renewal' $target
+ Assert-G7APrivatePublication $target 'Direct native ACL access preserves exact owner, protection and rules after cmdlet-independent renewal'
  Assert-G7A (@(Get-ChildItem -LiteralPath $private -Filter 'homeserver-network-*.tmp').Count -eq 0) 'Successful atomic publication leaves no temporary stages'
  $saved=[IO.File]::ReadAllText($target)
  Reject-G7A {Write-HomeServerNetworkPublication $private '127.0.0.1'} 'Loopback address cannot be published as a phone origin'

@@ -92,7 +92,10 @@ function Write-HomeServerNetworkPublication([string]$Storage,[string]$LanAddress
   else{
    # A renewal may replace only a private regular publication owned by this
    # user. Unexpected ACLs/links are not adopted, repaired, or traversed.
-   $existing=Get-Acl -LiteralPath $target -ErrorAction Stop
+   # Use the built-in .NET Framework descriptor API, not Security-module
+   # autoloading: an inherited PowerShell 7 module path can break Get-Acl in
+   # this Windows PowerShell 5.1 child. All owner/protection/rule checks remain.
+   $existing=[IO.File]::GetAccessControl($target)
    $rules=@($existing.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier]))
    if(!$existing.AreAccessRulesProtected -or $existing.GetOwner([Security.Principal.SecurityIdentifier]).Value -cne $identity.Value -or
       @($rules | Where-Object {$_.AccessControlType -ne [Security.AccessControl.AccessControlType]::Allow -or
