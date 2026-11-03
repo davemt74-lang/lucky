@@ -92,6 +92,8 @@
   iceHealth=states.length?connected+' connected · '+checking+' negotiating':'No viewer peers';refresh();
  }
  async function loadTurn(){
+  // Legacy proof and embedded browser views may not render the admin relay panel.
+  if(!$('director-turn-urls'))return;
   try{
    const s=await request('turn_config');relayConfigured=!!s.enabled;
    $('director-turn-urls').value=(s.urls||[]).join('\n');$('director-turn-ttl').value=s.ttl||21600;
@@ -101,7 +103,7 @@
   }catch(e){$('director-turn-status').textContent='Relay settings unavailable: '+e.message;}
  }
  async function saveTurn(){
-  const button=$('director-turn-save');button.disabled=true;
+  const button=$('director-turn-save');if(!button)return;button.disabled=true;
   try{
    csrf=(await Lucky.getMe()).csrf;
    const settings=await request('turn_config',{urls:$('director-turn-urls').value,secret:$('director-turn-secret').value,
