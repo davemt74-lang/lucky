@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require __DIR__.'/../lib/Bootstrap.php';
 require_once __DIR__.'/../lib/DirectorBroadcast.php';
+require_once __DIR__.'/../lib/DirectorTurn.php';
 require_once __DIR__.'/../lib/SchemaGuard.php';
 headerSecurity();header('Referrer-Policy: no-referrer');header('X-Robots-Tag: noindex, nofollow');
 try{
@@ -10,16 +11,20 @@ try{
  $method=(string)($_SERVER['REQUEST_METHOD']??'GET');$action=(string)($_GET['action']??'');
  if(!in_array($method,['GET','POST'],true))throw new DomainException('Unsupported method.',405);
  $data=$method==='POST'?jsonInput():$_GET;
- if(in_array($action,['publish','host_list','answer','stop','show_link','host_status'],true)){
+ if(in_array($action,['publish','host_list','answer','stop','show_link','host_status','turn_config'],true)){
   requireAdmin();$host=(int)$_SESSION['admin_id'];
   if($method==='POST')assertCsrf();
+  if($action==='turn_config'&&$method==='GET')success(DirectorTurn::status());
+  if($action==='turn_config'&&$method==='POST'){
+   $settings=DirectorTurn::configure($data);audit($db,'camera_director.turn_settings');success($settings);
+  }
   if($action==='show_link'&&$method==='POST'){
    SchemaGuard::require($db,['director_show_channels'],'Permanent Live Show URL');
    $recording=(string)($data['recordingSession']??'');
    success(['showId'=>DirectorBroadcast::ensureShow($db,$recording,$host)]);
   }
   if($action==='host_status'&&$method==='GET')
-   success(DirectorBroadcast::hostStatus($db,(string)($data['recordingSession']??''),$host));
+   success(DirectorBroadcast::hostStatus($db,(string)($data['recordingSession']??''),$host)+['ice'=>DirectorTurn::ice()]);
   if($action==='publish'&&$method==='POST'){
    if(($data['consent']??false)!==true)throw new DomainException('Confirm explicit Program publishing consent.',403);
    $recording=(string)($data['recordingSession']??'');
@@ -27,7 +32,7 @@ try{
    $out=$recording!==''?
     DirectorBroadcast::startRecording($db,$recording,$host,(string)($data['visibility']??'private'),($data['public_ack']??false)===true):
     DirectorBroadcast::start($db,(string)($data['session']??''),(string)($data['claim']??''),$host,(string)($data['visibility']??'private'),($data['public_ack']??false)===true);
-   audit($db,'camera_director.publish',$recording!==''?$recording:(string)($data['session']??''),['broadcast'=>$out['id'],'visibility'=>$out['visibility'],'scope'=>$recording!==''?'recording':'proof']);success($out,201);
+   audit($db,'camera_director.publish',$recording!==''?$recording:(string)($data['session']??''),['broadcast'=>$out['id'],'visibility'=>$out['visibility'],'scope'=>$recording!==''?'recording':'proof']);success($out+['ice'=>DirectorTurn::ice()],201);
   }
   if($action==='host_list'&&$method==='GET')success(['offers'=>DirectorBroadcast::offersForHost($db,(string)($data['id']??''),$host)]);
   if($action==='answer'&&$method==='POST'){
@@ -45,7 +50,7 @@ try{
   $id=(string)($data['id']??'');$key=(string)($data['key']??'');
   // POST is supported for embedded game/TV viewers so the private invitation
   // never enters request URLs or access logs; legacy GET viewers remain valid.
-  if($action==='watch'&&in_array($method,['GET','POST'],true))success(DirectorBroadcast::watch($db,$id,$key));
+  if($action==='watch'&&in_array($method,['GET','POST'],true))success(DirectorBroadcast::watch($db,$id,$key)+['ice'=>DirectorTurn::ice()]);
   if($action==='offer'&&$method==='POST'){
    DirectorBroadcast::offer($db,$id,$key,(string)($data['viewer']??''),(string)($data['sdp']??''));success(['queued'=>true],201);
   }
