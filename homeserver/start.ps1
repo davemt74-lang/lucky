@@ -97,7 +97,9 @@ function Write-HomeServerNetworkPublication([string]$Storage,[string]$LanAddress
    if(!$existing.AreAccessRulesProtected -or $existing.GetOwner([Security.Principal.SecurityIdentifier]).Value -cne $identity.Value -or
       @($rules | Where-Object {$_.AccessControlType -ne [Security.AccessControl.AccessControlType]::Allow -or
        $_.IdentityReference.Value -notin @($identity.Value,$system.Value)}).Count -ne 0){throw 'Network publication ownership changed.'}
-   [IO.File]::Replace($temporary,$target,$null)
+   # PowerShell 5.1 binds $null to an empty string here. File.Replace needs a
+   # real CLR null backup path to retain atomic replacement without a backup.
+   [IO.File]::Replace($temporary,$target,[System.Management.Automation.Language.NullString]::Value)
   }
   $created=$false
  }finally{

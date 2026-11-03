@@ -99,7 +99,8 @@
         "tests/v5q32g5_homeserver_runtime_contract.php",
         "tests/setup_configuration_test.php",
         "tests/v5q32g7a_installation_urls.php",
-        "tests/installation_urls_test.js"
+        "tests/installation_urls_test.js",
+        "tests/browser_fixture_isolation_test.py"
       ]
     },
     "database": {
