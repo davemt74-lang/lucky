@@ -24,8 +24,16 @@ function Record([string]$message){Add-Content -Path $logFile -Value ("$(Get-Date
 $mutex=New-Object System.Threading.Mutex($false,'Local\LuckyGameHubHomeServer')
 $held=$false
 $processes=@()
+$dbProc=$null
+$phpProc=$null
+$caddyProc=$null
+$renderProc=$null
+$cgiGeneration=0
+$cgiClock=[Diagnostics.Stopwatch]::StartNew()
+$cgiRestarts=New-Object 'System.Collections.Generic.Queue[double]'
 try{
- $held=$mutex.WaitOne(0,$false)
+ try{$held=$mutex.WaitOne(0,$false)}
+ catch [Threading.AbandonedMutexException]{$held=$true;Record 'Previous launcher did not release its mutex; checking local process ownership before startup.'}
  if(!$held){
   if(!$NoBrowser -and !$Smoke){Start-Process $startupAddress}
   exit 0
@@ -73,13 +81,116 @@ log-error=$($logs.Replace('\','/'))/mariadb-error.log
   & $initializer "--datadir=$dbdata" "--password=$rootSecret" "--port=3307"
   if($LASTEXITCODE -ne 0){throw "MariaDB initialization failed: $LASTEXITCODE"}
  }
- function Launch([string]$binary,[string[]]$arguments,[string]$name){
+ function Launch([string]$binary,[string[]]$arguments,[string]$name,[switch]$AllowStartFailure){
   Record ("Starting "+$name)
   $quoted=@($arguments|ForEach-Object {if($_ -match '[\s"]'){'"'+($_ -replace '"','\"')+'"'}else{$_}})
   $slug=($name -replace '[^A-Za-z0-9-]','-').ToLowerInvariant()
-  $p=Start-Process -FilePath $binary -ArgumentList ($quoted -join ' ') -PassThru -WindowStyle Hidden -RedirectStandardError (Join-Path $logs "$slug.stderr.log") -RedirectStandardOutput (Join-Path $logs "$slug.stdout.log")
+  try{$p=Start-Process -FilePath $binary -ArgumentList ($quoted -join ' ') -PassThru -WindowStyle Hidden -RedirectStandardError (Join-Path $logs "$slug.stderr.log") -RedirectStandardOutput (Join-Path $logs "$slug.stdout.log")}
+  catch{if($AllowStartFailure){return $null};throw}
   $script:processes+=@($p)
+  # Keep the native handle attached to this exact child, including after exit;
+  # cleanup must not resolve a subsequently reused numeric PID.
+  $null=$p.Handle
+  Record ("Process started name="+$name+" pid="+$p.Id)
   return $p
+ }
+ function PruneExitedProcesses{
+  $live=@()
+  foreach($owned in $script:processes){
+   # Foundation failure is handled in finally. The current CGI handle remains
+   # usable until RetireExitedCgi observes its exit and clears the reference.
+   $retained=[object]::ReferenceEquals($owned,$script:dbProc) -or [object]::ReferenceEquals($owned,$script:caddyProc) -or [object]::ReferenceEquals($owned,$script:phpProc)
+   if($owned.HasExited -and !$retained){
+    if([object]::ReferenceEquals($owned,$script:renderProc)){$script:renderProc=$null}
+    $owned.Dispose()
+   }else{$live+=@($owned)}
+  }
+  $script:processes=$live
+ }
+ function CgiListeners{
+  # Query failures are not proof that the port is free. Never adopt or stop a
+  # listener found by port number: only Launch-created Process objects are ours.
+  return @(Get-NetTCPConnection -State Listen -ErrorAction Stop | Where-Object {$_.LocalPort -eq 9017})
+ }
+ function AssertCgiPortFree{
+  $listeners=@(CgiListeners)
+  if($listeners.Count -gt 0){
+   $owners=(@($listeners | Select-Object -ExpandProperty OwningProcess -Unique) -join ',')
+   Record ("CGI port conflict port=9017 owner_pid="+$owners)
+   throw 'PHP FastCGI port 9017 is already owned by another process. Close that application before starting Lucky.'
+  }
+ }
+ function StartOwnedCgi([string]$reason){
+  if($null -ne $script:phpProc){throw 'The previous CGI process must exit before a replacement can start.'}
+  AssertCgiPortFree
+  $script:cgiGeneration++
+  # Start-Process has no -Environment switch in Windows PowerShell 5.1. Save
+  # and restore only this launcher's process environment around the child spawn.
+  $previousMax=[Environment]::GetEnvironmentVariable('PHP_FCGI_MAX_REQUESTS','Process')
+  $previousChildren=[Environment]::GetEnvironmentVariable('PHP_FCGI_CHILDREN','Process')
+  try{
+   [Environment]::SetEnvironmentVariable('PHP_FCGI_MAX_REQUESTS','0','Process')
+   [Environment]::SetEnvironmentVariable('PHP_FCGI_CHILDREN','0','Process')
+   $script:phpProc=Launch $phpcgi @('-c',$phpIni,'-b','127.0.0.1:9017') 'PHP FastCGI' -AllowStartFailure
+   if($null -eq $script:phpProc){
+    Record ("CGI launch failed generation="+$script:cgiGeneration+" reason="+$reason)
+    return $false
+   }
+  }finally{
+   [Environment]::SetEnvironmentVariable('PHP_FCGI_MAX_REQUESTS',$previousMax,'Process')
+   [Environment]::SetEnvironmentVariable('PHP_FCGI_CHILDREN',$previousChildren,'Process')
+  }
+  Record ("CGI starting pid="+$script:phpProc.Id+" generation="+$script:cgiGeneration+" reason="+$reason)
+  $deadline=$script:cgiClock.Elapsed.TotalSeconds+10
+  do{
+   if($script:phpProc.HasExited){return $false}
+   $listeners=@(CgiListeners)
+   $foreign=@($listeners | Where-Object {$_.OwningProcess -ne $script:phpProc.Id -or $_.LocalAddress -ne '127.0.0.1'})
+   if($foreign.Count -gt 0){
+    Record ("CGI listener ownership mismatch expected_pid="+$script:phpProc.Id+" generation="+$script:cgiGeneration)
+    throw 'PHP FastCGI listener ownership could not be verified. No other listener will be adopted or stopped.'
+   }
+   if($listeners.Count -gt 0 -and !$script:phpProc.HasExited){
+    Record ("CGI ready pid="+$script:phpProc.Id+" generation="+$script:cgiGeneration+" reason="+$reason)
+    return $true
+   }
+   Start-Sleep -Milliseconds 100
+  }while($script:cgiClock.Elapsed.TotalSeconds -lt $deadline)
+  if($script:phpProc.HasExited){return $false}
+  # A living, unbound child is a startup failure, not permission to launch a
+  # second worker. HTTP responsiveness is never a recovery/kill criterion.
+  throw 'PHP FastCGI stayed alive but did not bind its owned listener during startup.'
+ }
+ function RetireExitedCgi{
+  if($null -ne $script:phpProc){
+   if(!$script:phpProc.HasExited){throw 'Refusing to replace a living PHP FastCGI worker.'}
+   Record ("CGI exited pid="+$script:phpProc.Id+" generation="+$script:cgiGeneration+" code="+$script:phpProc.ExitCode)
+   $script:phpProc=$null
+  }
+  PruneExitedProcesses
+ }
+ function RecoverOwnedCgi{
+  if($null -ne $script:phpProc -and !$script:phpProc.HasExited){return}
+  RetireExitedCgi
+  while($true){
+   $now=$script:cgiClock.Elapsed.TotalSeconds
+   while($script:cgiRestarts.Count -gt 0 -and $script:cgiRestarts.Peek() -le ($now-60)){$null=$script:cgiRestarts.Dequeue()}
+   if($script:cgiRestarts.Count -ge 3){
+    Record 'CGI recovery exhausted attempts=3 window_seconds=60'
+    throw 'PHP FastCGI repeatedly stopped. Recovery limit reached; check the local logs and restart from the desktop shortcut.'
+   }
+   # Failed Start-Process calls consume the same budget as short-lived workers.
+   $script:cgiRestarts.Enqueue($now)
+   $attempt=$script:cgiRestarts.Count
+   $delay=@(1000,2000,4000)[$attempt-1]
+   Record ("CGI restart attempt="+$attempt+" backoff_ms="+$delay)
+   Start-Sleep -Milliseconds $delay
+   if($dbProc.HasExited -or ($null -ne $caddyProc -and $caddyProc.HasExited)){
+    throw 'A HomeServer foundation process stopped during CGI recovery; restart from the desktop shortcut.'
+   }
+   if(StartOwnedCgi 'replacement'){return}
+   RetireExitedCgi
+  }
  }
  $dbProc=Launch $mariadb @("--defaults-file=$dbconfig","--console") 'MariaDB'
  $dbAdmin=Join-Path $runtime 'mariadb\bin\mariadb-admin.exe'
@@ -129,7 +240,7 @@ date.timezone=UTC
  $env:LUCKY_DB_ROOT_PASSWORD=''
  $env:LUCKY_DB_APP_PASSWORD=''
  $env:LUCKY_BOOTSTRAP=''
- $phpProc=Launch $phpcgi @('-c',$phpIni,'-b','127.0.0.1:9017') 'PHP FastCGI'
+ if(!(StartOwnedCgi 'initial')){throw 'PHP FastCGI exited or failed to launch during startup.'}
  # Caddy internal CA is generated locally and stored with private user data.
  $env:XDG_DATA_HOME=Join-Path $data 'caddy-data'
  $env:XDG_CONFIG_HOME=Join-Path $data 'caddy-config'
@@ -138,16 +249,27 @@ date.timezone=UTC
   Select-Object -ExpandProperty IPAddress -First 1
  $webRoot=$app.Replace('\','/')
  $privateRoutes='@private path /storage/* /lib/* /homeserver/* /bin/* /tests/* /docs/* /.github/* /first-admin.php'
- $common="root * `"$webRoot`"`n  @private path /storage/* /lib/* /homeserver/* /bin/* /tests/* /docs/* /.github/*`n  respond @private 403`n  php_fastcgi 127.0.0.1:9017`n  file_server"
+ # A supervisor replacement must never replay an uncertain game/upload POST.
+ $common="root * `"$webRoot`"`n  @private path /storage/* /lib/* /homeserver/* /bin/* /tests/* /docs/* /.github/*`n  respond @private 403`n  php_fastcgi 127.0.0.1:9017 {`n    lb_retries 0`n    lb_try_duration 0`n  }`n  file_server"
  $caddyfile=Join-Path $data 'Caddyfile'
  $spec="{`n  admin off`n  auto_https disable_redirects`n  skip_install_trust`n}`nhttp://127.0.0.1:8833 {`n  $common`n}`n"
  if($ip){$spec+="https://$($ip):8843 {`n  tls internal`n  @setup path /first-admin.php`n  respond @setup 403`n  $common`n}`n"}
  [IO.File]::WriteAllText($caddyfile,$spec,(New-Object System.Text.UTF8Encoding($false)))
+ # Redirect native stderr to a file: a successful Caddy validation writes logs
+ # there, which PowerShell 5.1 must not misinterpret as a terminating error.
+ $validation=Launch $caddy @('validate','--config',$caddyfile,'--adapter','caddyfile') 'Caddy Validation'
+ if(!$validation.WaitForExit(15000)){throw 'Local web configuration validation timed out.'}
+ if($validation.ExitCode -ne 0){throw 'Generated local web configuration failed Caddy validation. Check caddy-validation.stderr.log.'}
+ Record 'Caddy configuration validated.'
+ PruneExitedProcesses
  $caddyProc=Launch $caddy @('run','--config',$caddyfile,'--adapter','caddyfile') 'Caddy HTTPS'
+ # Preserve the initial application-page startup check. It is not a recurring
+ # health check: after initial readiness, a busy living CGI is never restarted.
  $ready=$false
  for($i=0;$i -lt 35;$i++){
   Start-Sleep -Milliseconds 500
-  if($phpProc.HasExited -or $caddyProc.HasExited){throw 'Local web server exited during startup.'}
+  if($dbProc.HasExited -or $caddyProc.HasExited){throw 'Local web server exited during startup.'}
+  if($phpProc.HasExited){RecoverOwnedCgi}
   try{
    $response=Invoke-WebRequest -Uri $startupAddress -UseBasicParsing -TimeoutSec 3
    if($response.StatusCode -eq 200 -or $response.StatusCode -eq 302){$ready=$true;break}
@@ -163,20 +285,30 @@ date.timezone=UTC
  $renderProc=$null
  $nextRender=[DateTime]::UtcNow.AddSeconds(5)
  while($true){
-  Start-Sleep -Seconds 3
-  if($dbProc.HasExited -or $phpProc.HasExited -or $caddyProc.HasExited){throw 'A HomeServer process stopped; restart from the desktop shortcut.'}
+  Start-Sleep -Milliseconds 500
+  if($dbProc.HasExited -or $caddyProc.HasExited){throw 'A HomeServer foundation process stopped; restart from the desktop shortcut.'}
+  if($phpProc.HasExited){RecoverOwnedCgi}
   if([DateTime]::UtcNow -ge $nextRender -and ($null -eq $renderProc -or $renderProc.HasExited)){
-   $processes=@($processes | Where-Object {-not $_.HasExited})
+   $renderProc=$null
+   PruneExitedProcesses
    $renderProc=Launch $php @('-c',$phpIni,$renderWorker) 'Render Worker'
    $nextRender=[DateTime]::UtcNow.AddSeconds(15)
   }
  }
 }catch{
  Record ("HomeServer error: "+$_.Exception.Message)
- Write-Error $_
+ Write-Error -ErrorRecord $_ -ErrorAction Continue
  exit 1
 }finally{
- foreach($proc in $processes){try{if(!$proc.HasExited){Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue}}catch{}}
- if($held){$mutex.ReleaseMutex()}
- $mutex.Dispose()
+ # Retained Process objects identify only children this launcher created. Never
+ # rediscover a PID by executable name or port, and never kill a foreign listener.
+ try{
+  foreach($proc in $processes){
+   try{if(!$proc.HasExited){$proc.Kill();$null=$proc.WaitForExit(3000)}}catch{}
+   finally{$proc.Dispose()}
+  }
+ }finally{
+  if($held){$mutex.ReleaseMutex()}
+  $mutex.Dispose()
+ }
 }

@@ -4,15 +4,25 @@ The current build identity is defined in [release.json](release.json). Deployed
 builds display that version and the exact source commit in the application footer;
 a source checkout is explicitly labeled as a source build.
 
-## Current maintenance release — V5Q32G4
+## Current maintenance release — V5Q32G5
 
-Section D of the codebase audit gives the educational/subdomain and Windows
-HomeServer products one shared installation/upgrade schema routine. Both fresh
-installers and both upgrade paths now apply the same fixed migration catalog,
-including phone permissions, permanent recording Show URLs, Party Studio and
-costume actions. Known missing columns are added without resetting existing
-values. A database-scoped lock prevents concurrent schema upgrades; incomplete
-or incompatible schema is not reported as a successful upgrade.
+Section E of the codebase audit hardens the Windows HomeServer supervisor.
+Every PHP FastCGI launch explicitly disables request-count recycling. If that
+owned PHP process exits, the supervisor attempts a bounded replacement without
+restarting MariaDB or Caddy, rerunning migrations, or replaying an interrupted
+request. A busy, living PHP worker is not treated as a crash. Repeated worker
+failure stops with a diagnostic and cleans up only this launcher's processes.
+
+Windows certification now runs the installed launcher through Windows PowerShell
+5.1, as the actual desktop shortcut does, from an installation path containing
+spaces. Native behavioral tests cover more than 500 requests, worker exit,
+long-running requests, uncertain write outcomes, unrelated listeners and recovery
+budget exhaustion. These are release gates, not a claim of physical-device or
+complete offline certification; consult the exact commit's workflow results.
+
+Section D's shared schema routine remains included. Both products' fresh
+installers and upgrade paths use the same fixed migration catalog and additive
+repairs without resetting existing values.
 
 The products still have independent databases, accounts and configuration. This
 release aligns their common foundation; it does not merge their customers, add
@@ -33,6 +43,8 @@ uploading this release.** HomeServer applies the same schema checks and additive
 repairs on its next startup. Back up the existing database and storage first.
 
 - [One-upload/one-extract deployment guide](docs/HOSTGATOR_DIRECT_DEPLOY.md)
+- [Section E scope, native worker checks and remaining limits](docs/V5Q32G5_AUDIT_E.md)
+- [HomeServer delivery status and physical-device acceptance](docs/HOMESERVER_OFFLINE.md)
 - [Section D scope, migration matrix and remaining limits](docs/V5Q32G4_AUDIT_D.md)
 - [Section C scope, concurrency tests and hosting limits](docs/V5Q32G3_AUDIT_C.md)
 - [Section B scope, regression tests and field checks](docs/V5Q32G2_AUDIT_B.md)

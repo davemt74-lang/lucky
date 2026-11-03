@@ -64,11 +64,17 @@ jobs:
         run: |
           $release=Join-Path $env:RUNNER_TEMP 'lucky-homeserver-output'
           $exe=Join-Path $release $env:LUCKY_INSTALLER_NAME
-          $installation=Join-Path $env:RUNNER_TEMP 'LuckyHomeServerInstalled'
-          $proc=Start-Process -FilePath $exe -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/TASKS=""',"/DIR=$installation") -Wait -PassThru
+          $installation=Join-Path $env:RUNNER_TEMP 'Lucky HomeServer Installed'
+          $proc=Start-Process -FilePath $exe -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/TASKS=""',"/DIR=`"$installation`"") -Wait -PassThru
           if($proc.ExitCode -ne 0){throw "EXE installation failed: $($proc.ExitCode)"}
           $start=Join-Path $installation 'homeserver\start.ps1'
           if(!(Test-Path $start)){throw 'Installer did not extract launcher'}
+          if((Get-FileHash $start -Algorithm SHA256).Hash -ne (Get-FileHash (Join-Path (Get-Location).Path 'homeserver\start.ps1') -Algorithm SHA256).Hash){throw 'Installed launcher differs from reviewed source'}
+          # The installed shortcuts launch Windows PowerShell 5.1, not pwsh.
+          $windowsPowerShell=Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe'
+          if(!(Test-Path -LiteralPath $windowsPowerShell)){throw 'Windows PowerShell runtime missing'}
+          & $windowsPowerShell -NoProfile -NonInteractive -Command 'if($PSVersionTable.PSVersion.Major -ne 5 -or $PSVersionTable.PSVersion.Minor -ne 1){throw "Expected Windows PowerShell 5.1"}; Write-Output "WINDOWS_POWERSHELL_51_PASS"'
+          if($LASTEXITCODE -ne 0){throw 'Installed launcher shell certification failed'}
           # Cloud ZIP and Windows EXE originate from identical tracked application sources.
           $application=Join-Path $installation 'app'
           $source=(Get-Location).Path
@@ -89,9 +95,10 @@ jobs:
           if($LASTEXITCODE -ne 0 -or $build.version -cne $env:LUCKY_RELEASE_VERSION -or $build.commit -cne $env:GITHUB_SHA -or $build.tree -cne $tree){throw 'Installed application build identity mismatch'}
           Write-Host 'INSTALLED_BUILD_IDENTITY_PASS'
           try {
-            $out=& $start -Smoke -NoBrowser 2>&1 | Out-String
+            $out=& $windowsPowerShell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $start -Smoke -NoBrowser 2>&1 | Out-String
+            $smokeExit=$LASTEXITCODE
             Write-Host $out
-            if($out -notmatch 'HOMESERVER_SMOKE_OK'){throw 'Local MariaDB/PHP/Caddy smoke failed'}
+            if($smokeExit -ne 0 -or $out -notmatch 'HOMESERVER_SMOKE_OK'){throw 'Local MariaDB/PHP/Caddy smoke failed'}
           } catch {
             Write-Host ('SMOKE ERROR: '+$_.Exception.Message)
             $logDir=Join-Path $env:LOCALAPPDATA 'LuckyGameHub\logs'
@@ -113,9 +120,10 @@ jobs:
           if(!(Test-Path (Join-Path $data 'caddy-data'))){throw 'Internal LAN certificate state missing'}
           # All mutable data survives another startup; no first-run reinit.
           try {
-            $out=& $start -Smoke -NoBrowser 2>&1 | Out-String
+            $out=& $windowsPowerShell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $start -Smoke -NoBrowser 2>&1 | Out-String
+            $smokeExit=$LASTEXITCODE
             Write-Host $out
-            if($out -notmatch 'HOMESERVER_SMOKE_OK'){throw 'HomeServer did not recover after restart'}
+            if($smokeExit -ne 0 -or $out -notmatch 'HOMESERVER_SMOKE_OK'){throw 'HomeServer did not recover after restart'}
           } catch {
             Write-Host ('RESTART ERROR: '+$_.Exception.Message)
             $logDir=Join-Path $env:LOCALAPPDATA 'LuckyGameHub\logs'
@@ -132,7 +140,7 @@ jobs:
       - name: Certify installed Windows ZIP packages and isolated recovery
         shell: pwsh
         run: |
-          $installation=Join-Path $env:RUNNER_TEMP 'LuckyHomeServerInstalled'
+          $installation=Join-Path $env:RUNNER_TEMP 'Lucky HomeServer Installed'
           $php=Join-Path $installation 'runtime\php\php.exe'
           $ini=Join-Path $env:LOCALAPPDATA 'LuckyGameHub\php.ini'
           $test=Join-Path $installation 'app\tests\v5q23a_activation_recovery.php'
@@ -156,6 +164,21 @@ jobs:
           & $php -c $ini -d display_errors=1 -d log_errors=0 $exportTest
           if($LASTEXITCODE -ne 0){throw 'Bundled Windows multicamera FFmpeg render failed'}
           Write-Host 'WINDOWS_MULTICAMERA_MP4_CERTIFIED'
+      - name: Certify native worker longevity, bounded recovery and no write replay
+        shell: pwsh
+        run: |
+          $installation=Join-Path $env:RUNNER_TEMP 'Lucky HomeServer Installed'
+          $evidence=Join-Path $env:RUNNER_TEMP 'lucky-homeserver-runtime-evidence'
+          & .\tests\homeserver_runtime_windows.ps1 -Installation $installation -EvidenceDir $evidence
+          if($LASTEXITCODE -ne 0){throw 'Native HomeServer worker recovery certification failed'}
+      - name: Preserve native worker certification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lucky-homeserver-runtime-evidence-${{ steps.release.outputs.version }}
+          path: ${{ runner.temp }}/lucky-homeserver-runtime-evidence/
+          if-no-files-found: warn
+          retention-days: 14
       - name: Upload Windows installer and verification manifest
         uses: actions/upload-artifact@v4
         with:
