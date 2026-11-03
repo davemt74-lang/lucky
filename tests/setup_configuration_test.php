@@ -20,6 +20,22 @@ function setupConfigEntries(string $directory):array {
 function setupConfigPathKey(string $path):string {
  return PHP_OS_FAMILY==='Windows'?strtolower(str_replace('\\','/',$path)):$path;
 }
+/** Existing-file identity for read observations; never used to authorize cleanup. */
+function setupConfigReadEvidence(string $expected,array $reads):array {
+ $expectedReal=realpath($expected);
+ $expectedRegular=$expectedReal!==false&&is_file($expected)&&!is_link($expected);
+ $observations=[];$matched=false;
+ foreach($reads as $read){
+  $path=$read['path'];$resolved=realpath($path);
+  $regular=$resolved!==false&&is_file($path)&&!is_link($path);
+  $canonicalMatch=$expectedRegular&&$regular&&setupConfigPathKey($expectedReal)===setupConfigPathKey($resolved);
+  $observations[]=['resolved'=>$resolved!==false,'regular'=>$regular,
+   'same_spelling'=>setupConfigPathKey($expected)===setupConfigPathKey($path),'same_canonical_file'=>$canonicalMatch];
+  $matched=$matched||$canonicalMatch;
+ }
+ return ['expected_resolved'=>$expectedReal!==false,'expected_regular'=>$expectedRegular,
+  'read_count'=>count($reads),'matched'=>$matched,'observations'=>$observations];
+}
 function setupConfigRemove(string $path,string $root):void {
  $pathKey=setupConfigPathKey($path);$rootKey=setupConfigPathKey($root);
  if($pathKey!==$rootKey&&!str_starts_with($pathKey,$rootKey.'/'))throw new RuntimeException('Unsafe fixture cleanup.');
@@ -123,6 +139,16 @@ try{
  setupConfigCheck(!SetupConfiguration::exists($directory),'An empty private storage directory is not already configured');
  setupConfigThrows(static fn()=>SetupConfiguration::prepare($directory,$settings),'Preparing configuration without the actual directory lock is refused');
  setupConfigCheck(!SetupConfiguration::exists($directory),'An unlocked attempt creates no live configuration');
+ $readControl=$directory.'/read-control';$differentControl=$directory.'/different-read-control';
+ file_put_contents($readControl,'known-existing-file');file_put_contents($differentControl,'different-existing-file');
+ setupConfigCheck(setupConfigReadEvidence($readControl,[['path'=>$directory.'/./read-control']])['matched'],
+  'Parser-observation comparison resolves alternate spellings of the same existing regular file');
+ setupConfigCheck(!setupConfigReadEvidence($readControl,[])['matched'],'An empty read log never proves parser execution');
+ setupConfigCheck(!setupConfigReadEvidence($directory.'/missing',[['path'=>$directory.'/also-missing']])['matched'],
+  'Two failed realpath lookups never compare as a matching read');
+ setupConfigCheck(!setupConfigReadEvidence($readControl,[['path'=>$differentControl]])['matched'],
+  'A read of a different existing file never satisfies the intended parser observation');
+ unlink($readControl);unlink($differentControl);
  $callbackResult=SetupConfiguration::withLock($directory,static fn():string=>'lock-callback-return');
  setupConfigCheck($callbackResult==='lock-callback-return','The real directory lock forwards the callback result');
  $priorUmask=umask();
@@ -342,14 +368,20 @@ try{
   }else{file_put_contents($attempt,$kind==='corrupt-json'?'{broken':'<?php file_put_contents('.var_export($marker,true).',"executed"); return [];');chmod($attempt,0600);}
   $before=is_link($attempt)?readlink($attempt):(is_file($attempt)?file_get_contents($attempt):'directory');
   SetupConfigFaults::reset();
-  setupConfigThrows(static fn()=>SetupConfigFaults::withLock($directory,static fn()=>SetupConfigFaults::prepare($directory,$settings)),
+  $rejection=setupConfigThrows(static fn()=>SetupConfigFaults::withLock($directory,static fn()=>SetupConfigFaults::prepare($directory,$settings)),
    $kind.' attempt identity is rejected rather than executed, replaced or silently rebound');
   $after=is_link($attempt)?readlink($attempt):(is_file($attempt)?file_get_contents($attempt):'directory');
   setupConfigCheck($after===$before&&!file_exists($marker)&&!SetupConfiguration::exists($directory),
    $kind.' unsafe identity remains untouched and no live config is created');
-  if(in_array($kind,['corrupt-json','executable-php'],true))setupConfigCheck(in_array(setupConfigPathKey($attempt),
-   array_map('setupConfigPathKey',array_column(SetupConfigFaults::$reads,'path')),true),
-   $kind.' is actually read by the nonexecuting parser, not merely rejected by file permissions');
+  if(in_array($kind,['corrupt-json','executable-php'],true)){
+   $readEvidence=setupConfigReadEvidence($attempt,SetupConfigFaults::$reads);
+   if(!$readEvidence['matched'])echo 'SETUP_READ_DIAGNOSTIC '.json_encode(['case'=>$kind,'exception_class'=>get_class($rejection)]+
+    $readEvidence,JSON_THROW_ON_ERROR)."\n";
+   setupConfigCheck($readEvidence['expected_resolved']&&$readEvidence['expected_regular'],
+    $kind.' parser fixture resolves to an existing non-symlink regular file');
+   setupConfigCheck($readEvidence['matched'],
+    $kind.' is actually read by the nonexecuting parser, not merely rejected by file permissions');
+  }
  }
 
  $directory=$fixture('bounded interprocess lock');$ready=$directory.'/child-ready';$pipes=[];
