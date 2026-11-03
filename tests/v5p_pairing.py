@@ -1,7 +1,7 @@
 """Mocked-browser acceptance: UI and controller transport. No real MySQL/HTTPS connectivity."""
 from pathlib import Path
 import subprocess,re,asyncio,json,shutil,tempfile
-from playwright.async_api import async_playwright
+from contextlib import contextmanager
 ROOT=Path(__file__).resolve().parents[1]
 CSS='\n'.join((ROOT/'public'/n).read_text() for n in ('style.css','platform.css'))
 ID='a'*32;SECRET='b'*64;VIEW='c'*48
@@ -28,9 +28,8 @@ return new Response(JSON.stringify(data),{status,headers:{'Content-Type':'applic
 };
 </script>'''
 
-def php_page(name,session=False):
- if not re.fullmatch(r'[a-z][a-z0-9-]*',name):
-  raise ValueError('Invalid PHP fixture page')
+@contextmanager
+def isolated_page_root():
  # Render the current application, but never create/remove an installed
  # checkout's configuration or let a fixture discover real database secrets.
  with tempfile.TemporaryDirectory(prefix='lucky-browser-page-') as temporary:
@@ -41,7 +40,23 @@ def php_page(name,session=False):
   for metadata in ('release.json','build-info.json'):
    if (ROOT/metadata).is_file():shutil.copy2(ROOT/metadata,fixture/metadata)
   (fixture/'storage').mkdir()
-  (fixture/'storage/config.php').write_text('<?php throw new RuntimeException("Browser fixture has no database.");',encoding='utf-8')
+  # Current page headers read deployment metadata without using the database.
+  # Permit that read, but make actual Bootstrap db() fail while constructing its
+  # DSN, before PDO can reach any real or supposedly "unreachable" database.
+  (fixture/'storage/config.php').write_text('''<?php return [
+   'deployment'=>'cloud',
+   'db_host'=>new class {public function __toString():string {
+    throw new RuntimeException('Browser fixture database access is disabled.');
+   }},
+   'db_port'=>1,'db_name'=>'fixture_no_database',
+   'db_user'=>'fixture_no_database','db_pass'=>'fixture_no_database'
+  ];''',encoding='utf-8')
+  yield fixture
+
+def php_page(name,session=False):
+ if not re.fullmatch(r'[a-z][a-z0-9-]*',name):
+  raise ValueError('Invalid PHP fixture page')
+ with isolated_page_root() as fixture:
   prefix='$_GET=["session"=>"'+ID+'","token"=>"'+VIEW+'"]; ' if name=='display' else ''
   page_path=json.dumps(str(fixture/(name+'.php')))
   command=f'define("LUCKY_TESTING",true); $_SESSION=["admin_id"=>1]; {prefix} include {page_path};'
@@ -56,6 +71,7 @@ def make_html(name):
  return re.sub(r'<script src="([^"]+)" defer></script>',lambda m:'<script>'+(ROOT/m.group(1).split('?',1)[0]).read_text().replace('</script','<\\/script')+'</script>',raw)
 
 async def main():
+ from playwright.async_api import async_playwright
  checks=[]
  def check(msg,got):checks.append((msg,bool(got)))
  async with async_playwright() as pw:

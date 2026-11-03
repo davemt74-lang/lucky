@@ -16,11 +16,120 @@ $phpcgi=Join-Path $runtime 'php\php-cgi.exe'
 $mariadb=Join-Path $runtime 'mariadb\bin\mariadbd.exe'
 $caddy=Join-Path $runtime 'caddy.exe'
 $startupAddress='http://127.0.0.1:8833/first-admin.php'
-if(!(Test-Path $php) -or !(Test-Path $phpcgi) -or !(Test-Path $mariadb) -or !(Test-Path $caddy)){throw 'Bundled HomeServer runtime is incomplete.'}
 foreach($path in @($data,$storage,$dbdata,$logs,$state)){New-Item -ItemType Directory -Force -Path $path | Out-Null}
 $logFile=Join-Path $logs 'launcher.log'
 $env:PATH=(Join-Path $runtime 'ffmpeg\bin')+';'+(Join-Path $runtime 'mariadb\bin')+';'+$env:PATH
 function Record([string]$message){Add-Content -Path $logFile -Value ("$(Get-Date -Format o) "+$message)}
+function Test-HomeServerPrivateIPv4([string]$Address){
+ # IPAddress.TryParse alone accepts shorthand, octal and other noncanonical
+ # forms. Only a literal, canonical RFC1918 IPv4 address can become a URL/bind.
+ if($Address -cnotmatch '\A(?:0|[1-9][0-9]{0,2})(?:\.(?:0|[1-9][0-9]{0,2})){3}\z'){return $false}
+ $parts=@($Address.Split('.') | ForEach-Object {[int]$_})
+ if(@($parts | Where-Object {$_ -gt 255}).Count -ne 0){return $false}
+ return $parts[0] -eq 10 -or ($parts[0] -eq 172 -and $parts[1] -ge 16 -and $parts[1] -le 31) -or
+  ($parts[0] -eq 192 -and $parts[1] -eq 168)
+}
+function Select-HomeServerLanInterface([object[]]$Addresses){
+ foreach($entry in $Addresses){
+  if((Test-HomeServerPrivateIPv4 ([string]$entry.IPAddress)) -and $entry.AddressState -eq 'Preferred' -and
+     [int]$entry.InterfaceIndex -gt 0 -and $entry.InterfaceAlias -notmatch 'Loopback|vEthernet|Virtual|Tailscale|VPN'){
+   return $entry
+  }
+ }
+ return $null
+}
+function New-HomeServerCaddyConfiguration([string]$WebRoot,[string]$LanAddress){
+ if([string]::IsNullOrWhiteSpace($WebRoot) -or $WebRoot -match '[\x00-\x1f"]'){throw 'Unsafe local web root.'}
+ if($LanAddress -ne '' -and !(Test-HomeServerPrivateIPv4 $LanAddress)){throw 'Invalid private LAN address.'}
+ # Site addresses match Host headers; explicit bind restricts the actual
+ # listening sockets. Never expose the cleartext desktop site on the LAN.
+ # A supervisor replacement must never replay an uncertain game/upload POST.
+ $common="root * `"$WebRoot`"`n  @private path /storage/* /lib/* /homeserver/* /bin/* /tests/* /docs/* /.github/*`n  respond @private 403`n  php_fastcgi 127.0.0.1:9017 {`n    lb_retries 0`n    lb_try_duration 0`n  }`n  file_server"
+ $spec="{`n  admin off`n  auto_https disable_redirects`n  skip_install_trust`n}`nhttp://127.0.0.1:8833 {`n  bind 127.0.0.1`n  $common`n}`n"
+ if($LanAddress -ne ''){$spec+="https://$($LanAddress):8843 {`n  bind $LanAddress`n  tls internal`n  @setup path /first-admin.php`n  respond @setup 403`n  $common`n}`n"}
+ return $spec
+}
+function Get-HomeServerNetworkEntry([string]$Path){
+ try{$entry=Get-Item -LiteralPath $Path -Force -ErrorAction Stop}
+ catch [System.Management.Automation.ItemNotFoundException]{return $null}
+ if($entry.PSIsContainer -or ($entry.Attributes -band [IO.FileAttributes]::ReparsePoint)){
+  throw 'HomeServer network publication is not a regular file; no existing path was replaced.'
+ }
+ return $entry
+}
+function Remove-HomeServerNetworkPublication([string]$Storage){
+ $path=Join-Path $Storage 'homeserver-network.json'
+ if($null -ne (Get-HomeServerNetworkEntry $path)){
+  # Only this reserved regular leaf; never recursively delete or follow links.
+  [IO.File]::Delete($path)
+ }
+}
+function Write-HomeServerNetworkPublication([string]$Storage,[string]$LanAddress){
+ if(!(Test-HomeServerPrivateIPv4 $LanAddress)){throw 'Refusing to advertise a non-private address.'}
+ $target=Join-Path $Storage 'homeserver-network.json'
+ $temporary=Join-Path $Storage ('homeserver-network-'+[Guid]::NewGuid().ToString('N')+'.tmp')
+ $identity=[Security.Principal.WindowsIdentity]::GetCurrent().User
+ $system=New-Object Security.Principal.SecurityIdentifier('S-1-5-18')
+ $acl=New-Object Security.AccessControl.FileSecurity
+ $acl.SetOwner($identity);$acl.SetAccessRuleProtection($true,$false)
+ foreach($principal in @($identity,$system)){
+  $acl.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule($principal,[Security.AccessControl.FileSystemRights]::FullControl,[Security.AccessControl.AccessControlType]::Allow)))
+ }
+ $json=([ordered]@{version=1;origin=('https://'+$LanAddress+':8843')} | ConvertTo-Json -Compress)
+ $encoding=New-Object Text.UTF8Encoding($false)
+ $bytes=$encoding.GetBytes($json)
+ $stream=$null;$created=$false
+ try{
+  # CreateNew + a protected descriptor make the stage private from creation,
+  # not only after a later chmod/ACL update. This is the .NET Framework API
+  # bundled Windows PowerShell 5.1 supports; no PowerShell 7 dependency.
+  $stream=[IO.FileStream]::new($temporary,[IO.FileMode]::CreateNew,[Security.AccessControl.FileSystemRights]::FullControl,
+   [IO.FileShare]::None,4096,[IO.FileOptions]::WriteThrough,$acl)
+  $created=$true;$stream.Write($bytes,0,$bytes.Length);$stream.Flush($true);$stream.Dispose();$stream=$null
+  if([IO.File]::ReadAllText($temporary,$encoding) -cne $json){throw 'Network publication verification failed.'}
+  $entry=Get-HomeServerNetworkEntry $target
+  if($null -eq $entry){[IO.File]::Move($temporary,$target)}
+  else{
+   # A renewal may replace only a private regular publication owned by this
+   # user. Unexpected ACLs/links are not adopted, repaired, or traversed.
+   # Use the built-in .NET Framework descriptor API, not Security-module
+   # autoloading: an inherited PowerShell 7 module path can break Get-Acl in
+   # this Windows PowerShell 5.1 child. All owner/protection/rule checks remain.
+   $existing=[IO.File]::GetAccessControl($target)
+   $rules=@($existing.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier]))
+   if(!$existing.AreAccessRulesProtected -or $existing.GetOwner([Security.Principal.SecurityIdentifier]).Value -cne $identity.Value -or
+      @($rules | Where-Object {$_.AccessControlType -ne [Security.AccessControl.AccessControlType]::Allow -or
+       $_.IdentityReference.Value -notin @($identity.Value,$system.Value)}).Count -ne 0){throw 'Network publication ownership changed.'}
+   # PowerShell 5.1 binds $null to an empty string here. File.Replace needs a
+   # real CLR null backup path to retain atomic replacement without a backup.
+   [IO.File]::Replace($temporary,$target,[System.Management.Automation.Language.NullString]::Value)
+  }
+  $created=$false
+ }finally{
+  if($null -ne $stream){$stream.Dispose()}
+  if($created -and $null -ne (Get-HomeServerNetworkEntry $temporary)){[IO.File]::Delete($temporary)}
+ }
+}
+function Test-HomeServerLanListeners([string]$LanAddress,[int]$InterfaceIndex,[int]$CaddyId,[object[]]$Addresses,[object[]]$Listeners){
+ if($CaddyId -lt 1 -or $InterfaceIndex -lt 1 -or !(Test-HomeServerPrivateIPv4 $LanAddress)){return $false}
+ $assigned=@($Addresses | Where-Object {$_.IPAddress -ceq $LanAddress -and $_.AddressState -eq 'Preferred' -and
+  [int]$_.InterfaceIndex -eq $InterfaceIndex -and $_.InterfaceAlias -notmatch 'Loopback|vEthernet|Virtual|Tailscale|VPN'})
+ if($assigned.Count -eq 0){return $false}
+ $owned=@($Listeners | Where-Object {[int]$_.OwningProcess -eq $CaddyId -and [int]$_.LocalPort -in @(8833,8843)})
+ $desktop=@($owned | Where-Object {[int]$_.LocalPort -eq 8833 -and $_.LocalAddress -ceq '127.0.0.1'})
+ $lan=@($owned | Where-Object {[int]$_.LocalPort -eq 8843 -and $_.LocalAddress -ceq $LanAddress})
+ return $owned.Count -eq 2 -and $desktop.Count -eq 1 -and $lan.Count -eq 1
+}
+function Test-HomeServerLanReady([string]$LanAddress,[int]$InterfaceIndex,[Diagnostics.Process]$CaddyProcess){
+ if($null -eq $CaddyProcess -or $CaddyProcess.HasExited){return $false}
+ $networkClock=[Diagnostics.Stopwatch]::StartNew()
+ try{$addresses=@(Get-NetIPAddress -AddressFamily IPv4 -ErrorAction Stop)}
+ finally{if($networkClock.ElapsedMilliseconds -ge 1000){try{Record ('LAN slow stage=addresses duration_ms='+$networkClock.ElapsedMilliseconds)}catch{}}}
+ $networkClock.Restart()
+ try{$listeners=@(Get-NetTCPConnection -State Listen -ErrorAction Stop)}
+ finally{if($networkClock.ElapsedMilliseconds -ge 1000){try{Record ('LAN slow stage=listeners duration_ms='+$networkClock.ElapsedMilliseconds)}catch{}}}
+ return !( $CaddyProcess.HasExited ) -and (Test-HomeServerLanListeners $LanAddress $InterfaceIndex $CaddyProcess.Id $addresses $listeners)
+}
 $mutex=New-Object System.Threading.Mutex($false,'Local\LuckyGameHubHomeServer')
 $held=$false
 $processes=@()
@@ -31,6 +140,7 @@ $renderProc=$null
 $cgiGeneration=0
 $cgiClock=[Diagnostics.Stopwatch]::StartNew()
 $cgiRestarts=New-Object 'System.Collections.Generic.Queue[double]'
+$networkAdvertised=$false
 try{
  try{$held=$mutex.WaitOne(0,$false)}
  catch [Threading.AbandonedMutexException]{$held=$true;Record 'Previous launcher did not release its mutex; checking local process ownership before startup.'}
@@ -49,6 +159,11 @@ try{
  }
  if(!(Test-Path $mount)){New-Item -ItemType Junction -Path $mount -Target $storage | Out-Null}
  if(!((Get-Item $mount -Force).Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'Persistent storage must be mounted as a junction.'}
+ # The previous launch may have been killed without running finally. Withdraw
+ # its reserved publication before initialization or any new readiness claim.
+ try{Remove-HomeServerNetworkPublication $storage}
+ catch{try{Record 'LAN publication could not be cleared; phones remain subject to its short freshness lease.'}catch{}}
+ if(!(Test-Path $php) -or !(Test-Path $phpcgi) -or !(Test-Path $mariadb) -or !(Test-Path $caddy)){throw 'Bundled HomeServer runtime is incomplete.'}
  function GetSecret([string]$name){
   $file=Join-Path $state $name
   if(Test-Path $file){return (Get-Content -LiteralPath $file -Raw).Trim()}
@@ -244,16 +359,12 @@ date.timezone=UTC
  # Caddy internal CA is generated locally and stored with private user data.
  $env:XDG_DATA_HOME=Join-Path $data 'caddy-data'
  $env:XDG_CONFIG_HOME=Join-Path $data 'caddy-config'
- $ip=Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
-  Where-Object {$_.IPAddress -notmatch '^(127\.|169\.254\.)' -and $_.AddressState -eq 'Preferred' -and $_.InterfaceAlias -notmatch 'Loopback|vEthernet|Virtual|Tailscale|VPN'} |
-  Select-Object -ExpandProperty IPAddress -First 1
+ $selectedLan=Select-HomeServerLanInterface @(Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue)
+ $ip='';$lanInterfaceIndex=0
+ if($null -ne $selectedLan){$ip=[string]$selectedLan.IPAddress;$lanInterfaceIndex=[int]$selectedLan.InterfaceIndex}
  $webRoot=$app.Replace('\','/')
- $privateRoutes='@private path /storage/* /lib/* /homeserver/* /bin/* /tests/* /docs/* /.github/* /first-admin.php'
- # A supervisor replacement must never replay an uncertain game/upload POST.
- $common="root * `"$webRoot`"`n  @private path /storage/* /lib/* /homeserver/* /bin/* /tests/* /docs/* /.github/*`n  respond @private 403`n  php_fastcgi 127.0.0.1:9017 {`n    lb_retries 0`n    lb_try_duration 0`n  }`n  file_server"
  $caddyfile=Join-Path $data 'Caddyfile'
- $spec="{`n  admin off`n  auto_https disable_redirects`n  skip_install_trust`n}`nhttp://127.0.0.1:8833 {`n  $common`n}`n"
- if($ip){$spec+="https://$($ip):8843 {`n  tls internal`n  @setup path /first-admin.php`n  respond @setup 403`n  $common`n}`n"}
+ $spec=New-HomeServerCaddyConfiguration $webRoot $ip
  [IO.File]::WriteAllText($caddyfile,$spec,(New-Object System.Text.UTF8Encoding($false)))
  # Redirect native stderr to a file: a successful Caddy validation writes logs
  # there, which PowerShell 5.1 must not misinterpret as a terminating error.
@@ -276,6 +387,34 @@ date.timezone=UTC
   }catch{if($i -eq 0 -or $i % 8 -eq 7){Record ("HTTP startup probe "+$i+": "+$_.Exception.Message)}}
  }
  if(!$ready){throw 'Local game page did not become ready.'}
+ function RefreshNetworkAdvertisement{
+  $refreshClock=[Diagnostics.Stopwatch]::StartNew();$publicationStage='readiness'
+  try{
+   if($ip -and (Test-HomeServerLanReady $ip $lanInterfaceIndex $caddyProc)){
+    $publicationStage='publish';$publicationClock=[Diagnostics.Stopwatch]::StartNew()
+    try{Write-HomeServerNetworkPublication $storage $ip}
+    finally{if($publicationClock.ElapsedMilliseconds -ge 1000){try{Record ('LAN slow stage=publish duration_ms='+$publicationClock.ElapsedMilliseconds)}catch{}}}
+    if(!$script:networkAdvertised){Record ('LAN origin advertised: https://'+$ip+':8843')}
+    $script:networkAdvertised=$true
+   }else{
+    $publicationStage='withdraw'
+    Remove-HomeServerNetworkPublication $storage
+    if($script:networkAdvertised){Record 'LAN origin withdrawn: selected interface or owned listener is unavailable.'}
+    $script:networkAdvertised=$false
+   }
+  }catch{
+   $publicationError=$_.Exception
+   $errorIdentity=' type='+$publicationError.GetType().FullName+' hresult='+$publicationError.HResult
+   if($null -ne $publicationError.InnerException){$errorIdentity+=' inner_type='+$publicationError.InnerException.GetType().FullName+' inner_hresult='+$publicationError.InnerException.HResult}
+   try{Remove-HomeServerNetworkPublication $storage}catch{}
+   $script:networkAdvertised=$false
+   try{Record ('LAN publication unavailable stage='+$publicationStage+$errorIdentity+'; local gameplay remains available. Check network/storage permissions.')}catch{}
+  }finally{
+   if($refreshClock.ElapsedMilliseconds -ge 1000){try{Record ('LAN slow stage=refresh duration_ms='+$refreshClock.ElapsedMilliseconds)}catch{}}
+  }
+ }
+ RefreshNetworkAdvertisement
+ $nextNetworkLease=[DateTime]::UtcNow.AddSeconds(10)
  Record ("Local HomeServer ready: "+$startupAddress+ $(if($ip){" LAN https://$($ip):8843"}else{''}))
  if($Smoke){Write-Output 'HOMESERVER_SMOKE_OK';exit 0}
  if(!$NoBrowser){Start-Process $startupAddress}
@@ -288,6 +427,15 @@ date.timezone=UTC
   Start-Sleep -Milliseconds 500
   if($dbProc.HasExited -or $caddyProc.HasExited){throw 'A HomeServer foundation process stopped; restart from the desktop shortcut.'}
   if($phpProc.HasExited){RecoverOwnedCgi}
+  # No remote probe and no restart based on HTTP latency. Renew only while the
+  # selected interface and exact owned listeners exist. Readers reject a file
+  # older than 30 seconds if a hard-killed launcher cannot run cleanup.
+  if([DateTime]::UtcNow -ge $nextNetworkLease){
+   $leaseLateMs=[Math]::Round(([DateTime]::UtcNow-$nextNetworkLease).TotalMilliseconds)
+   if($leaseLateMs -ge 1000){try{Record ('LAN slow stage=schedule late_ms='+$leaseLateMs)}catch{}}
+   RefreshNetworkAdvertisement
+   $nextNetworkLease=[DateTime]::UtcNow.AddSeconds(10)
+  }
   if([DateTime]::UtcNow -ge $nextRender -and ($null -eq $renderProc -or $renderProc.HasExited)){
    $renderProc=$null
    PruneExitedProcesses
@@ -303,6 +451,9 @@ date.timezone=UTC
  # Retained Process objects identify only children this launcher created. Never
  # rediscover a PID by executable name or port, and never kill a foreign listener.
  try{
+  # A second launcher that did not acquire the mutex must never revoke the
+  # still-running launcher's publication. Configuration/secrets are not touched.
+  if($held){try{Remove-HomeServerNetworkPublication $storage}catch{try{Record 'LAN publication cleanup failed; the reader freshness lease will expire.'}catch{}}}
   foreach($proc in $processes){
    try{if(!$proc.HasExited){$proc.Kill();$null=$proc.WaitForExit(3000)}}catch{}
    finally{$proc.Dispose()}

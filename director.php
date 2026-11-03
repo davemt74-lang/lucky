@@ -70,13 +70,13 @@ shellStart('Camera Director','admin','director-studio-page');
   <p id="director-status" class="voice-status" role="status" aria-live="polite">Open a recording session and choose a source to begin.</p>
  </section>
 </main>
-<script src="public/client.js" defer></script>
+<script src="public/client.js?v=5q32g7a" defer></script>
 <script src="public/camera-director.js?v=5q29e4d1hf8c4" defer></script>
 <script src="public/director-scenes.js?v=5q29e4d1hf8c4" defer></script>
-<script src="public/director-publish.js?v=5q32g2" defer></script>
+<script src="public/director-publish.js?v=5q32g7a" defer></script>
 <script src="public/recording-live-host.js?v=5q29e4d1hf8c5" defer></script>
 <script src="public/director-studio.js?v=hf8d0h" defer></script>
 <script src="public/director-workspace.js?v=hf8c9-hf8d0e" defer></script>
 <script src="public/director-recording-sync.js?v=hf8d0i" defer></script>
-<script src="public/director-game.js?v=5q32e1" defer></script>
+<script src="public/director-game.js?v=5q32g7a" defer></script>
 <?php shellEnd(); ?>

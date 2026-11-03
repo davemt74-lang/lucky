@@ -37,7 +37,7 @@
   if(!id){pref.musicOn=false;savePref();return;}
   const song=getTrack(id);if(!song)throw Error('This song is not in the library.');
   const el=ensureMusic();
-  if(trackId!==id||el.src===''){el.src=song.src;trackId=id;}
+  if(trackId!==id||el.src===''){el.src=window.LuckyInstallationUrls?.media(song.src)??song.src;trackId=id;}
   el.volume=pref.muted?0:pref.musicVolume/100;
   pref.musicOn=true;savePref();try{await el.play();}catch(e){pref.musicOn=false;savePref();throw Error('Audio was blocked. Click Play or Music On to enable playback.');}
  }
@@ -104,7 +104,7 @@
  // displays. Keep it independent of the public game-view API and versioning.
  if(document.body.dataset.page==='display'||$('start-game')){
   const style=document.createElement('link');style.rel='stylesheet';style.href='public/display-program.css?v=5q32c';
-  const script=document.createElement('script');script.src='public/display-program.js?v=5q32g2';script.async=true;
+  const script=document.createElement('script');script.src='public/display-program.js?v=5q32g7a';script.async=true;
   document.head.append(style,script);
  }
  function bindMusic(){

@@ -327,15 +327,18 @@ try {
   $q->execute($values);success(['active'=>$open,'phoneCamera'=>$phone]);
  }
  if($action==='invite'){
+  // Resolve before creating a capability: an unavailable LAN must not mint a
+  // misleading localhost QR or consume one of the host's invitation slots.
+  $id=bin2hex(random_bytes(16));$secret=bin2hex(random_bytes(32));
+  $inviteUrl=InstallationUrls::share(ControllerPairing::inviteUrl($id,$secret),installationUrls());
   $db->beginTransaction();try{
    $q=$db->prepare("SELECT COUNT(*) FROM controller_pairs WHERE host_admin_id=? AND ((status IN ('inviting','pending') AND invite_expires_at>UTC_TIMESTAMP()) OR (status='paired' AND paired_expires_at>UTC_TIMESTAMP()))");$q->execute([$adminId]);
    if((int)$q->fetchColumn()>=ControllerPairing::MAX_ACTIVE)throw new DomainException('Disconnect an old phone before making another invitation.');
-   $id=bin2hex(random_bytes(16));$secret=bin2hex(random_bytes(32));
    $q=$db->prepare("INSERT INTO controller_pairs(id,host_admin_id,invite_hash,invite_expires_at) VALUES (?,?,?,UTC_TIMESTAMP()+INTERVAL 5 MINUTE)");
    $q->execute([$id,$adminId,ControllerPairing::tokenHash($secret)]);
    audit($db,'controller.invite',null,['pairId'=>$id]);$db->commit();
   }catch(Throwable $e){$db->rollBack();throw $e;}
-  success(['id'=>$id,'url'=>ControllerPairing::inviteUrl($id,$secret),'expiresInSeconds'=>300],201);
+  success(['id'=>$id,'url'=>$inviteUrl,'expiresInSeconds'=>300],201);
  }
  if($action==='list'){
   $q=$db->prepare('SELECT id,device_name,status,invite_expires_at,paired_expires_at,created_at FROM controller_pairs WHERE host_admin_id=? ORDER BY created_at DESC LIMIT 100');$q->execute([$adminId]);

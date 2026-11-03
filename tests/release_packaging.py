@@ -159,10 +159,43 @@ class PackagingTests(unittest.TestCase):
         with self.assertRaisesRegex(release.ReleaseError, 'Private runtime data'):
             self.build()
 
+    def test_live_homeserver_network_lease_is_never_shipped(self):
+        lease = self.root / 'storage/homeserver-network.json'
+        lease.write_text('{"version":1,"origin":"https://192.168.1.25:8843"}')
+        result = self.build()
+        with zipfile.ZipFile(self.output / result['deploy']) as archive:
+            self.assertNotIn('storage/homeserver-network.json', archive.namelist())
+        self.commit()
+        with self.assertRaisesRegex(release.ReleaseError, 'Private runtime data'):
+            self.build()
+
     def test_tracked_environment_secrets_are_rejected(self):
         (self.root / '.env.production').write_text('secret')
         self.commit()
         with self.assertRaisesRegex(release.ReleaseError, 'Environment/secret'):
+            self.build()
+
+    def test_case_insensitive_private_paths_cannot_alias_windows_runtime_storage(self):
+        for name in ('Storage/config.php', 'STORAGE/homeserver-network.json',
+                     'Storage/index.html', 'storage/INDEX.html',
+                     'storage/CLAIM-MEDIA/.htaccess'):
+            with self.subTest(name=name):
+                with self.assertRaisesRegex(release.ReleaseError, 'Private runtime data'):
+                    release.deploy_path(name)
+        for name in ('.ENV', '.Env.production', 'nested/.ENV.local'):
+            with self.subTest(name=name):
+                with self.assertRaisesRegex(release.ReleaseError, 'Environment/secret'):
+                    release.deploy_path(name)
+        for name in release.STORAGE_PLACEHOLDERS:
+            self.assertTrue(release.deploy_path(name))
+        self.assertTrue(release.deploy_path('docs/storage-examples.json'))
+
+    def test_committed_case_variant_network_lease_is_rejected(self):
+        lease = self.root / 'Storage/homeserver-network.json'
+        lease.parent.mkdir(exist_ok=True)
+        lease.write_text('{"version":1,"origin":"https://192.168.1.25:8843"}')
+        self.commit()
+        with self.assertRaisesRegex(release.ReleaseError, 'Private runtime data'):
             self.build()
 
     def test_runtime_index_file_outside_explicit_placeholders_is_rejected(self):

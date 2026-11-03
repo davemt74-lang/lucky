@@ -6,7 +6,7 @@ require_once __DIR__.'/AccountUi.php';
 require_once __DIR__.'/BuildVersion.php';
 function shellStart(string $title,string $active='hub',string $bodyClass=''):void {
  headerSecurity();
- echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0d1423"><title>'.h($title).' — Lucky Games</title><link rel="stylesheet" href="public/style.css"><link rel="stylesheet" href="public/platform.css?v=5q29e4d1hf8c5"></head><body class="'.h($bodyClass).'"><div class="shell"><header class="header"><a class="brand" href="index.php"><span class="logo">✦</span><span>LUCKY<span class="brand-gold">GAMES</span><small>GAME HUB</small></span></a>';
+ echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0d1423"><title>'.h($title).' — Lucky Games</title><link rel="stylesheet" href="public/style.css"><link rel="stylesheet" href="public/platform.css?v=5q29e4d1hf8c5">'.installationUrlHead().'</head><body class="'.h($bodyClass).'"><div class="shell"><header class="header"><a class="brand" href="index.php"><span class="logo">✦</span><span>LUCKY<span class="brand-gold">GAMES</span><small>GAME HUB</small></span></a>';
  if($active==='admin'){echo '<a class="btn btn-outline admin-global-game-link" href="game.php">▶ Host game</a>';accountMenu();echo '</header><main>';return;}
  echo '<nav class="nav" aria-label="Main navigation"><a href="index.php"'.($active==='hub'?' aria-current="page"':'').'>Games</a>';
  echo '<a href="live-view.php">Live View</a>';

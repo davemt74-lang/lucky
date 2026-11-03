@@ -28,5 +28,5 @@ shellStart('Multicamera Studio','editor','mc-editor-page');
   <div id="mc-export-list" class="mc-export-list" aria-label="Previous exports"></div>
  </section></dialog>
 </main>
-<script src="public/client.js" defer></script><script src="public/recording-editor.js?v=5q29e4d1-hf8d0d" defer></script>
+<script src="public/client.js?v=5q32g7a" defer></script><script src="public/recording-editor.js?v=5q29e4d1-hf8d0d" defer></script>
 <?php shellEnd(); ?>

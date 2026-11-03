@@ -117,7 +117,9 @@ jobs:
           if(!(Test-Path $config)){throw 'Local game configuration missing'}
           $raw=Get-Content $config -Raw
           if($raw -notmatch "'deployment' => 'homeserver'" -or $raw -notmatch "'db_host' => '127.0.0.1'"){throw 'Database is not loopback-only'}
-          if(!(Test-Path (Join-Path $data 'caddy-data'))){throw 'Internal LAN certificate state missing'}
+          $caddyConfig=Get-Content -LiteralPath (Join-Path $data 'Caddyfile') -Raw
+          if($caddyConfig -match '(?m)^https://[0-9.]+:8843 \{' -and !(Test-Path (Join-Path $data 'caddy-data'))){throw 'Internal LAN certificate state missing'}
+          if(Test-Path (Join-Path $data 'storage\homeserver-network.json')){throw 'Smoke shutdown did not withdraw its LAN publication'}
           # All mutable data survives another startup; no first-run reinit.
           try {
             $out=& $windowsPowerShell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $start -Smoke -NoBrowser 2>&1 | Out-String
@@ -182,6 +184,14 @@ jobs:
           Write-Host $out
           if($testExit -ne 0 -or $out -notmatch 'SETUP CONFIGURATION FILESYSTEM PASSED:'){throw 'Native private setup publication certification failed'}
           Write-Host 'WINDOWS_PRIVATE_SETUP_PUBLICATION_PASS'
+      - name: Certify native LAN URL publication and explicit listener configuration
+        shell: pwsh
+        run: |
+          $installation=Join-Path $env:RUNNER_TEMP 'Lucky HomeServer Installed'
+          $evidence=Join-Path $env:RUNNER_TEMP 'lucky-homeserver-runtime-evidence'
+          $windowsPowerShell=Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe'
+          & $windowsPowerShell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\tests\homeserver_network_windows.ps1 -Installation $installation -EvidenceDir $evidence
+          if($LASTEXITCODE -ne 0){throw 'Native HomeServer LAN publication certification failed'}
       - name: Certify native worker longevity, bounded recovery and no write replay
         shell: pwsh
         run: |

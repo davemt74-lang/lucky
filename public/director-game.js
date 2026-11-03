@@ -67,18 +67,21 @@
   const live=$('director-live-url')?.value||'';
   const stable=$('director-show-url')?.value||'';
   const url=live||stable;
-  const onAir=Boolean(window.LuckyDirectorPublisher?.state?.().onAir&&live);
+  const onAir=Boolean(window.LuckyDirectorPublisher?.state?.().onAir);
   const field=$('director-game-broadcast-url');if(field.value!==url)field.value=url;
   label('director-game-on-air',onAir?'● ON AIR':'OFF AIR');
   $('director-game-on-air').classList.toggle('is-live',onAir);
   $('director-game-broadcast-copy').disabled=!url;
-  const open=$('director-game-broadcast-open');open.href=url||'live-view.php';
-  open.setAttribute('aria-disabled',String(!url));
+  const open=$('director-game-broadcast-open');let local='';
+  try{if(url)local=window.LuckyInstallationUrls?window.LuckyInstallationUrls.localShare(url).href:new URL(url,document.baseURI).href;}catch(_){}
+  open.href=local||'live-view.php';open.setAttribute('aria-disabled',String(!local));
   label('director-game-broadcast-help',onAir?
-   'This link shows the final Program output. Private invitations must be shared only with intended viewers.':
+   (url?'This link shows the final Program output. Private invitations must be shared only with intended viewers.':
+    'Program remains ON AIR. Sharing is unavailable until the HomeServer network address is revalidated.'):
    stable?'Permanent public show page · OFF AIR until Program is published publicly. Private broadcasts need a separate invitation.':
    'Open a recording session to create its permanent show URL. Publishing still requires explicit consent.');
  }
+ window.addEventListener('lucky:installation-urls',syncBroadcast);
 
  function fillClaims(){
   const select=$('director-game-claim'),claims=context?.game?.claims||[];
@@ -254,7 +257,11 @@
  $('director-rundown-pause').addEventListener('click',()=>rundownControl(context?.rundown?.paused?'resume':'pause'));
  for(const command of ['next','skip','replay'])$('director-rundown-'+command).addEventListener('click',()=>rundownControl(command));
  $('director-game-broadcast-copy').addEventListener('click',async()=>{
-  const url=$('director-game-broadcast-url').value;if(!url)return;
+  let url=$('director-game-broadcast-url').value;if(!url)return;
+  try{
+   if(!window.LuckyInstallationUrls&&document.querySelector?.('meta[name="lucky-deployment"]')?.content==='homeserver')throw Error('HomeServer sharing is unavailable. Reload this page.');
+   if(window.LuckyInstallationUrls)url=window.LuckyInstallationUrls.share(url).href;
+  }catch(e){$('director-game-broadcast-url').value='';$('director-game-broadcast-copy').disabled=true;feedback(e.message,true);return;}
   try{await navigator.clipboard.writeText(url);feedback('Show viewing URL copied.');}
   catch(_){$('director-game-broadcast-url').select();feedback('Select and copy the broadcast URL from the field.');}
  });

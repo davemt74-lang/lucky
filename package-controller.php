@@ -7,7 +7,7 @@ headerSecurity();header('Referrer-Policy: no-referrer');header('X-Robots-Tag: no
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="referrer" content="no-referrer"><title>Game Phone Controller · Lucky Games</title>
 <link rel="stylesheet" href="public/style.css"><link rel="stylesheet" href="public/platform.css">
-</head><body class="phone-controller-page"><main class="phone-controller" aria-label="Custom game phone controller">
+<?=installationUrlHead()?></head><body class="phone-controller-page"><main class="phone-controller" aria-label="Custom game phone controller">
 <div class="phone-controller-top"><p class="eyebrow">LUCKY GAMES · GAME-SPECIFIC CONTROLLER</p><p role="status" aria-live="polite" id="package-phone-status">Connect your phone to the game.</p></div>
 <section id="package-phone-join" class="surface phone-join"><h2>Join this game</h2>
 <form id="package-phone-join-form"><label>Phone name<input id="package-phone-name" autocomplete="nickname" maxlength="48" placeholder="Living room phone" required></label>

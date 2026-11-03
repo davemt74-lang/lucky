@@ -26,10 +26,15 @@
      render(v);}else if(reconciled)render(v);
   }catch(e){$('display-state').textContent='Connection interrupted: '+e.message;}
  }
- if($('display-pair-qr')&&window.LuckyQR){
-  const url=new URL('controller.php',document.baseURI);url.searchParams.set('session',id);url.searchParams.set('viewer',token);
-  $('display-pair-qr').innerHTML=window.LuckyQR.svg(url.href);
- }
+ function renderPhoneInvite(){if($('display-pair-qr')&&window.LuckyQR){
+  try{
+   if(!window.LuckyInstallationUrls&&document.querySelector?.('meta[name="lucky-deployment"]')?.content==='homeserver')throw Error('HomeServer sharing is unavailable. Reload this page.');
+   const url=window.LuckyInstallationUrls?window.LuckyInstallationUrls.share('controller.php'):new URL('controller.php',document.baseURI);
+   url.searchParams.set('session',id);url.searchParams.set('viewer',token);
+   $('display-pair-qr').innerHTML=window.LuckyQR.svg(url.href);
+  }catch(e){$('display-pair-qr').textContent=e.message;}
+ }}
+ renderPhoneInvite();window.addEventListener('lucky:installation-urls',renderPhoneInvite);
  window.LuckyDisplayRemote=async function(command){
   const menu=$('display-remote-menu');
   if(command==='menu')return window.LuckyConsole?.emit('menu')??false;

@@ -1,6 +1,12 @@
 (() => {
  'use strict';
  const L=window.Lucky,$=L.$;
+ const mediaUrl=raw=>window.LuckyInstallationUrls?.media(raw)??raw;
+ function shareUrl(raw){
+  if(window.LuckyInstallationUrls)return window.LuckyInstallationUrls.share(raw);
+  if(document.querySelector?.('meta[name="lucky-deployment"]')?.content==='homeserver')throw Error('HomeServer sharing is unavailable. Reload this page.');
+  return new URL(raw,document.baseURI);
+ }
  const wheel=new LuckyWheel($('live-wheel'));
  // A second computer may run the Director while this browser remains on gameplay.
  const directorLink=document.createElement('a');directorLink.id='open-live-game-director';
@@ -91,7 +97,7 @@
    root.replaceChildren();for(const [i,p] of options.entries()){
     const label=document.createElement('button');label.type='button';label.className='host-package-choice';label.dataset.packageId=p.id;label.setAttribute('role','radio');
     label.onclick=()=>{choiceIndex=i;paintPackageChooser();};
-    if(p.image){const img=document.createElement('img');img.src=p.image;img.alt='';img.referrerPolicy='no-referrer';label.append(img);}
+    if(p.image){const img=document.createElement('img');img.src=mediaUrl(p.image);img.alt='';img.referrerPolicy='no-referrer';label.append(img);}
     else{const icon=document.createElement('span');icon.className='host-package-cover-fallback';icon.textContent='✦';label.append(icon);}
     const name=document.createElement('strong');name.textContent=p.name;label.append(name);root.append(label);
    }
@@ -249,14 +255,21 @@
   const finished=view?.status==='ended';
   $('postgame-review').hidden=!finished;
   $('review-highlight').href=view?.id?'editor.php?session='+encodeURIComponent(view.id):'editor.php';
+  let sharingError='';
   if(data?.viewerToken){
     const url=new URL('display.php',document.baseURI);url.searchParams.set('session',view.id);url.searchParams.set('token',data.viewerToken);
-    viewerUrl=url.href;$('share-display').hidden=false;$('viewer-link').value=viewerUrl;$('open-viewer').href=viewerUrl;
-  }else {viewerUrl='';$('share-display').hidden=true;}
+    // Opening a host screen must retain this origin's authentication; only the
+    // copy/QR address is routed through the installation's trusted LAN origin.
+    $('open-viewer').href=url.href;$('share-display').hidden=false;
+    try{viewerUrl=shareUrl(url).href;}catch(e){viewerUrl='';sharingError=e.message;}
+    $('viewer-link').value=viewerUrl;
+  }else {viewerUrl='';$('share-display').hidden=true;$('viewer-link').value='';}
+  $('copy-viewer').disabled=!viewerUrl;
   $('display-game-status').textContent=!view?'No game started':view.status==='active'?'Active':view.status==='paused'?'Paused':view.status==='ended'?'Finished':view.status==='saved'?'Saved':'Waiting';
   $('display-spin-count').textContent=String(view?.spinCount||0);
-  $('display-screen-status').textContent=viewerUrl?'Link ready':'Awaiting session';
+  $('display-screen-status').textContent=viewerUrl?'Link ready':sharingError?'LAN sharing unavailable':'Awaiting session';
   $('display-help').hidden=!!viewerUrl;
+  $('display-help').textContent=sharingError||'Start a game to generate a display link. Only share this link with your intended audience.';
   paintGamePackages();
   queueWheelFit();
  }
@@ -487,8 +500,8 @@
  const hostTabs=['game','music','phones','display'];
  let playingPrizeClaim='';
  const videoFrame=raw=>{
-  try{const url=new URL(raw,document.baseURI),base=new URL(document.baseURI);
-   if(url.origin===base.origin&&url.pathname.endsWith('/api/index.php')&&
+  try{const url=new URL(mediaUrl(raw),document.baseURI),base=new URL(document.baseURI);
+   if(url.origin===base.origin&&url.pathname===new URL('api/index.php',base).pathname&&
       url.searchParams.get('action')==='prize_video'&&/^[a-f0-9]{32}$/.test(url.searchParams.get('id')||''))
       return {kind:'video',src:url.href};
   }catch(_){}return null;
@@ -595,7 +608,8 @@
 
  $('start-game').onclick=start;$('spin-game').onclick=spin;$('pause-game').onclick=pause;$('end-game').onclick=end;
  $('game-refresh-phones').onclick=refreshPairedPhones;
- $('copy-viewer').onclick=()=>{navigator.clipboard?.writeText(viewerUrl).then(()=>msg('Display link copied.')).catch(()=>{$('viewer-link').select();});};
+ window.addEventListener('lucky:installation-urls',render);
+ $('copy-viewer').onclick=()=>{render();if(!viewerUrl)return;navigator.clipboard?.writeText(viewerUrl).then(()=>msg('Display link copied.')).catch(()=>{$('viewer-link').select();});};
  $('voice-toggle').onclick=()=>{if(stopVoice){stopVoice();stopVoice=null;$('voice-toggle').textContent='🎙 Enable listening';L.note('voice-status','Microphone off.');return;}
    stopVoice=L.listen(text=>voiceInput(text).catch(e=>L.note('voice-status',e.message,true)),m=>L.note('voice-status',m));$('voice-toggle').textContent='⏹ Stop listening';};
  Promise.all([refresh(),L.loadTracks(),refreshGamePackages(),refreshPairedPhones()]).then(()=>{

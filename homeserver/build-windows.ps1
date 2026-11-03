@@ -4,6 +4,17 @@
 param([string]$OutputDir=$env:RUNNER_TEMP)
 $ErrorActionPreference='Stop'
 $ProgressPreference='SilentlyContinue'
+function Assert-HomeServerPackageDataBoundary([string]$Path){
+ # NTFS treats Storage and storage as the same destination. Reject every case
+ # variant of runtime data, allowing only the exact canonical public guards.
+ # This is independent of development-file filtering in the packaging loop.
+ $storageRoot=[string]::Equals($Path,'storage',[StringComparison]::OrdinalIgnoreCase) -or
+  $Path.StartsWith('storage/',[StringComparison]::OrdinalIgnoreCase)
+ if($Path -match '(?i)(^|/)\.env(?:\.[^/]*)?(?:/|$)' -or
+    ($storageRoot -and $Path -cnotmatch '\Astorage/(?:claim-media/|prize-videos/|renders/)?(?:\.htaccess|index\.html)\z')){
+  throw "Private runtime data is tracked and cannot be packaged: $Path"
+ }
+}
 $repo=(Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $releaseSpec=Get-Content -LiteralPath (Join-Path $repo 'release.json') -Raw | ConvertFrom-Json
 $releaseVersion=[string]$releaseSpec.version
@@ -56,6 +67,9 @@ try{
  $tracked=(& git ls-files)
  foreach($file in $tracked){
   if($file -match '^(tests/|\.github/|dist/|\.git/|homeserver/installer\.iss$)'){continue}
+  # The installer shares the web package's private-data boundary. In particular,
+  # live homeserver-network.json leases must never leave their installation.
+  Assert-HomeServerPackageDataBoundary $file
   $src=Join-Path $repo $file
   $dst=Join-Path $app $file
   $parent=Split-Path -Parent $dst
