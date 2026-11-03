@@ -4,14 +4,20 @@ The current build identity is defined in [release.json](release.json). Deployed
 builds display that version and the exact source commit in the application footer;
 a source checkout is explicitly labeled as a source build.
 
-## Current maintenance release — V5Q32G3
+## Current maintenance release — V5Q32G4
 
-Section C of the codebase audit releases PHP browser-session locks before slow
-AI/media analysis, media delivery and read-only publisher checks. Required login,
-CSRF and AI rate-limit writes still complete while locked. Real concurrent HTTP
-regressions verify responsiveness, persisted rate limits, logout and failure
-boundaries. This requires spare server workers; it does not add workers to the
-Windows HomeServer. Section B's camera and publishing repairs remain included.
+Section D of the codebase audit gives the educational/subdomain and Windows
+HomeServer products one shared installation/upgrade schema routine. Both fresh
+installers and both upgrade paths now apply the same fixed migration catalog,
+including phone permissions, permanent recording Show URLs, Party Studio and
+costume actions. Known missing columns are added without resetting existing
+values. A database-scoped lock prevents concurrent schema upgrades; incomplete
+or incompatible schema is not reported as a successful upgrade.
+
+The products still have independent databases, accounts and configuration. This
+release aligns their common foundation; it does not merge their customers, add
+Gameroot billing/licensing, or require permanently identical gameplay. Section C's
+session-lock repairs and Section B's camera/publishing fixes remain included.
 
 Section A's release gates remain in place: all executable suites are registered,
 async tests must finish, and publication requires complete Linux and Windows
@@ -22,10 +28,12 @@ cannot be silently replaced or reused for different source.
 For HostGator, download the **Full_Deploy.zip release asset**, upload it to the
 existing Lucky installation directory, and extract **once**. Do not upload the
 outer GitHub Actions artifact ZIP. Configuration, uploaded media and the database
-must be preserved. Section C introduces **no database migration**; older pending
-migrations still require their documented upgrade procedure.
+must be preserved. **Run `upgrade.php` while signed in as administrator after
+uploading this release.** HomeServer applies the same schema checks and additive
+repairs on its next startup. Back up the existing database and storage first.
 
 - [One-upload/one-extract deployment guide](docs/HOSTGATOR_DIRECT_DEPLOY.md)
+- [Section D scope, migration matrix and remaining limits](docs/V5Q32G4_AUDIT_D.md)
 - [Section C scope, concurrency tests and hosting limits](docs/V5Q32G3_AUDIT_C.md)
 - [Section B scope, regression tests and field checks](docs/V5Q32G2_AUDIT_B.md)
 - [Section A scope, test gates and remaining limitations](docs/V5Q32G1_AUDIT_A.md)

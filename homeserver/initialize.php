@@ -6,9 +6,8 @@ declare(strict_types=1);
  */
 if (PHP_SAPI!=='cli' || getenv('LUCKY_BOOTSTRAP')!=='homeserver')
     {fwrite(STDERR,"Local HomeServer CLI only.\n");exit(3);}
-require_once __DIR__.'/../lib/MigrationSql.php';
+require_once __DIR__.'/../lib/SchemaMigrations.php';
 require_once __DIR__.'/../lib/GameEngine.php';
-require_once __DIR__.'/../lib/PrizePublicationMigration.php';
 $home=realpath(__DIR__.'/..');
 if(!$home)throw new RuntimeException('Application directory not found.');
 $host='127.0.0.1';
@@ -32,26 +31,7 @@ $root->exec("FLUSH PRIVILEGES");
 unset($root);
 $db=new PDO('mysql:host='.$host.';port='.$port.';dbname=lucky_games;charset=utf8mb4','lucky_app',$appPassword,
     [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_EMULATE_PREPARES=>false]);
-foreach(MigrationSql::statements((string)file_get_contents($home.'/lib/schema.sql')) as $sql)$db->exec($sql);
-foreach(['v5n.sql','v5p.sql','v5p_sync.sql','v5q_claim_media.sql','v5q3_renders.sql',
-         'v5q6_proof_revisions.sql','v5q13_capture_ui.sql','v5q15b_prize_decisions.sql',
-         'v5q15m_layers.sql','v5q15n_templates.sql','v5q20_prize_packages.sql','v5q26_movie_preview.sql',
-         'v5q29e1_recording_sessions.sql','v5q29e2_phone_camera.sql','v5q29e3_multicamera_coordination.sql',
-         'v5q29e4a_multicamera_timeline.sql','v5q29e4b_multicamera_exports.sql',
-         'v5q29e4c_recording_profiles.sql','v5q29e4d1hf8c4_director_recordings.sql',
-         'v5q29e4d1hf8c5_recording_live.sql'] as $migration){
-    foreach(MigrationSql::statements((string)file_get_contents($home.'/lib/migrations/'.$migration)) as $sql)$db->exec($sql);
-}
-PrizePublicationMigration::ensure($db);
-foreach(['source_label'=>"ALTER TABLE claim_media ADD COLUMN source_label VARCHAR(120) NOT NULL DEFAULT '' AFTER title",
-         'angle_label'=>"ALTER TABLE claim_media ADD COLUMN angle_label VARCHAR(80) NOT NULL DEFAULT '' AFTER source_label",
-         'angle_index'=>"ALTER TABLE claim_media ADD COLUMN angle_index TINYINT UNSIGNED NOT NULL DEFAULT 0 AFTER angle_label"] as $column=>$ddl){
-    $q=$db->query("SHOW COLUMNS FROM claim_media LIKE ".$db->quote($column));if(!$q->fetch())$db->exec($ddl);
-}
-foreach(['consent_ack'=>"ALTER TABLE controller_proof_state ADD COLUMN consent_ack TINYINT(1) NOT NULL DEFAULT 0 AFTER review_count",
-         'capture_phase'=>"ALTER TABLE controller_proof_state ADD COLUMN capture_phase VARCHAR(12) NOT NULL DEFAULT 'live' AFTER consent_ack"] as $column=>$ddl){
-    $q=$db->query("SHOW COLUMNS FROM controller_proof_state LIKE ".$db->quote($column));if(!$q->fetch())$db->exec($ddl);
-}
+SchemaMigrations::ensure($db);
 $q=$db->prepare('INSERT IGNORE INTO game_settings(game_id,config_json,intro_json,theme_json) VALUES (?,?,?,?)');
 $q->execute(['spin-wheel',json_encode(GameEngine::defaults(),JSON_THROW_ON_ERROR),
     json_encode(['title'=>'Spin the Wheel','subtitle'=>'Let the prizes begin!','trackId'=>'','volume'=>70,'announcement'=>true],JSON_THROW_ON_ERROR),

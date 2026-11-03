@@ -48,6 +48,16 @@ jobs:
         options: >-
           --health-cmd="healthcheck.sh --connect --innodb_initialized"
           --health-interval=5s --health-timeout=5s --health-retries=15
+      schema-matrix:
+        image: mariadb:11.8
+        env:
+          MARIADB_ROOT_PASSWORD: lucky-schema-matrix-fixture-password-2026
+          MARIADB_DATABASE: lucky_schema_matrix
+        ports:
+          - 3307:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=15
     steps:
       - uses: actions/checkout@v4
         with:

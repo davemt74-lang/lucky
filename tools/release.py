@@ -20,6 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 REQUIRED = (
     'index.php', 'admin.php', 'director.php', 'install.php', 'upgrade.php',
     'api/index.php', 'api/director-live.php', 'lib/Bootstrap.php',
+    'lib/SchemaMigrations.php',
     'lib/BuildVersion.php', 'public/director-view.js', 'public/director-publish.js',
     'storage/.htaccess', 'release.json',
     'proof.php', 'controller.php', 'camera.php', 'recording-editor.php',

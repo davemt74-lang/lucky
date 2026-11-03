@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__.'/../lib/PhoneLiveSignaling.php';
+require_once __DIR__.'/fixtures/schema_migration_contract.php';
 function liveAssert(bool $passed,string $label):void {if(!$passed)throw new RuntimeException('FAIL '.$label);echo 'PASS '.$label."\n";}
 function liveReject(callable $fn):bool {try{$fn();return false;}catch(DomainException){return true;}}
 $nonce=str_repeat('a',32);
@@ -30,7 +31,7 @@ liveAssert(str_contains($capture,'lucky:proof-open')&&str_contains($capture,'luc
  'Proof and phone lifecycle events are connected');
 liveAssert(str_contains($phoneCapture,'CHUNK_BYTES=512*1024')&&str_contains($phoneCapture,"uploadAction:'chunk'"),
  'High-quality original recording preserves resumable chunked upload');
-liveAssert(str_contains((string)file_get_contents($root.'/upgrade.php'),'v5q29e4d1hf7_phone_live.sql')&&
+liveAssert(SchemaMigrationSourceContract::wired(['install.php','upgrade.php'],'migrations/v5q29e4d1hf7_phone_live.sql')&&
  str_contains((string)file_get_contents($root.'/lib/schema.sql'),'controller_live_streams'),
  'Fresh installs and existing installations both provision live signaling table');
 echo "V5Q.29E4D1 HF7 PHONE LIVE CONTRACT PASSED\n";
