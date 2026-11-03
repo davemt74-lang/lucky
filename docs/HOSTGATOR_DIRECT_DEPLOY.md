@@ -39,5 +39,8 @@ new version; reruns never overwrite published downloads. GitHub's automatic
 "Source code" downloads are not the deployment artifacts.
 
 Production installation and database migration remain separate administrator
-actions. Sections A, B and C add no migration; run upgrade.php only for documented pending
-migrations from prior releases. Always back up the site and database first.
+actions. Sections A, B and C add no migration; Section D aligns the shared schema,
+and Section F adds a recovery receipt table. Run upgrade.php as administrator for
+those pending migrations. Always back up the site and database first, including
+the private storage/.setup-attempt.json identity if this installation has one.
+Do not delete an existing config, identity or administrator to repeat setup.

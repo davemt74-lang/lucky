@@ -164,6 +164,24 @@ jobs:
           & $php -c $ini -d display_errors=1 -d log_errors=0 $exportTest
           if($LASTEXITCODE -ne 0){throw 'Bundled Windows multicamera FFmpeg render failed'}
           Write-Host 'WINDOWS_MULTICAMERA_MP4_CERTIFIED'
+      - name: Certify private no-replace setup publication with bundled Windows PHP
+        shell: pwsh
+        run: |
+          $installation=Join-Path $env:RUNNER_TEMP 'Lucky HomeServer Installed'
+          $php=Join-Path $installation 'runtime\php\php.exe'
+          $ini=Join-Path $env:LOCALAPPDATA 'LuckyGameHub\php.ini'
+          $sourceTest=Join-Path (Get-Location).Path 'tests\setup_configuration_test.php'
+          $test=Join-Path $installation 'app\tests\setup_configuration_test.php'
+          if(!(Test-Path $php) -or !(Test-Path $ini) -or !(Test-Path $sourceTest)){throw 'Installed setup test runtime incomplete'}
+          # Only an isolated filesystem fixture is copied after installed-source
+          # parity. It never changes the real installed configuration or secrets.
+          New-Item -ItemType Directory -Force -Path (Split-Path -Parent $test) | Out-Null
+          Copy-Item -LiteralPath $sourceTest -Destination $test -Force
+          $out=& $php -c $ini -d display_errors=1 -d log_errors=0 $test 2>&1 | Out-String
+          $testExit=$LASTEXITCODE
+          Write-Host $out
+          if($testExit -ne 0 -or $out -notmatch 'SETUP CONFIGURATION FILESYSTEM PASSED:'){throw 'Native private setup publication certification failed'}
+          Write-Host 'WINDOWS_PRIVATE_SETUP_PUBLICATION_PASS'
       - name: Certify native worker longevity, bounded recovery and no write replay
         shell: pwsh
         run: |

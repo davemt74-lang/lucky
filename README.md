@@ -4,7 +4,27 @@ The current build identity is defined in [release.json](release.json). Deployed
 builds display that version and the exact source commit in the application footer;
 a source checkout is explicitly labeled as a source build.
 
-## Current maintenance release — V5Q32G5
+## Current maintenance release — V5Q32G6
+
+Section F of the audit makes first installation resumable. Administrator creation,
+missing default settings and a durable installation receipt commit together.
+Configuration is fully written and checked before activation, then published
+without replacing any existing file. An interrupted publication can resume with
+the same private setup identity, database settings and existing administrator
+password. Legacy partial educational installs require existing-administrator
+proof; setup never resets passwords or overwrites saved settings.
+
+HomeServer uses the same configuration publisher and receipt protocol without
+creating or importing a cloud administrator. Its existing database password is
+authenticated, never rotated as a side effect of initialization. Existing
+configuration, including a damaged file, keeps setup locked; recovery does not
+turn file corruption into permission to create a new account.
+
+Keep the private `storage/.setup-attempt.json` identity with the database,
+configuration and storage backup. Do not delete it to work around a mismatch.
+The setup filesystem must support private regular files, locking and same-volume
+hard links. Unsupported storage fails closed without an overwrite fallback.
+Process-interruption tests do not certify sudden power-loss durability.
 
 Section E of the codebase audit hardens the Windows HomeServer supervisor.
 Every PHP FastCGI launch explicitly disables request-count recycling. If that
@@ -43,6 +63,7 @@ uploading this release.** HomeServer applies the same schema checks and additive
 repairs on its next startup. Back up the existing database and storage first.
 
 - [One-upload/one-extract deployment guide](docs/HOSTGATOR_DIRECT_DEPLOY.md)
+- [Section F scope, installation recovery and release gates](docs/V5Q32G6_AUDIT_F.md)
 - [Section E scope, native worker checks and remaining limits](docs/V5Q32G5_AUDIT_E.md)
 - [HomeServer delivery status and physical-device acceptance](docs/HOMESERVER_OFFLINE.md)
 - [Section D scope, migration matrix and remaining limits](docs/V5Q32G4_AUDIT_D.md)

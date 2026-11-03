@@ -2,6 +2,7 @@
 declare(strict_types=1);
 /** Core certification: real bundle parsing, wiring, and fail-closed DB boundaries. */
 require_once __DIR__.'/../lib/SchemaMigrations.php';
+require_once __DIR__.'/fixtures/schema_migration_contract.php';
 
 $checks=0;
 function schemaCheck(bool $ok,string $message):void {
@@ -68,44 +69,79 @@ schemaCheck(schemaCalls(schemaTokens('<?php /* SchemaMigrations::ensure($db); */
  'SchemaMigrations','ensure')===[],'Wiring recognizer rejects comments and quoted examples');
 schemaCheck(count(schemaCalls(schemaTokens('<?php SchemaMigrations::ensure($db);'),'SchemaMigrations','ensure'))===1,
  'Wiring recognizer accepts an executable service call');
+$directFixture='<?php require_once __DIR__."/lib/SchemaMigrations.php"; SchemaMigrations::ensure($db);';
+$serviceFixture='<?php require_once __DIR__."/SchemaMigrations.php"; final class InstallationSetup { public static function run($db):void { SchemaMigrations::ensure($db); } }';
+$delegatedFixture='<?php require_once __DIR__."/lib/InstallationSetup.php"; InstallationSetup::run($pdo,"cloud",$token,$hmac,$admin,$publish);';
+schemaCheck(SchemaMigrationSourceContract::sourceDelegates($directFixture,$serviceFixture),
+ 'Historical shared recognizer still accepts direct migration delegation');
+schemaCheck(SchemaMigrationSourceContract::sourceDelegates($delegatedFixture,$serviceFixture),
+ 'Historical shared recognizer follows the actual imported setup service to shared migrations');
+foreach([
+ 'comments'=>'<?php /* require_once __DIR__."/lib/InstallationSetup.php"; InstallationSetup::run($pdo,"cloud",$token,$hmac,$admin,$publish); */',
+ 'quoted examples'=>'<?php require_once __DIR__."/lib/InstallationSetup.php"; $example=\'InstallationSetup::run($pdo,"cloud",$token,$hmac,$admin,$publish);\';',
+ 'wrong service'=>str_replace('InstallationSetup::run','OtherSetup::run',$delegatedFixture),
+ 'wrong PDO'=>str_replace('run($pdo,','run($requestSelectedConnection,',$delegatedFixture),
+ 'wrong import'=>str_replace('/lib/InstallationSetup.php','/other/InstallationSetup.php',$delegatedFixture),
+] as $case=>$source)schemaCheck(!SchemaMigrationSourceContract::sourceDelegates($source,$serviceFixture),
+ 'Shared delegation source recognizer rejects '.$case);
+schemaCheck(!SchemaMigrationSourceContract::sourceDelegates($delegatedFixture,'<?php $example=\'SchemaMigrations::ensure($db);\';'),
+ 'An imported setup service cannot satisfy migration delegation using a quoted example');
 $sources=[];
 foreach(['install.php','upgrade.php','homeserver/initialize.php','homeserver/migrate.php'] as $entry){
  $source=file_get_contents(__DIR__.'/../'.$entry);
  if(!is_string($source))throw new RuntimeException('Missing entry point '.$entry);
- $tokens=schemaTokens($source);$calls=schemaCalls($tokens,'SchemaMigrations','ensure');$required=false;
+ $setupEntry=in_array($entry,['install.php','homeserver/initialize.php'],true);
+ $service=$setupEntry?'InstallationSetup':'SchemaMigrations';$method=$setupEntry?'run':'ensure';
+ $tokens=schemaTokens($source);$calls=schemaCalls($tokens,$service,$method);$required=false;
  foreach($tokens as $i=>$token)if(is_array($token)&&in_array($token[0],[T_REQUIRE,T_REQUIRE_ONCE],true)){
   for($j=$i+1;isset($tokens[$j])&&$tokens[$j]!==';';$j++)if(is_array($tokens[$j])&&
-   $tokens[$j][0]===T_CONSTANT_ENCAPSED_STRING&&str_ends_with(substr($tokens[$j][1],1,-1),'/lib/SchemaMigrations.php'))$required=true;
+   $tokens[$j][0]===T_CONSTANT_ENCAPSED_STRING&&str_ends_with(substr($tokens[$j][1],1,-1),'/lib/'.$service.'.php'))$required=true;
  }
- schemaCheck($required&&count($calls)===1,$entry.' imports and invokes the shared migration service exactly once');
+ schemaCheck($required&&count($calls)===1&&SchemaMigrationSourceContract::delegates($entry),
+  $entry.' imports and invokes its shared migration/setup service exactly once');
  $call=$calls[0];
  schemaCheck((schemaToken($tokens[$call+4]??null,T_VARIABLE,'$db')||schemaToken($tokens[$call+4]??null,T_VARIABLE,'$pdo'))&&
-  ($tokens[$call+5]??null)===')'&&($tokens[$call+6]??null)===';',$entry.' passes its configured PDO without a request-selected migration path');
+  ($setupEntry?($tokens[$call+5]??null)===',':(($tokens[$call+5]??null)===')'&&($tokens[$call+6]??null)===';')),
+  $entry.' passes its configured PDO without a request-selected migration path');
  $code=implode('',array_map(static fn($token)=>is_array($token)?$token[1]:$token,$tokens));
  schemaCheck(!str_contains($code,'migrations/')&&!str_contains($code,'MigrationSql::statements')&&
   !preg_match('/\bALTER\s+TABLE\b|\bCREATE\s+TABLE\b/i',$code),$entry.' has no independent table list or legacy column-repair implementation');
  $sources[$entry]=$code;
 }
 foreach(['install.php','upgrade.php'] as $entry){
- $before=explode('SchemaMigrations::ensure(',$sources[$entry],2)[0];
+ $before=explode($entry==='install.php'?'InstallationSetup::run(':'SchemaMigrations::ensure(',$sources[$entry],2)[0];
  schemaCheck(str_contains($before,"'POST'")&&str_contains($before,'hash_equals(csrf(),'),$entry.' retains the POST and CSRF gate before schema execution');
 }
-schemaCheck(str_contains(explode('SchemaMigrations::ensure(',$sources['install.php'],2)[0],'if(installed())'),
- 'Web installation retains its existing-installation lock before schema execution');
+schemaCheck(str_contains(explode('InstallationSetup::run(',$sources['install.php'],2)[0],'SetupConfiguration::exists(')&&
+ str_contains($sources['install.php'],'SetupConfiguration::withLock('),
+ 'Web installation retains its existing-configuration guard and directory lock before schema execution');
 schemaCheck(str_contains(explode('SchemaMigrations::ensure(',$sources['upgrade.php'],2)[0],'if(!isAdmin())'),
  'Web upgrade retains its administrator gate before schema execution');
 foreach(['homeserver/initialize.php','homeserver/migrate.php'] as $entry){
- $before=explode('SchemaMigrations::ensure(',$sources[$entry],2)[0];
+ $before=explode($entry==='homeserver/initialize.php'?'InstallationSetup::run(':'SchemaMigrations::ensure(',$sources[$entry],2)[0];
  schemaCheck(str_contains($before,"PHP_SAPI!=='cli'")&&str_contains($before,"getenv('LUCKY_BOOTSTRAP')!=='homeserver'")&&
   str_contains($before,'exit(3)'),$entry.' retains its local CLI/bootstrap gate');
 }
+$setupRaw=file_get_contents(__DIR__.'/../lib/InstallationSetup.php');
+if(!is_string($setupRaw))throw new RuntimeException('Missing installation service.');
+$setupTokens=schemaTokens($setupRaw);$setupCode=implode('',array_map(static fn($token)=>is_array($token)?$token[1]:$token,$setupTokens));
+$ensure=schemaCalls($setupTokens,'SchemaMigrations','ensure');
+schemaCheck(count($ensure)===1&&schemaToken($setupTokens[$ensure[0]+4]??null,T_VARIABLE,'$db'),
+ 'Shared setup requires the configured PDO migration service exactly once');
+$migration=strpos($setupCode,'SchemaMigrations::ensure(');$transaction=strpos($setupCode,'$db->beginTransaction(');
+$seed=strpos($setupCode,'INSERT INTO admins');$commit=strpos($setupCode,'$db->commit(');$activate=strpos($setupCode,'$publish();');
+schemaCheck($migration!==false&&$transaction!==false&&$seed!==false&&$commit!==false&&$activate!==false&&
+ $migration<$transaction&&$transaction<$seed&&$seed<$commit&&$commit<$activate,
+ 'Shared setup requires schema readiness before transactional seeds and a successful commit before configuration activation');
 foreach(['install.php','homeserver/initialize.php'] as $entry){
- $call=strpos($sources[$entry],'SchemaMigrations::ensure(');
- $seed=strpos($sources[$entry],'INSERT');$activate=strpos($sources[$entry],'file_put_contents(');
- schemaCheck($seed!==false&&$activate!==false&&$call<$seed&&$call<$activate,$entry.' requires schema readiness before seeds or configuration activation');
+ schemaCheck(!preg_match('/\bINSERT\s+(?:IGNORE\s+)?INTO\b/i',$sources[$entry])&&
+  !str_contains($sources[$entry],'file_put_contents(')&&str_contains($sources[$entry],'$prepared->publish();')&&
+  str_contains($sources[$entry],'$prepared->discard();'),$entry.' delegates all seeds and private configuration activation without duplicate entrypoint writes');
 }
-schemaCheck(str_contains($sources['install.php'],'password_hash($password,PASSWORD_DEFAULT)')&&
+schemaCheck(str_contains($setupCode,"password_hash(\$adminCredentials['password'],PASSWORD_DEFAULT)")&&
  !str_contains($sources['homeserver/initialize.php'],'INSERT INTO admins')&&
+ str_contains($sources['homeserver/initialize.php'],"InstallationSetup::run(\$db,'homeserver',")&&
+ str_contains($sources['homeserver/initialize.php'],'->configHmac(),null,')&&
  str_contains($sources['homeserver/initialize.php'],'strlen($rootPassword)<24')&&str_contains($sources['homeserver/initialize.php'],'strlen($appPassword)<24'),
  'Existing web administrator creation and strong HomeServer credential requirements remain separate from migration');
 
@@ -131,7 +167,8 @@ foreach($ordered as $relative){
 foreach(['controller_proof_state','claim_media','director_broadcasts','director_show_channels','recording_sessions','recording_phone_permissions',
  'recording_session_profiles','recording_exports','lucky_parties','lucky_themes','lucky_costumes','lucky_costume_actions'] as $table)
  schemaCheck(isset($tables[$table]),'Complete catalog includes the previously divergent feature schema '.$table);
-schemaCheck(count($tables)===51&&$statements>=count($tables),'Catalog accounts for all 51 application tables');
+schemaCheck(isset($tables['installation_setup_receipt']),'Complete catalog includes the new durable setup receipt');
+schemaCheck(count($tables)===52&&$statements>=count($tables),'Catalog accounts for all 52 application tables');
 $service=schemaTokens((string)file_get_contents(__DIR__.'/../lib/SchemaMigrations.php'));
 $forbidden=['file_put_contents','fwrite','fopen','rename','unlink','password_hash','getenv'];
 $sideEffects=[];$requestInputs=[];
@@ -228,16 +265,19 @@ PHP;
   'Intact copied bundle really passes full preflight and reaches the controlled PDO');
  $late=end($files);$path=$fixture.'/lib/'.$late;$original=file_get_contents($path);
  if(!is_string($original))throw new RuntimeException('Missing late-catalog fixture source.');
+ if(!preg_match('/\bCREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+([a-z][a-z0-9_]*)\b/i',$original,$lateTable))
+  throw new RuntimeException('Late-catalog fixture has no CREATE TABLE identity.');
  $cases=[
   'missing last migration'=>null,
   'empty last migration'=>"  \n",
   'unterminated quoted SQL'=>"CREATE TABLE IF NOT EXISTS director_show_channels (id CHAR(32) DEFAULT 'unterminated) ENGINE=InnoDB;",
   'unexpected write statement'=>$original."\nDELETE FROM admins;\n",
-  'different table catalog'=>str_replace('director_show_channels','unexpected_schema_fixture',$original),
+  'different table catalog'=>preg_replace('/\b'.preg_quote($lateTable[1],'/').'\b/','unexpected_schema_fixture',$original),
   'oversize migration'=>str_repeat(' ',1048577),
   'NUL-containing migration'=>$original."\0",
  ];
  foreach($cases as $label=>$replacement){
+  schemaCheck($replacement===null||$replacement!==$original,$label.' really changes the selected late-catalog fixture');
   if($replacement===null)unlink($path);elseif(file_put_contents($path,$replacement)===false)throw new RuntimeException('Cannot prepare controlled corrupt bundle.');
   $result=schemaChild($fixture.'/probe.php',$fixture.'/lib');
   schemaCheck($result['class']===RuntimeException::class&&$result['queries']===[],$label.' fails before any database query or DDL');

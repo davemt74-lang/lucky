@@ -96,7 +96,8 @@
         "tests/v5q32g3_session_release.php",
         "tests/v5q32g3_media_session_contract.php",
         "tests/schema_migrations_test.php",
-        "tests/v5q32g5_homeserver_runtime_contract.php"
+        "tests/v5q32g5_homeserver_runtime_contract.php",
+        "tests/setup_configuration_test.php"
       ]
     },
     "database": {
@@ -132,7 +133,15 @@
         "tests/v5q32g2_viewer_heartbeat_db.php",
         "tests/v5q32g3_session_concurrency_db.php",
         "tests/schema_migrations_database_test.php",
-        "tests/v5q32g4_setup_paths_db.php"
+        "tests/v5q32g4_setup_paths_db.php",
+        {
+          "path": "tests/v5q32g6_cloud_install_recovery_db.php",
+          "timeout_seconds": 240
+        },
+        {
+          "path": "tests/v5q32g6_homeserver_install_recovery_db.php",
+          "timeout_seconds": 240
+        }
       ]
     },
     "browsers": {

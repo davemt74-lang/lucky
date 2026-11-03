@@ -40,6 +40,7 @@ final class SchemaMigrations {
   'migrations/v5q30_party_studio.sql'=>['lucky_costumes','lucky_themes','lucky_parties'],
   'migrations/v5q31_costume_actions.sql'=>['lucky_costume_actions'],
   'migrations/v5q32e1_permanent_show_url.sql'=>['director_show_channels'],
+  'migrations/v5q32g6_installation_setup.sql'=>['installation_setup_receipt'],
  ];
  /** Presence checks are explicit; extra user/legacy fields are never removed. */
  private const REQUIRED_COLUMNS=[
@@ -94,6 +95,7 @@ final class SchemaMigrations {
   'claim_proof_revisions'=>'id,claim_id,session_id,revision_no,note,clip_snapshot_json,created_at',
   'claim_proof_revision_clips'=>'revision_id,clip_id',
   'claim_media'=>'id,session_id,claim_id,kind,mime,title,source_label,angle_label,angle_index,bytes,duration_ms,trim_start_ms,trim_end_ms,photo_duration_ms,sort_order,created_at,updated_at',
+  'installation_setup_receipt'=>'id,deployment,attempt_hash,config_hmac,admin_id,state,created_at,updated_at',
  ];
  /** Remaining primary keys use the first column declared in REQUIRED_COLUMNS. */
  private const COMPOSITE_PRIMARY=[
