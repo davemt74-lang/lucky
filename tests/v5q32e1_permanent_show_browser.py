@@ -30,11 +30,16 @@ async def main():
         checks.append((label, bool(value)))
 
     host_mock = '''
-    window.__published=[]; window.__closed=[];
+    window.__published=[]; window.__closed=[]; window.__programOutputs=[];
     window.Lucky={getMe:async()=>({csrf:'owner-csrf'})};
-    window.LuckyCameraDirector={programStream:()=>({
-     getVideoTracks:()=>[{}],getTracks:()=>[{stop(){}}]
-    })};
+    window.LuckyCameraDirector={programStream:()=>{
+     // Keep output ownership and track identity faithful to the real mixer.
+     // A native canvas stream needs no camera permission or physical device.
+     const canvas=document.getElementById('director-program');
+     canvas.width=320;canvas.height=180;
+     const context=canvas.getContext('2d');context.fillStyle='#173b69';context.fillRect(0,0,320,180);
+     const output=canvas.captureStream(10);window.__programOutputs.push(output);return output;
+    }};
     window.RTCPeerConnection=class {constructor(){this.iceGatheringState='complete'}
      addTrack(){} close(){}};
     window.fetch=async(url,opts={})=>{
@@ -100,12 +105,19 @@ async def main():
         await host.locator('#director-publish-consent').check()
         await host.locator('#director-publish').click()
         await host.wait_for_function('window.LuckyDirectorPublisher.state().onAir')
+        check('Publication uses a live native Program output track',
+              await host.evaluate('''__programOutputs[0] instanceof MediaStream&&
+                __programOutputs[0].getVideoTracks().length===1&&
+                __programOutputs[0].getVideoTracks()[0].readyState==='live'&&
+                __programOutputs[0].getTracks().includes(__programOutputs[0].getVideoTracks()[0])'''))
         private_url = await host.locator('#director-live-url').input_value()
         check('Private invitation has a secret and is distinct from public permanent link',
               f'id={FIRST}' in private_url and f'key={TOKEN}' in private_url
               and await host.locator('#director-show-url').input_value() == STABLE)
         await host.locator('#director-unpublish').click()
         await host.wait_for_function('!window.LuckyDirectorPublisher.state().onAir')
+        check('Ending broadcast stops its owned native output',
+              await host.evaluate("__programOutputs[0].getTracks().every(track=>track.readyState==='ended')"))
         check('Ending broadcast retains permanent public page',
               await host.locator('#director-show-url').input_value() == STABLE
               and await host.locator('#director-live-link').is_hidden())
