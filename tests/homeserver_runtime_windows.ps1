@@ -46,6 +46,7 @@ $script:failure=''
 $script:originalCgiAcl=$null
 $script:originalCgiSddl=$null
 $script:cgiAclChanged=$false
+$script:aclEvidence=@()
 $suffix=[Guid]::NewGuid().ToString('N')
 $token=[Guid]::NewGuid().ToString('N')+[Guid]::NewGuid().ToString('N')
 $probeName='ci-hs-g5-'+$suffix+'.php'
@@ -239,11 +240,38 @@ function Start-G5ForeignCgi([int]$Port){
  Wait-G5 {Test-G5Listener $Port $identity.Id} 10 'test-owned foreign CGI listener'
  return $identity
 }
+function Write-G5AclEvidence([string]$Phase,[Security.AccessControl.FileSecurity]$Acl){
+ # Only the disposable CI executable's security descriptor is recorded: no
+ # configuration, environment, secrets, user-profile paths, or account names.
+ $binary=$Acl.GetSecurityDescriptorBinaryForm()
+ $raw=[Security.AccessControl.RawSecurityDescriptor]::new($binary,0)
+ $daclBytes=$null
+ if($null -ne $raw.DiscretionaryAcl){
+  $daclBytes=New-Object byte[] $raw.DiscretionaryAcl.BinaryLength
+  $raw.DiscretionaryAcl.GetBinaryForm($daclBytes,0)
+ }
+ $rules=@($Acl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier]) | ForEach-Object {
+  [ordered]@{sid=$_.IdentityReference.Value;type=$_.AccessControlType.ToString();rights=[int]$_.FileSystemRights;
+   inherited=$_.IsInherited;inheritance=$_.InheritanceFlags.ToString();propagation=$_.PropagationFlags.ToString()}
+ })
+ $snapshot=[ordered]@{phase=$Phase;utc=[DateTime]::UtcNow.ToString('o');
+  sddl=$Acl.GetSecurityDescriptorSddlForm([Security.AccessControl.AccessControlSections]::All);
+  owner=$Acl.GetOwner([Security.Principal.SecurityIdentifier]).Value;group=$Acl.GetGroup([Security.Principal.SecurityIdentifier]).Value;
+  protected=$Acl.AreAccessRulesProtected;canonical=$Acl.AreAccessRulesCanonical;
+  controlFlags=$raw.ControlFlags.ToString();controlValue=[int]$raw.ControlFlags;
+  daclBase64=$(if($null -eq $daclBytes){$null}else{[Convert]::ToBase64String($daclBytes)});rules=$rules}
+ $script:aclEvidence+=@($snapshot)
+ $script:aclEvidence | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $EvidenceDir 'cgi-acl-diagnostics.json') -Encoding UTF8
+ Write-Host ('ACL_DIAGNOSTIC phase='+$Phase+' control='+$snapshot.controlValue+' sddl='+$snapshot.sddl)
+}
 function Restore-G5CgiAcl {
  if(!$script:cgiAclChanged){return}
  if($null -eq $script:originalCgiAcl -or $null -eq $script:originalCgiSddl){throw 'Original isolated CGI permissions are unavailable for restoration.'}
+ Write-G5AclEvidence 'restore-expected' $script:originalCgiAcl
+ Write-G5AclEvidence 'restore-before' (Get-Acl -LiteralPath $cgiPath -ErrorAction Stop)
  Set-Acl -LiteralPath $cgiPath -AclObject $script:originalCgiAcl -ErrorAction Stop
  $restored=Get-Acl -LiteralPath $cgiPath -ErrorAction Stop
+ Write-G5AclEvidence 'restore-after' $restored
  $sddl=$restored.GetSecurityDescriptorSddlForm([Security.AccessControl.AccessControlSections]::All)
  if($sddl -cne $script:originalCgiSddl){throw 'Isolated CGI permissions were not restored exactly.'}
  $script:cgiAclChanged=$false
@@ -384,14 +412,17 @@ try{
  $health=Wait-G5Health;$cgi=Get-G5Child $cgiPath;$database=Get-G5Child $dbPath;$web=Get-G5Child $caddyPath
  $script:originalCgiAcl=Get-Acl -LiteralPath $cgiPath -ErrorAction Stop
  $script:originalCgiSddl=$script:originalCgiAcl.GetSecurityDescriptorSddlForm([Security.AccessControl.AccessControlSections]::All)
+ Write-G5AclEvidence 'original' $script:originalCgiAcl
  $deniedAcl=New-Object Security.AccessControl.FileSecurity
  $deniedAcl.SetSecurityDescriptorBinaryForm($script:originalCgiAcl.GetSecurityDescriptorBinaryForm())
  $currentSid=[Security.Principal.WindowsIdentity]::GetCurrent().User
  $denyExecute=New-Object Security.AccessControl.FileSystemAccessRule($currentSid,[Security.AccessControl.FileSystemRights]::ExecuteFile,[Security.AccessControl.AccessControlType]::Deny)
  $deniedAcl.AddAccessRule($denyExecute)
+ Write-G5AclEvidence 'deny-candidate' $deniedAcl
  try{
   $script:cgiAclChanged=$true
   Set-Acl -LiteralPath $cgiPath -AclObject $deniedAcl -ErrorAction Stop
+  Write-G5AclEvidence 'deny-applied' (Get-Acl -LiteralPath $cgiPath -ErrorAction Stop)
   $stillAlive=Invoke-G5 'health'
   Assert-G5 ([int]$stillAlive.pid -eq $cgi.Id -and (Test-G5Identity $cgi)) 'ExecuteFile fault injection does not terminate the already running owned CGI'
   Stop-G5Verified $cgi

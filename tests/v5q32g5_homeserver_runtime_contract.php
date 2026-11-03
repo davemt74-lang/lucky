@@ -96,6 +96,9 @@ runtimeContract(str_contains($test,'Set-Acl -LiteralPath $cgiPath -AclObject $sc
  str_contains($test,'$sddl -cne $script:originalCgiSddl')&&substr_count($test,'Restore-G5CgiAcl')>=3&&
  str_contains($test,'Failed to restore isolated CGI permissions'),
  'Permission restoration is exact, retried in emergency cleanup, and restoration failure fails certification');
+runtimeContract(str_contains($test,"Write-G5AclEvidence 'original'")&&str_contains($test,"Write-G5AclEvidence 'deny-applied'")&&
+ str_contains($test,"Write-G5AclEvidence 'restore-after'")&&str_contains($test,'controlValue=[int]$raw.ControlFlags')&&
+ str_contains($test,'cgi-acl-diagnostics.json'),'Exact ACL, owner/group, inheritance, control flags and ACE evidence survive any restoration mismatch');
 runtimeContract(str_contains($test,'$exitCode -is [int] -and $exitCode -ne 0')&&str_contains($test,'$Process.WaitForExit(2000)')&&str_contains($test,'$remaining.Count -eq 0')&&
  str_contains($test,'Assert-G5MutexFree'),'Terminal certification checks failure status, no owned children, and mutex release');
 runtimeContract(str_contains($test,'$restart=Start-G5Launcher')&&str_contains($test,'$configHash')&&str_contains($test,'$mediaHash')&&
