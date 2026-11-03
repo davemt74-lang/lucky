@@ -3,12 +3,13 @@ declare(strict_types=1);
 require_once __DIR__.'/../lib/RecordingSessions.php';
 require_once __DIR__.'/../lib/RecordingPhone.php';
 require_once __DIR__.'/../lib/MigrationSql.php';
+require_once __DIR__.'/fixtures/schema_migration_contract.php';
 function requirePhone(bool $ok,string $label):void {if(!$ok)throw new RuntimeException('FAIL '.$label);echo 'PASS '.$label."\n";}
 $sql=(string)file_get_contents(__DIR__.'/../lib/migrations/v5q29e2_phone_camera.sql');
 $statements=MigrationSql::statements($sql);
 requirePhone(count($statements)===2&&str_starts_with($statements[0],'CREATE TABLE IF NOT EXISTS'),'Camera schema migration is additive and repeatable');
 requirePhone(str_contains($sql,'recording_phone_permissions')&&str_contains($sql,'recording_media_files'),'Host permission and private media metadata are persisted separately');
-requirePhone(str_contains((string)file_get_contents(__DIR__.'/../install.php'),'v5q29e2_phone_camera.sql')&&str_contains((string)file_get_contents(__DIR__.'/../upgrade.php'),'v5q29e2_phone_camera.sql'),'Fresh installer and upgrades both load phone camera migration');
+requirePhone(SchemaMigrationSourceContract::wired(['install.php','upgrade.php'],'migrations/v5q29e2_phone_camera.sql'),'Fresh installer and upgrades delegate to the shared phone camera migration');
 requirePhone(RecordingPhone::assetId(str_repeat('a',32),'valid_phone_nonce_123')===RecordingPhone::assetId(str_repeat('a',32),'valid_phone_nonce_123'),'Retries map to same media asset');
 requirePhone(RecordingPhone::assetId(str_repeat('a',32),'valid_phone_nonce_123')!==RecordingPhone::assetId(str_repeat('a',32),'valid_phone_nonce_124'),'Distinct capture nonce maps to separate media');
 $endpoint=(string)file_get_contents(__DIR__.'/../api/recording-phone.php');

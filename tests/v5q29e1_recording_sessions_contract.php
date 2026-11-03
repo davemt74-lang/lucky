@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__.'/../lib/RecordingSessions.php';
 require_once __DIR__.'/../lib/MigrationSql.php';
+require_once __DIR__.'/fixtures/schema_migration_contract.php';
 function certifyRec(bool $ok,string $label):void{if(!$ok)throw new RuntimeException('FAIL '.$label);echo 'PASS '.$label."\n";}
 certifyRec(RecordingSessions::TYPES===['game','live_event','production','general'],'Universal recording types are explicit and bounded');
 certifyRec(RecordingSessions::SOURCE_KINDS===['desktop','phone','camera','upload'],'Sources span desktop, phone, and independent recordings');
@@ -18,5 +19,5 @@ certifyRec(str_contains($sql,'FOREIGN KEY fk_recording_asset_claim')&&str_contai
 $api=(string)file_get_contents(__DIR__.'/../api/recording-sessions.php');
 certifyRec(str_contains($api,'requireAdmin()')&&str_contains($api,'assertCsrf()'),'Recording writes require admin authorization and CSRF');
 certifyRec(str_contains($api,"'import_game'")&&str_contains($api,"'take_start'")&&str_contains($api,"'attach_claim'"),'Recording API offers non-destructive import and grouped takes');
-certifyRec(str_contains((string)file_get_contents(__DIR__.'/../install.php'),'v5q29e1_recording_sessions.sql')&&str_contains((string)file_get_contents(__DIR__.'/../upgrade.php'),'v5q29e1_recording_sessions.sql'),'Both first install and upgrade load recording migration');
+certifyRec(SchemaMigrationSourceContract::wired(['install.php','upgrade.php'],'migrations/v5q29e1_recording_sessions.sql'),'Both first install and upgrade delegate to the shared recording migration');
 echo 'V5Q.29E1 RECORDING SESSIONS CONTRACT PASSED'."\n";

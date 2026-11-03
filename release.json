@@ -1,6 +1,6 @@
 {
-  "version": "V5Q32G3",
-  "installerVersion": "5.32.7.3",
+  "version": "V5Q32G4",
+  "installerVersion": "5.32.7.4",
   "sdkVersion": "V5Q24",
-  "section": "Audit C — responsive browser sessions during AI and media work"
+  "section": "Audit D — shared installation and database-upgrade consistency"
 }

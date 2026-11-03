@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__.'/fixtures/schema_migration_contract.php';
 function c4Check(bool $ok,string $message):void {if(!$ok)throw new RuntimeException('HF8C4: '.$message);echo "PASS $message\n";}
 $root=dirname(__DIR__);$read=static fn(string $name):string=>(string)file_get_contents($root.'/'.$name);
 $admin=$read('admin.php');$page=$read('director.php');$proof=$read('proof.php');$js=$read('public/director-studio.js');
@@ -22,7 +23,7 @@ c4Check(str_contains($sceneApi,'DirectorRecordingScenes::save')&&str_contains($s
 c4Check(str_contains($sceneService,'recording_assets WHERE id=? AND recording_session_id=?')&&str_contains($sceneService,'owner_admin_id=?'),'Scenes cannot import foreign recording clips');
 c4Check(str_contains($migration,'CREATE TABLE IF NOT EXISTS director_broadcast_recordings')&&str_contains($migration,'CREATE TABLE IF NOT EXISTS director_recording_scenes'),'Non-destructive standalone studio migration');
 foreach(['install.php','upgrade.php','homeserver/initialize.php','homeserver/migrate.php'] as $file)
- c4Check(str_contains($read($file),'v5q29e4d1hf8c4_director_recordings.sql'),$file.' provisions independent Director storage');
+ c4Check(SchemaMigrationSourceContract::wired([$file],'migrations/v5q29e4d1hf8c4_director_recordings.sql'),$file.' delegates to shared independent Director storage migration');
 c4Check(str_contains($css,'.proof-editor-page #camera-director{display:none')&&str_contains($proof,'capture-phone-camera'),'Prize proof retains phone capture but hides production Director');
 c4Check(preg_match('/director-studio\.js\?v=[a-z0-9-]+/', $page)===1&&(str_contains($read('lib/Layout.php'),'platform.css?v=5q29e4d1hf8c4')||str_contains($read('lib/Layout.php'),'platform.css?v=5q29e4d1hf8c5')),'New studio resources are cache-busted');
 echo "HF8C4 RECORDING CAMERA DIRECTOR CONTRACT PASSED\n";

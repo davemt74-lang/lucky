@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__.'/fixtures/schema_migration_contract.php';
 function c5Check(bool $ok,string $label):void {
  if(!$ok)throw new RuntimeException('HF8C5: '.$label);
  echo "PASS $label\n";
@@ -41,6 +42,6 @@ c5Check(str_contains($cameraPage,'recording-live-phone.js?v=5q29e4d1hf8c5')&&str
 c5Check(str_contains($page,'Only')||str_contains($page,'Program'),'Production preview remains separate from Program publishing');
 c5Check(!str_contains($proof,'recording-live-phone.js')&&!str_contains($proof,'recording-live-host.js')&&!str_contains($read('public/phone-live-phone.js'),'recording-live.php'),'Claimed-prize proof remains a separate phone camera flow');
 foreach(['install.php','upgrade.php','homeserver/initialize.php','homeserver/migrate.php'] as $file)
- c5Check(str_contains($read($file),'v5q29e4d1hf8c5_recording_live.sql'),$file.' installs the same live signaling migration');
+ c5Check(SchemaMigrationSourceContract::wired([$file],'migrations/v5q29e4d1hf8c5_recording_live.sql'),$file.' delegates to the same live signaling migration');
 c5Check(str_contains($read('lib/Layout.php'),'platform.css?v=5q29e4d1hf8c5'),'Cloud and HomeServer CSS release revision updated');
 echo "HF8C5 RECORDING LIVE CONTRACT PASSED\n";

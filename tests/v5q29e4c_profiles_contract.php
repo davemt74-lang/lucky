@@ -2,13 +2,14 @@
 declare(strict_types=1);
 require_once __DIR__.'/../lib/RecordingProfiles.php';
 require_once __DIR__.'/../lib/GameCatalog.php';
+require_once __DIR__.'/fixtures/schema_migration_contract.php';
 function e4cCheck(bool $pass,string $label):void {if(!$pass)throw new RuntimeException('FAIL '.$label);echo 'PASS '.$label."\n";}
 function e4cReject(callable $fn,int $code,string $label):void {
  try{$fn();throw new RuntimeException('Expected validation error: '.$label);}catch(DomainException $e){e4cCheck($e->getCode()===$code,$label);}
 }
 $root=dirname(__DIR__);
 foreach(['install.php','upgrade.php','homeserver/migrate.php','homeserver/initialize.php'] as $file)
- e4cCheck(str_contains((string)file_get_contents($root.'/'.$file),'v5q29e4c_recording_profiles.sql'),$file.' applies E4C recording migration');
+ e4cCheck(SchemaMigrationSourceContract::wired([$file],'migrations/v5q29e4c_recording_profiles.sql'),$file.' delegates to the shared E4C recording migration');
 e4cCheck(str_contains((string)file_get_contents($root.'/lib/migrations/v5q29e4c_recording_profiles.sql'),'recording_session_profiles'),'Immutable profile storage migration');
 $capture=RecordingProfiles::capture(['multicameraEnabled'=>false,'maxCameras'=>8,'countdownSeconds'=>10,'audio'=>false]);
 e4cCheck($capture['maxCameras']===1&&$capture['countdownSeconds']===10&&$capture['audio']===false,'Single-camera policy clamps camera capacity');
