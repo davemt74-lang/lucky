@@ -6,7 +6,7 @@ if(!isAdmin()){header('Location: login.php');exit;}
 shellStart('Camera Director','admin','director-studio-page');
 ?>
 <link rel="stylesheet" href="public/director-workspace.css?v=hf8d0f">
-<link rel="stylesheet" href="public/director-game.css?v=5q32e1">
+<link rel="stylesheet" href="public/director-game.css?v=5q32f1">
 <main class="director-studio-shell">
  <header class="director-studio-heading"><div><p class="mini-label">ADMIN · PRODUCTION STUDIO</p><h1>Camera Director</h1><p>Direct your recording-session cameras, saved clips, graphics, Program audio and Live View from one place. No game or prize claim is required.</p></div><div class="director-studio-links"><a class="btn btn-outline" href="admin.php?tab=recordings">Recording sessions</a><a class="btn btn-outline" href="live-view.php" target="_blank" rel="noopener noreferrer">Open Live View ↗</a></div></header>
  <section class="director-studio-session surface" aria-label="Recording session selection"><div class="director-toolbar"><label>Recording session<select id="director-studio-session" aria-label="Recording session"><option value="">Loading recording sessions…</option></select></label><button id="director-studio-open" type="button" class="btn btn-primary">Open recording session</button><button id="director-studio-refresh" type="button" class="btn btn-outline">↻ Refresh sessions</button></div><p id="director-studio-status" class="voice-status" role="status" aria-live="polite">Select a recording session to begin. Create one in Admin → Recording Sessions if needed.</p><p class="mini-label">Program output, saved scenes and loaded clips belong to the selected recording session. Switching sessions ends the current broadcast and releases its Program sources.</p></section>
@@ -49,13 +49,22 @@ shellStart('Camera Director','admin','director-studio-page');
   <div class="director-toolbar director-export"><button id="director-export-start" class="btn btn-outline" type="button" disabled>● Record Program</button><button id="director-export-stop" class="btn btn-outline" type="button" disabled>■ Stop recording</button><a id="director-export-download" class="btn btn-primary" href="#" hidden download>↓ Download Program video</a></div>
   <div class="director-broadcast" aria-label="Publish selected recording session to Live View">
    <header class="director-live-heading"><div><h3>Live Broadcast Dashboard</h3><p class="mini-label">Your show address stays the same when broadcasts end and restart. Only expressly public Program feeds appear at this address.</p></div><span id="director-live-badge" class="mini-label" role="status">OFF AIR</span></header>
-   <div class="director-live-stats"><div><span>VIEWER SESSIONS</span><strong id="director-live-viewers">0 / 8</strong></div><div><span>ELAPSED</span><strong id="director-live-elapsed">00:00</strong></div><div><span>STREAM HEALTH</span><strong id="director-live-health">Idle</strong></div></div>
+   <div class="director-live-stats"><div><span>VIEWER SESSIONS</span><strong id="director-live-viewers">0 / 8</strong></div><div><span>ELAPSED</span><strong id="director-live-elapsed">00:00</strong></div><div><span>STREAM HEALTH</span><strong id="director-live-health">Idle</strong></div><div><span>NETWORK PATH</span><strong id="director-live-relay">Direct / STUN</strong></div><div><span>WEBRTC CONNECTIONS</span><strong id="director-live-ice">Idle</strong></div></div>
    <div class="director-show-permalink"><label>Permanent public show URL<input id="director-show-url" type="url" readonly aria-label="Permanent public show URL" placeholder="Open a recording session to create its address"></label><div class="director-toolbar"><button id="director-show-copy" class="btn btn-outline" type="button" disabled>Copy Show URL</button><a id="director-show-open" class="btn btn-outline" href="#" aria-disabled="true" target="_blank" rel="noreferrer noopener">Open Show Page ↗</a></div><p class="mini-label">This page is OFF AIR until you explicitly publish publicly. Private broadcasts always use a separate, revocable invitation.</p></div>
    <div class="director-toolbar director-visibility"><label>Who can watch?<select id="director-broadcast-visibility"><option value="private" selected>Private · invitation only</option><option value="public">Public · anyone can watch</option></select></label><span id="director-visibility-explanation" class="mini-label">Private: only people with the invitation link can join.</span></div>
    <label id="director-public-ack-label" class="director-broadcast-consent" hidden><input id="director-publish-public-ack" type="checkbox"> I understand anyone can watch a public broadcast.</label>
    <label class="director-broadcast-consent"><input id="director-publish-consent" type="checkbox"> I have permission to broadcast the participants and content in this Program feed.</label>
    <div class="director-toolbar"><button id="director-publish" type="button" class="btn btn-primary">● Publish Program to Live View</button><button id="director-unpublish" type="button" class="btn btn-outline" disabled>■ End Live View</button></div>
    <div id="director-live-link" hidden><label><span id="director-live-link-label">Private Live View invitation</span><input id="director-live-url" type="url" readonly aria-label="Live View share link"></label><a id="director-open-live" class="btn btn-outline" href="#" target="_blank" rel="noreferrer noopener">Open Live View</a></div>
+   <details id="director-turn-settings" class="director-turn-settings">
+    <summary>Network reliability · Optional TURN relay settings</summary>
+    <p class="mini-label">Configure a TURN server that you operate (for example coturn with use-auth-secret). Its REST shared secret is encrypted on this server and never sent to viewers. If disabled, broadcasts still use direct/STUN connections.</p>
+    <label>TURN relay URL(s), one per line<textarea id="director-turn-urls" rows="2" maxlength="1200" spellcheck="false" placeholder="turn:relay.example.com:3478?transport=udp"></textarea></label>
+    <div class="director-toolbar"><label>Shared REST secret<input id="director-turn-secret" type="password" autocomplete="new-password" placeholder="Keep blank to retain saved secret"></label><label>Credential lifetime (seconds)<input id="director-turn-ttl" type="number" min="600" max="86400" value="21600"></label></div>
+    <label class="director-broadcast-consent"><input id="director-turn-enabled" type="checkbox"> Enable TURN relay for new viewer connections</label>
+    <button id="director-turn-save" class="btn btn-outline" type="button">Save relay settings</button>
+    <p id="director-turn-status" class="mini-label" role="status">Loading relay configuration…</p>
+   </details>
    <p id="director-live-status" class="voice-status" role="status" aria-live="polite">Select a recording session, take a source to Program, then publish explicitly.</p>
   </div>
   <p id="director-status" class="voice-status" role="status" aria-live="polite">Open a recording session and choose a source to begin.</p>
@@ -64,7 +73,7 @@ shellStart('Camera Director','admin','director-studio-page');
 <script src="public/client.js" defer></script>
 <script src="public/camera-director.js?v=5q29e4d1hf8c4" defer></script>
 <script src="public/director-scenes.js?v=5q29e4d1hf8c4" defer></script>
-<script src="public/director-publish.js?v=5q32e1" defer></script>
+<script src="public/director-publish.js?v=5q32f1" defer></script>
 <script src="public/recording-live-host.js?v=5q29e4d1hf8c5" defer></script>
 <script src="public/director-studio.js?v=hf8d0h" defer></script>
 <script src="public/director-workspace.js?v=hf8c9-hf8d0e" defer></script>
