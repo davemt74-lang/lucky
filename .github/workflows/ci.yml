@@ -34,6 +34,7 @@ jobs:
           php tests/v5q32c_live_program_display.php
           php tests/v5q32d_show_rundown.php
           php tests/v5q32e1_permanent_show.php
+          php tests/v5q32f1_turn_reliability.php
           php tests/v5q22_phone_controller_contract.php
           php tests/v5q22b_game_catalog.php
           php tests/v5q22c_cloud_updates.php
@@ -209,6 +210,7 @@ jobs:
           python tests/v5q32c_live_program_display_browser.py
           python tests/v5q32d_show_rundown_browser.py
           python tests/v5q32e1_permanent_show_browser.py
+          python tests/v5q32f1_turn_reliability_browser.py
           python tests/v5q13_phone_proof_browser.py
           python tests/v5q14_single_proof_flow.py
           python tests/v5q15b_prize_acceptance_browser.py
