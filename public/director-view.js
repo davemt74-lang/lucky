@@ -5,7 +5,10 @@
  const show=document.body.dataset.showId||'';
  const view=document.getElementById('director-view-video'),info=document.getElementById('director-view-status');
  let peer=null,alive=true,fallbackStream=null,epoch=0,showTimer=null,showQuery=0;
+ let retryTimer=null,disconnectTimer=null,retryAttempts=0;
  const sound=document.getElementById('director-view-sound');
+ const retryButton=document.getElementById('director-view-retry');
+ const iceInfo=document.getElementById('director-view-ice');
  const state=(message,error=false)=>{info.textContent=message;info.classList.toggle('is-error',error);};
  const ICE={iceServers:[{urls:'stun:stun.l.google.com:19302'}]};
  async function request(action,fields={},method='GET'){
@@ -16,7 +19,7 @@
    ...(method==='POST'?{headers:{'Content-Type':'application/json'},body:JSON.stringify(fields)}:{})
   });
   const out=await response.json().catch(()=>({}));
-  if(!response.ok||!out.ok)throw Error(out.error||'Live View request failed (HTTP '+response.status+').');
+  if(!response.ok||!out.ok){const error=Error(out.error||'Live View request failed (HTTP '+response.status+').');error.httpStatus=response.status;throw error;}
   return out;
  }
  function gathered(p){
@@ -31,10 +34,11 @@
   const liveId=id,liveKey=key,version=++epoch;
   if(!/^[a-f0-9]{32}$/.test(liveId)||(liveKey!==''&&!/^[a-f0-9]{48}$/.test(liveKey)))throw Error('Open a valid Live View link from Camera Director.');
   if(!window.RTCPeerConnection)throw Error('Live View needs a WebRTC-capable browser.');
-  await request('watch',{id:liveId,key:liveKey});
+  const admission=await request('watch',{id:liveId,key:liveKey});
   if(!alive||version!==epoch)return;
   const viewer=Array.from(crypto.getRandomValues(new Uint8Array(16)),x=>x.toString(16).padStart(2,'0')).join('');
-  const connection=new RTCPeerConnection(ICE);peer=connection;
+  const connection=new RTCPeerConnection(admission.ice?.iceServers?admission.ice:ICE);peer=connection;
+  if(iceInfo)iceInfo.textContent=admission.ice?.relayEnabled?'Relay available · negotiating':'Direct / STUN · negotiating';
   connection.addTransceiver('video',{direction:'recvonly'});
   connection.addTransceiver('audio',{direction:'recvonly'});
   connection.ontrack=e=>{
@@ -47,14 +51,23 @@
    }
    void view.play().catch(()=>{});state('● LIVE · Camera Director Program');
   };
+  const health=()=>{
+   if(iceInfo&&alive&&version===epoch){
+    const iceState=connection.iceConnectionState||'new';
+    iceInfo.textContent=(admission.ice?.relayEnabled?'TURN available':'Direct / STUN')+' · ICE '+iceState;
+   }
+  };
+  connection.oniceconnectionstatechange=health;
   connection.onconnectionstatechange=()=>{
    if(!alive||version!==epoch)return;
    if(connection.connectionState==='failed'){
-    if(show){stopFeed();id='';state('Program interrupted. Reconnecting…');}
-    else state('Feed interrupted. Reload the Live View link to reconnect.',true);
+    scheduleRetry('WebRTC connection failed');
+   }else if(connection.connectionState==='disconnected'){
+    clearTimeout(disconnectTimer);state('Program interrupted. Checking connection…',true);
+    disconnectTimer=setTimeout(()=>{if(alive&&version===epoch&&connection.connectionState==='disconnected')scheduleRetry('WebRTC disconnected');},5000);
+   }else if(connection.connectionState==='connected'){
+    clearTimeout(disconnectTimer);retryAttempts=0;health();state('● LIVE · Camera Director Program');
    }
-   if(connection.connectionState==='disconnected')state(show?'Program interrupted. Waiting for connection…':'Feed interrupted. Reload the Live View link to reconnect.',true);
-   if(connection.connectionState==='connected')state('● LIVE · Camera Director Program');
   };
   await connection.setLocalDescription(await connection.createOffer());
   await gathered(connection);
@@ -73,15 +86,31 @@
   while(alive&&version===epoch){await new Promise(resolve=>setTimeout(resolve,3500));
    if(!alive||version!==epoch)return;await request('watch',{id:liveId,key:liveKey});}
  }
- function stopFeed(){epoch++;try{peer?.close();}catch(_){}peer=null;if(view)view.srcObject=null;fallbackStream=null;}
+ function stopFeed(){
+  epoch++;clearTimeout(retryTimer);clearTimeout(disconnectTimer);retryTimer=disconnectTimer=null;
+  try{peer?.close();}catch(_){}peer=null;if(view)view.srcObject=null;fallbackStream=null;
+ }
  function stop(){alive=false;clearInterval(showTimer);stopFeed();}
+ function scheduleRetry(reason){
+  if(!alive)return;
+  stopFeed();retryAttempts++;
+  if(!show&&retryAttempts>6){state('Connection attempts exhausted. Use Retry connection to try again.',true);return;}
+  const wait=Math.min(12000,1500*Math.pow(2,Math.min(retryAttempts-1,3)));
+  state('Program interrupted ('+reason+'). Retrying in '+Math.ceil(wait/1000)+'s…',true);
+  if(iceInfo)iceInfo.textContent='Reconnecting · attempt '+retryAttempts;
+  retryTimer=setTimeout(()=>{retryTimer=null;if(!alive)return;if(show){id='';void refreshShow();}else launch();},wait);
+ }
  function launch(){
   const current=epoch+1;
   void connect().catch(e=>{
    if(!alive||current!==epoch)return;
-   stopFeed();if(show)id='';
-   state(show?'OFF AIR · Waiting for a public Program broadcast…':'Live View unavailable: '+e.message,!show);
+   if(!show&&e.httpStatus===403){stopFeed();state('This private invitation is expired or revoked.',true);return;}
+   scheduleRetry(e.message||'signaling unavailable');
   });
+ }
+ function retryNow(){
+  retryAttempts=0;stopFeed();if(iceInfo)iceInfo.textContent='Retrying connection…';
+  if(show){id='';void refreshShow();}else{state('Reconnecting to Live View…');launch();}
  }
  async function refreshShow(){
   if(!alive)return;
@@ -91,6 +120,7 @@
    if(!alive||query!==showQuery)return;
    const next=result.live&&/^[a-f0-9]{32}$/.test(result.broadcastId||'')?result.broadcastId:'';
    if(next===id)return;
+   retryAttempts=0;
    stopFeed();id=next;key='';
    if(next){state('Connecting to the live Program…');launch();}
    else state('OFF AIR · Waiting for a public Program broadcast…');
@@ -99,6 +129,7 @@
    stopFeed();id='';state('This show is unavailable: '+e.message,true);
   }
  }
+ retryButton?.addEventListener('click',retryNow);
  sound?.addEventListener('click',()=>{
   if(!view)return;
   view.muted=!view.muted;
