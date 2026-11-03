@@ -1,4 +1,7 @@
-LUCKY GAME HUB HOMESERVER (V5Q.29E2) — WINDOWS OFFLINE PREVIEW
+LUCKY GAME HUB HOMESERVER — WINDOWS OFFLINE PREVIEW
+
+The installed application footer and app/release.json identify the release.
+app/build-info.json records its exact Git commit and source tree.
 
 This installer contains the complete application and locally executed components:
 PHP, MariaDB, Caddy and FFmpeg. After installation, the product requires
@@ -33,5 +36,7 @@ PHP (PHP License), MariaDB (GPL-2.0), Caddy (Apache-2.0), FFmpeg (LGPL/GPL
 depending on bundled build). Distribution and source-code obligations must
 be reviewed before commercial release.
 
-For exact versions, origin links, checksums, and build instructions, see
-homeserver/BUILD.md packaged with the application.
+For exact runtime versions and verified input checksums, see RUNTIME_MANIFEST.json
+in the installation directory. Build inputs and instructions are in
+app/homeserver/build-windows.ps1; release gates are documented in
+app/docs/V5Q32G1_AUDIT_A.md.

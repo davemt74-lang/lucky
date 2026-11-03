@@ -1,8 +1,12 @@
 'use strict';
 const assert=require('node:assert/strict');
+const {test}=require('node:test');
+test('Shared camera profiles preserve global defaults and per-game overrides', {timeout:1000}, t => {
+const previousStorage=Object.getOwnPropertyDescriptor(global,'localStorage');
+t.after(()=>{if(previousStorage)Object.defineProperty(global,'localStorage',previousStorage);else delete global.localStorage;});
 const cells=new Map();global.localStorage={getItem:k=>cells.has(k)?cells.get(k):null,setItem:(k,v)=>cells.set(k,String(v))};
 const camera=require('../public/camera-profiles.js');
-let passes=0;const check=(title,ok)=>{assert.ok(ok,title);passes++;console.log('PASS '+title)};
+const check=(title,ok)=>{assert.ok(ok,title);t.diagnostic(title);};
 check('No global camera setup defaults to empty',camera.shared().length===0);
 localStorage.setItem('lucky-selected-camera-ids',JSON.stringify(['prior-camera']));
 check('Earlier camera choices remain available until Admin saves defaults',camera.shared()[0]==='prior-camera');
@@ -27,4 +31,4 @@ camera.alias('side','Side Room');
 check('Friendly device names persist across sections',camera.getAliases().side==='Side Room');
 camera.saveShared([]);
 check('Explicit empty Admin profile overrides legacy camera selection',camera.shared().length===0);
-console.log(`Shared camera profile contract: ${passes} / ${passes}`);
+});

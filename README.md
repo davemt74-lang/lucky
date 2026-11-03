@@ -1,4 +1,32 @@
-# V5Q.8B — Verified Prize Proof Navigation and Live Cameras
+# Lucky Game Hub
+
+The current build identity is defined in [release.json](release.json). Deployed
+builds display that version and the exact source commit in the application footer;
+a source checkout is explicitly labeled as a source build.
+
+## Current maintenance release — V5Q32G1
+
+Section A of the codebase audit repairs test completion and release reliability.
+All executable test suites are explicitly registered, JavaScript async tests must
+finish, and publication requires complete Linux and Windows checks on the exact
+merged commit. Deployment ZIPs are deterministic, root-level application packages
+with verified source metadata. Existing release assets cannot be silently replaced
+or reused for different source.
+
+For HostGator, download the **Full_Deploy.zip release asset**, upload it to the
+existing Lucky installation directory, and extract **once**. Do not upload the
+outer GitHub Actions artifact ZIP. Configuration, uploaded media and the database
+must be preserved. Section A introduces **no database migration**; older pending
+migrations still require their documented upgrade procedure.
+
+- [One-upload/one-extract deployment guide](docs/HOSTGATOR_DIRECT_DEPLOY.md)
+- [Section A scope, test gates and remaining limitations](docs/V5Q32G1_AUDIT_A.md)
+
+## Historical release notes
+
+The following sections describe earlier releases, not the current release status.
+
+### V5Q.8B — Verified Prize Proof Navigation and Live Cameras
 
 The individual prize proof editor now restores the **exact originating game session** when you exit (and Claims when the entry came from Claims). Pressing Back from the approved phone controller or Escape on desktop follows that return destination.
 

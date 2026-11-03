@@ -1,9 +1,12 @@
 /* V5Q.23B SDK consumer contract. */
 'use strict';
 const assert=require('node:assert/strict');
+const {test}=require('node:test');
 const fs=require('node:fs');
 const vm=require('node:vm');
-const code=fs.readFileSync('sdk/lucky-game.js','utf8');
+const path=require('node:path');
+const code=fs.readFileSync(path.join(__dirname,'../sdk/lucky-game.js'),'utf8');
+test('SDK input/state consumer contract', {timeout:1000}, () => {
 let listener=null;const sent=[];
 const parent={postMessage(...args){sent.push(args)}};
 const window={parent,addEventListener(name,callback){if(name==='message')listener=callback}};
@@ -30,4 +33,7 @@ assert.throws(()=>sdk.sendInput('buzz','a'.repeat(241)),/primitive/);
 assert.throws(()=>sdk.sendInput('buzz',1.25),/primitive/);
 unsub();
 assert.deepEqual(states,['active','paused']);
-console.log('V5Q.23B SDK browser event contract passed');
+listener({source:parent,data:{type:'lucky:state',state:{status:'ended'}}});
+assert.deepEqual(states,['active','paused'],'Unsubscribed listeners receive no further state');
+assert.equal(sdk.sendInput('buzz','three'),false);
+});

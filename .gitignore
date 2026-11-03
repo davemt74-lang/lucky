@@ -1,0 +1,24 @@
+# Deployment output is generated from committed source, never tracked.
+/dist/
+/build-info.json
+__pycache__/
+*.pyc
+
+# Runtime/private data must survive deployment and must never enter a release.
+/storage/*
+!/storage/.htaccess
+!/storage/index.html
+!/storage/claim-media/
+/storage/claim-media/*
+!/storage/claim-media/.htaccess
+!/storage/claim-media/index.html
+!/storage/prize-videos/
+/storage/prize-videos/*
+!/storage/prize-videos/.htaccess
+!/storage/prize-videos/index.html
+!/storage/renders/
+/storage/renders/*
+!/storage/renders/.htaccess
+!/storage/renders/index.html
+.env
+.env.*

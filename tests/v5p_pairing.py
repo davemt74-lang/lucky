@@ -1,6 +1,6 @@
 """Mocked-browser acceptance: UI and controller transport. No real MySQL/HTTPS connectivity."""
 from pathlib import Path
-import subprocess,re,asyncio
+import subprocess,re,asyncio,json,shutil,tempfile
 from playwright.async_api import async_playwright
 ROOT=Path(__file__).resolve().parents[1]
 CSS='\n'.join((ROOT/'public'/n).read_text() for n in ('style.css','platform.css'))
@@ -29,16 +29,25 @@ return new Response(JSON.stringify(data),{status,headers:{'Content-Type':'applic
 </script>'''
 
 def php_page(name,session=False):
- cfg=ROOT/'storage/config.php'
- assert not cfg.exists()
- try:
-  cfg.write_text('<?php return [];')
+ if not re.fullmatch(r'[a-z][a-z0-9-]*',name):
+  raise ValueError('Invalid PHP fixture page')
+ # Render the current application, but never create/remove an installed
+ # checkout's configuration or let a fixture discover real database secrets.
+ with tempfile.TemporaryDirectory(prefix='lucky-browser-page-') as temporary:
+  fixture=Path(temporary)
+  shutil.copytree(ROOT/'lib',fixture/'lib')
+  for page in ROOT.glob('*.php'):
+   shutil.copy2(page,fixture/page.name)
+  for metadata in ('release.json','build-info.json'):
+   if (ROOT/metadata).is_file():shutil.copy2(ROOT/metadata,fixture/metadata)
+  (fixture/'storage').mkdir()
+  (fixture/'storage/config.php').write_text('<?php throw new RuntimeException("Browser fixture has no database.");',encoding='utf-8')
   prefix='$_GET=["session"=>"'+ID+'","token"=>"'+VIEW+'"]; ' if name=='display' else ''
-  command=f'define("LUCKY_TESTING",true); $_SESSION=["admin_id"=>1]; {prefix} include "{ROOT/name}.php";'
+  page_path=json.dumps(str(fixture/(name+'.php')))
+  command=f'define("LUCKY_TESTING",true); $_SESSION=["admin_id"=>1]; {prefix} include {page_path};'
   p=subprocess.run(['php','-r',command],capture_output=True,text=True,timeout=15)
   assert p.returncode==0,(p.stderr,p.stdout[:150])
   return p.stdout
- finally:cfg.unlink(missing_ok=True)
 
 def make_html(name):
  raw=php_page(name)
@@ -55,17 +64,33 @@ async def main():
    ctx=await browser.new_context(viewport={'width':width,'height':820},reduced_motion='reduce')
    page=await ctx.new_page();err=[];page.on('pageerror',lambda e:err.append(str(e)))
    html=make_html(name)
+   if name=='controller':
+    # Current controller contracts include a live-game snapshot and explicit
+    # command receipts. Keep this scoped to this suite; importers supply their
+    # own game-specific response fixtures.
+    html=html.replace('</head>', '''<script>
+const pairingFetch=window.fetch;
+window.pairingGame={id:'a'.repeat(32),game:'spin-wheel',status:'active',version:1,spinCount:0,
+ claimedCount:0,claimedCents:0,remaining:8,spinning:false,canStart:false,canSpin:true};
+window.fetch=async (url,options={})=>{
+ const response=await pairingFetch(url,options),data=await response.json();
+ const action=new URL(String(url),'https://example.test/').searchParams.get('action');
+ if(action==='status'&&data.status==='paired')data.game=window.pairingGame;
+ if(action==='command'){data.applied=true;data.effect='updated';data.game=window.pairingGame;}
+ return new Response(JSON.stringify(data),{status:response.status,headers:{'Content-Type':'application/json'}});
+};
+</script></head>''',1)
    html=html.replace('<base href="https://example.test/">','<base href="https://example.test/'+name+'.php'+query+'">')
    await page.set_content(html,wait_until='domcontentloaded')
    return page,ctx,err
   page,ctx,err=await open_page('game')
   check('host shows connect-phone entry',await page.locator('#pair-new').count()==1)
+  await page.locator('#host-tab-phones').click()
   await page.locator('#pair-new').click()
   await page.wait_for_timeout(150)
   check('host invite displays QR',await page.locator('#pair-qr svg rect').count()>100)
   check('host invite contains local pairing URL', 'controller.php?invite=' in await page.locator('#pair-link').input_value())
   check('host invitation creation calls authenticated API',await page.evaluate("testCalls.some(x=>x.act==='invite')"))
-  await page.screenshot(path=str(ROOT.parent/'Lucky-Game-Hub-V5P-host-pairing.png'),full_page=True)
   await page.evaluate("testPairs=[{id:'a'.repeat(32),device_name:'Home Phone',status:'pending'}]")
   await page.wait_for_timeout(2200)
   check('host receives pending phone',await page.get_by_text('Home Phone').count()>0)
@@ -91,11 +116,12 @@ async def main():
   await page.locator('[data-phone=spin]').click();await page.wait_for_timeout(90)
   check('phone posts spin command',await page.evaluate("testCalls.some(x=>x.act==='command'&&x.inp.command==='spin')"))
   check('phone command includes nonce',await page.evaluate("testCalls.some(x=>x.act==='command'&&x.inp.nonce.length>=12)"))
+  await page.locator('[data-phone-view=more]').click()
+  await page.locator('#phone-menu-tab-music').click()
   await page.locator('[data-phone=music-next]').click();await page.wait_for_timeout(80)
   check('phone sends song selection',await page.evaluate("testCalls.some(x=>x.act==='command'&&x.inp.command==='music-next')"))
   check('phone fits mobile width',await page.evaluate('document.documentElement.scrollWidth <= innerWidth + 1'))
   check('phone JS no uncaught exceptions',not err)
-  await page.screenshot(path=str(ROOT.parent/'Lucky-Game-Hub-V5P-phone-controller.png'),full_page=True)
   await ctx.close()
   page,ctx,err=await open_page('controller',375,'?session='+ID+'&viewer='+VIEW)
   await page.locator('#phone-name').fill('TV Phone');await page.locator('#phone-join-form button').click();await page.wait_for_timeout(100)

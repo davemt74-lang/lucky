@@ -1,8 +1,8 @@
 'use strict';
 const assert=require('node:assert/strict');
+const {test}=require('node:test');
 const {build,run}=require('../public/proof-sequence.js');
-(async()=>{
- let count=0;const pass=(label,fn)=>{fn();console.log('PASS',label);count++;};
+ const pass=(label,fn)=>test('Proof plan: '+label,{timeout:1000},fn);
  const cams=[{id:'usb-A',label:'USB Front'},{id:'usb-B',label:'USB Side'}];
  const configured=[{label:'Prize hero angle',seconds:3},{label:'Winner reaction',seconds:9},{label:'Extra camera',seconds:4}];
  const p=build(cams,configured);
@@ -14,14 +14,16 @@ const {build,run}=require('../public/proof-sequence.js');
  pass('invalid timing falls back to 8 seconds',()=>assert.equal(build(cams,[{label:'ok',seconds:900}])[0].seconds,8));
  pass('no cameras cannot start',()=>assert.throws(()=>build([],[])));
  pass('more than 4 cameras rejected',()=>assert.throws(()=>build([...cams,...cams,...cams],[])));
+test('Proof sequence records in order and announces each countdown', {timeout:1000}, async () => {
  const events=[],recorded=[];
  await run(p,{announce:e=>events.push(e),record:async a=>recorded.push(a),sleep:async()=>{}});
- pass('exactly three countdown numbers per angle',()=>assert.deepEqual(events.filter(e=>e.phase==='countdown').map(e=>e.remaining),[3,2,1,3,2,1]));
- pass('record only one view at a time in the right order',()=>assert.deepEqual(recorded.map(e=>e.id),['usb-A','usb-B']));
- pass('next camera announced for first view',()=>assert.equal(events.find(e=>e.phase==='countdown').next.cameraName,'USB Side'));
- pass('last angle announces no next camera',()=>assert.equal(events.filter(e=>e.phase==='recording')[1].next,null));
+ assert.deepEqual(events.filter(e=>e.phase==='countdown').map(e=>e.remaining),[3,2,1,3,2,1]);
+ assert.deepEqual(recorded.map(e=>e.id),['usb-A','usb-B']);
+ assert.equal(events.find(e=>e.phase==='countdown').next.cameraName,'USB Side');
+ assert.equal(events.filter(e=>e.phase==='recording')[1].next,null);
+});
+test('Proof sequence cancellation prevents recording after stop', {timeout:1000}, async () => {
  const controller=new AbortController();let aborted=[];
  await assert.rejects(run(p,{signal:controller.signal,announce:e=>{aborted.push(e);if(e.phase==='countdown'&&e.remaining===2)controller.abort();},record:async()=>{throw Error('Should not record');},sleep:async(ms,signal)=>{if(signal?.aborted)throw Error('Capture stopped.');}}),/Capture stopped/);
- pass('cancellation prevents recording after stop',()=>assert.equal(aborted.at(-1).remaining,2));
- console.log('Proof plans:',count,'/ ',count,'PASS');
-})().catch(e=>{console.error(e);process.exit(1);});
+ assert.equal(aborted.at(-1).remaining,2);
+});

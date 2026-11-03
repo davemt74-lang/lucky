@@ -1,7 +1,8 @@
 """Isolated browser and validation tests; not real DB, checkout or physical gamepads."""
 from pathlib import Path
-import subprocess,re, asyncio, tempfile, shutil
+import re, asyncio
 from playwright.async_api import async_playwright
+from v5p_pairing import php_page
 ROOT=Path(__file__).resolve().parents[1]
 CSS='\n'.join((ROOT/f'public/{file}').read_text() for file in ['style.css','platform.css'])
 MOCK='''<script>
@@ -15,12 +16,7 @@ else if(a==='catalog_delete'){const p=JSON.parse(options.body);window.fakeCatalo
 return new Response(JSON.stringify(data),{status:200,headers:{'Content-Type':'application/json'}});};
 </script>'''
 def render(name):
- config=ROOT/'storage/config.php';assert not config.exists(),'test requires no installed config'
- try:
-  config.write_text('<?php return [];')
-  proc=subprocess.run(['php','-r',f'define("LUCKY_TESTING", true); $_SESSION=["admin_id"=>1]; include "{ROOT/name}.php";'],capture_output=True,text=True,timeout=10)
-  assert proc.returncode==0,(proc.stderr,proc.stdout[:500]);return proc.stdout
- finally: config.unlink(missing_ok=True)
+ return php_page(name)
 def fixture(name):
  html=render(name)
  html=re.sub(r'<link rel="stylesheet" href="public/style.css(?:\?[^"]*)?"><link rel="stylesheet" href="public/platform.css(?:\?[^"]*)?">','<style>'+CSS+'</style>',html)
@@ -59,8 +55,12 @@ async def main():
   check('home no JS errors',not errors);await c.close()
   p,c,errors=await openpage('game')
   check('game menu initially closed',not await p.locator('#console-menu').evaluate('(e)=>e.open'))
+  await p.locator('#host-tab-display').click()
+  await p.locator('#live-open-game-menu').click();await p.wait_for_timeout(70)
+  check('host menu control opens in-game menu',await p.locator('#console-menu').evaluate('(e)=>e.open'))
   await p.keyboard.press('Escape');await p.wait_for_timeout(70)
-  check('Escape opens in-game menu',await p.locator('#console-menu').evaluate('(e)=>e.open'))
+  check('Escape closes in-game menu',not await p.locator('#console-menu').evaluate('(e)=>e.open'))
+  await p.locator('#live-open-game-menu').click()
   await p.locator('[data-console-resume]').click();check('menu resumes/closes',not await p.locator('#console-menu').evaluate('(e)=>e.open'))
   check('game no JS errors',not errors);await c.close()
   for typ in ['shop','catalog-admin','devices','index','game']:
