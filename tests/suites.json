@@ -90,7 +90,9 @@
         "tests/node_test_completion.js",
         "tests/build_version.php",
         "tests/release_packaging.py",
-        "tests/release_publication.py"
+        "tests/release_publication.py",
+        "tests/v5q32g2_publisher_lifecycle.js",
+        "tests/v5q32g2_viewer_heartbeat.js"
       ]
     },
     "database": {
@@ -121,7 +123,9 @@
         "tests/v5q29e4a_timeline_db.php",
         "tests/v5q29e4b_export_db.php",
         "tests/v5q29e4c_profiles_db.php",
-        "tests/v5q29e4d1_phone_camera_default_db.php"
+        "tests/v5q29e4d1_phone_camera_default_db.php",
+        "tests/v5q32g2_phone_upload_db.php",
+        "tests/v5q32g2_viewer_heartbeat_db.php"
       ]
     },
     "browsers": {
@@ -225,7 +229,8 @@
         },
         "tests/browser.py",
         "tests/v5n_console.py",
-        "tests/v5p_pairing.py"
+        "tests/v5p_pairing.py",
+        "tests/v5q32g2_publisher_lifecycle_browser.py"
       ]
     },
     "video": {

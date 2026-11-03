@@ -104,7 +104,7 @@
  // displays. Keep it independent of the public game-view API and versioning.
  if(document.body.dataset.page==='display'||$('start-game')){
   const style=document.createElement('link');style.rel='stylesheet';style.href='public/display-program.css?v=5q32c';
-  const script=document.createElement('script');script.src='public/display-program.js?v=5q32c';script.async=true;
+  const script=document.createElement('script');script.src='public/display-program.js?v=5q32g2';script.async=true;
   document.head.append(style,script);
  }
  function bindMusic(){

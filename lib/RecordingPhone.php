@@ -119,7 +119,7 @@ final class RecordingPhone {
   $db->beginTransaction();try{
    $pair=self::assertApproved($db,$pairId,$token,$sessionId);
    RecordingProfiles::kind($db,$sessionId,$kind);
-   $q=$db->prepare('SELECT a.id,a.recording_session_id,m.kind,m.mime,m.bytes,m.sha256 FROM recording_assets a JOIN recording_media_files m ON m.asset_id=a.id WHERE a.id=? FOR UPDATE');
+   $q=$db->prepare('SELECT a.id,a.recording_session_id,a.kind,m.mime,m.bytes,m.sha256 FROM recording_assets a JOIN recording_media_files m ON m.asset_id=a.id WHERE a.id=? FOR UPDATE');
    $q->execute([$assetId]);$old=$q->fetch(PDO::FETCH_ASSOC);
    if($old){
     if($old['recording_session_id']!==$sessionId||$old['kind']!==$kind||$old['mime']!==$mime||(int)$old['bytes']!==$bytes||!hash_equals((string)$old['sha256'],$digest)||!is_file($path))

@@ -31,6 +31,6 @@ assertDisplay(is_string($viewer)&&!str_contains($viewer,'localStorage')&&!str_co
  'Embedded viewer neither persists invitations nor reads them from game state');
 $loader=file_get_contents(__DIR__.'/../public/client.js');
 assertDisplay(is_string($loader)&&str_contains($loader,"document.body.dataset.page==='display'||$('start-game')")&&
- str_contains($loader,'public/display-program.js?v=5q32c'),
+ preg_match('~public/display-program\\.js\\?v=[a-zA-Z0-9._-]+~',$loader)===1,
  'Host gameplay and TV display both load the opt-in viewer');
 echo "V5Q32C LIVE PROGRAM DISPLAY CORE: 10/10\n";
