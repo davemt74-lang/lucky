@@ -93,9 +93,17 @@ runtimeContract(str_contains($test,'$script:originalCgiAcl=Get-Acl -LiteralPath 
  str_contains($test,'[Security.AccessControl.FileSystemRights]::ExecuteFile'),
  'Failed-spawn injection edits only an isolated executable ACL clone and preserves the untouched original descriptor');
 runtimeContract(str_contains($test,'Set-Acl -LiteralPath $cgiPath -AclObject $script:originalCgiAcl')&&
- str_contains($test,'$sddl -cne $script:originalCgiSddl')&&substr_count($test,'Restore-G5CgiAcl')>=3&&
+ str_contains($test,'Test-G5RestoredDescriptor $script:originalCgiBinary')&&str_contains($test,'(Get-G5InjectedDenyCount $restored) -ne 0')&&substr_count($test,'Restore-G5CgiAcl')>=3&&
  str_contains($test,'Failed to restore isolated CGI permissions'),
- 'Permission restoration is exact, retried in emergency cleanup, and restoration failure fails certification');
+ 'Full permission restoration and injected-deny removal are checked, retried in emergency cleanup, and failure blocks certification');
+runtimeContract(str_contains($test,'$actualFlags -ne ($expectedFlags -bor $autoInherited)')&&
+ str_contains($test,'($expectedFlags -band $autoInherited) -ne 0')&&str_contains($test,'Get-G5DescriptorBytes $expectedRaw')&&
+ str_contains($test,'Get-G5DescriptorBytes $actualRaw'),'Descriptor comparison permits only the observed one-way DACL auto-inheritance metadata addition');
+runtimeContract(str_contains($test,'($expectedFlags -band $daclPresent) -eq 0')&&str_contains($test,'$null -eq $expectedRaw.DiscretionaryAcl')&&
+ str_contains($test,'($expectedFlags -band $daclProtected) -ne 0'),'Metadata normalization is limited to an unprotected existing nonnull DACL');
+foreach(['a different owner','a different group','changed access rights','changed ACE order','changed ACE inheritance','changed inheritance protection','any other descriptor control-flag change','the remaining injected ExecuteFile denial',
+ 'removal of existing auto-inheritance metadata','metadata addition to a protected DACL','metadata addition to a null DACL','metadata addition to an absent DACL'] as $case)
+ runtimeContract(str_contains($test,'ACL negative control rejects '.$case),'Native descriptor negative control covers '.$case);
 runtimeContract(str_contains($test,"Write-G5AclEvidence 'original'")&&str_contains($test,"Write-G5AclEvidence 'deny-applied'")&&
  str_contains($test,"Write-G5AclEvidence 'restore-after'")&&str_contains($test,'controlValue=[int]$raw.ControlFlags')&&
  str_contains($test,'cgi-acl-diagnostics.json'),'Exact ACL, owner/group, inheritance, control flags and ACE evidence survive any restoration mismatch');

@@ -45,6 +45,8 @@ $script:result='failed'
 $script:failure=''
 $script:originalCgiAcl=$null
 $script:originalCgiSddl=$null
+$script:originalCgiBinary=$null
+$script:injectedCgiSid=$null
 $script:cgiAclChanged=$false
 $script:aclEvidence=@()
 $suffix=[Guid]::NewGuid().ToString('N')
@@ -264,16 +266,104 @@ function Write-G5AclEvidence([string]$Phase,[Security.AccessControl.FileSecurity
  $script:aclEvidence | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $EvidenceDir 'cgi-acl-diagnostics.json') -Encoding UTF8
  Write-Host ('ACL_DIAGNOSTIC phase='+$Phase+' control='+$snapshot.controlValue+' sddl='+$snapshot.sddl)
 }
+function Get-G5DescriptorBytes([Security.AccessControl.RawSecurityDescriptor]$Descriptor){
+ $bytes=New-Object byte[] $Descriptor.BinaryLength
+ $Descriptor.GetBinaryForm($bytes,0)
+ return ,$bytes
+}
+function Test-G5RestoredDescriptor([byte[]]$Expected,[byte[]]$Actual){
+ $expectedRaw=[Security.AccessControl.RawSecurityDescriptor]::new($Expected,0)
+ $actualRaw=[Security.AccessControl.RawSecurityDescriptor]::new($Actual,0)
+ $expectedFlags=[int]$expectedRaw.ControlFlags;$actualFlags=[int]$actualRaw.ControlFlags
+ # Native evidence (job125992844987): Set-Acl removed the injected Deny and
+ # restored all ordered ACEs/owner/group, but Windows converted0x8004→0x8404.
+ # Microsoft documents this automatic-inheritance conversion:
+ # https://learn.microsoft.com/en-us/windows/win32/secauthz/automatic-propagation-of-inheritable-aces
+ # Permit only that one-way metadata addition. No SDDL stripping, ACE sorting,
+ # owner/group ignoring, protection changes, or generic control-bit masking.
+ $autoInherited=[int][Security.AccessControl.ControlFlags]::DiscretionaryAclAutoInherited
+ if($actualFlags -ne $expectedFlags){
+  $daclPresent=[int][Security.AccessControl.ControlFlags]::DiscretionaryAclPresent
+  $daclProtected=[int][Security.AccessControl.ControlFlags]::DiscretionaryAclProtected
+  if(($expectedFlags -band $daclPresent) -eq 0 -or $null -eq $expectedRaw.DiscretionaryAcl -or ($expectedFlags -band $daclProtected) -ne 0){return $false}
+  if(($expectedFlags -band $autoInherited) -ne 0 -or $actualFlags -ne ($expectedFlags -bor $autoInherited)){return $false}
+  $expectedRaw.SetFlags([Security.AccessControl.ControlFlags]($expectedFlags -bor $autoInherited))
+ }
+ return [Convert]::ToBase64String((Get-G5DescriptorBytes $expectedRaw)) -ceq [Convert]::ToBase64String((Get-G5DescriptorBytes $actualRaw))
+}
+function Assert-G5AclComparator([byte[]]$Original){
+ Assert-G5 (Test-G5RestoredDescriptor $Original $Original) 'ACL comparator accepts the exact untouched descriptor'
+ # The real installer may already carry AI on another Windows image. Create a
+ # synthetic in-memory baseline with only AI cleared so add/remove negatives
+ # always change a bit. This local array is never written to disk and never
+ # replaces the separately captured original used for actual restoration.
+ $controlBaseline=[Security.AccessControl.RawSecurityDescriptor]::new($Original,0)
+ $controlBaseline.SetFlags([Security.AccessControl.ControlFlags]([int]$controlBaseline.ControlFlags -band (-bnot [int][Security.AccessControl.ControlFlags]::DiscretionaryAclAutoInherited)))
+ $Original=Get-G5DescriptorBytes $controlBaseline
+ $changed=[Security.AccessControl.RawSecurityDescriptor]::new($Original,0)
+ $changed.SetFlags([Security.AccessControl.ControlFlags]([int]$changed.ControlFlags -bor [int][Security.AccessControl.ControlFlags]::DiscretionaryAclAutoInherited))
+ Assert-G5 (Test-G5RestoredDescriptor $Original (Get-G5DescriptorBytes $changed)) 'ACL comparator accepts only the observed Windows auto-inheritance metadata addition'
+ $alreadyInherited=Get-G5DescriptorBytes $changed
+ Assert-G5 (!(Test-G5RestoredDescriptor $alreadyInherited $Original)) 'ACL negative control rejects removal of existing auto-inheritance metadata'
+ $protected=[Security.AccessControl.RawSecurityDescriptor]::new($Original,0)
+ $protected.SetFlags([Security.AccessControl.ControlFlags]([int]$protected.ControlFlags -bor [int][Security.AccessControl.ControlFlags]::DiscretionaryAclProtected))
+ $protectedOriginal=Get-G5DescriptorBytes $protected
+ $protected.SetFlags([Security.AccessControl.ControlFlags]([int]$protected.ControlFlags -bor [int][Security.AccessControl.ControlFlags]::DiscretionaryAclAutoInherited))
+ Assert-G5 (!(Test-G5RestoredDescriptor $protectedOriginal (Get-G5DescriptorBytes $protected))) 'ACL negative control rejects metadata addition to a protected DACL'
+ $nullDacl=[Security.AccessControl.RawSecurityDescriptor]::new($Original,0)
+ $nullDacl.DiscretionaryAcl=$null
+ $nullOriginal=Get-G5DescriptorBytes $nullDacl
+ $nullDacl.SetFlags([Security.AccessControl.ControlFlags]([int]$nullDacl.ControlFlags -bor [int][Security.AccessControl.ControlFlags]::DiscretionaryAclAutoInherited))
+ Assert-G5 (!(Test-G5RestoredDescriptor $nullOriginal (Get-G5DescriptorBytes $nullDacl))) 'ACL negative control rejects metadata addition to a null DACL'
+ $absentDacl=[Security.AccessControl.RawSecurityDescriptor]::new($Original,0)
+ $absentDacl.DiscretionaryAcl=$null
+ $absentDacl.SetFlags([Security.AccessControl.ControlFlags]([int]$absentDacl.ControlFlags -band (-bnot [int][Security.AccessControl.ControlFlags]::DiscretionaryAclPresent)))
+ $absentOriginal=Get-G5DescriptorBytes $absentDacl
+ $absentDacl.SetFlags([Security.AccessControl.ControlFlags]([int]$absentDacl.ControlFlags -bor [int][Security.AccessControl.ControlFlags]::DiscretionaryAclAutoInherited))
+ Assert-G5 (!(Test-G5RestoredDescriptor $absentOriginal (Get-G5DescriptorBytes $absentDacl))) 'ACL negative control rejects metadata addition to an absent DACL'
+ $changed=[Security.AccessControl.RawSecurityDescriptor]::new($Original,0)
+ $ownerSid=if($changed.Owner.Value -eq 'S-1-5-18'){'S-1-5-32-544'}else{'S-1-5-18'}
+ $changed.Owner=[Security.Principal.SecurityIdentifier]::new($ownerSid)
+ Assert-G5 (!(Test-G5RestoredDescriptor $Original (Get-G5DescriptorBytes $changed))) 'ACL negative control rejects a different owner'
+ $changed=[Security.AccessControl.RawSecurityDescriptor]::new($Original,0)
+ $groupSid=if($changed.Group.Value -eq 'S-1-5-32-545'){'S-1-5-32-544'}else{'S-1-5-32-545'}
+ $changed.Group=[Security.Principal.SecurityIdentifier]::new($groupSid)
+ Assert-G5 (!(Test-G5RestoredDescriptor $Original (Get-G5DescriptorBytes $changed))) 'ACL negative control rejects a different group'
+ $changed=[Security.AccessControl.RawSecurityDescriptor]::new($Original,0)
+ $changed.DiscretionaryAcl[0].AccessMask=$changed.DiscretionaryAcl[0].AccessMask -bxor 1
+ Assert-G5 (!(Test-G5RestoredDescriptor $Original (Get-G5DescriptorBytes $changed))) 'ACL negative control rejects changed access rights'
+ $changed=[Security.AccessControl.RawSecurityDescriptor]::new($Original,0)
+ if($changed.DiscretionaryAcl.Count -lt 2){throw 'Native ACL ordering control requires two distinct inherited rules.'}
+ $first=$changed.DiscretionaryAcl[0].Copy();$second=$changed.DiscretionaryAcl[1].Copy()
+ $changed.DiscretionaryAcl[0]=$second;$changed.DiscretionaryAcl[1]=$first
+ Assert-G5 (!(Test-G5RestoredDescriptor $Original (Get-G5DescriptorBytes $changed))) 'ACL negative control rejects changed ACE order'
+ $changed=[Security.AccessControl.RawSecurityDescriptor]::new($Original,0)
+ $changed.DiscretionaryAcl[0].AceFlags=[Security.AccessControl.AceFlags]([int]$changed.DiscretionaryAcl[0].AceFlags -bxor [int][Security.AccessControl.AceFlags]::Inherited)
+ Assert-G5 (!(Test-G5RestoredDescriptor $Original (Get-G5DescriptorBytes $changed))) 'ACL negative control rejects changed ACE inheritance'
+ $changed=[Security.AccessControl.RawSecurityDescriptor]::new($Original,0)
+ $changed.SetFlags([Security.AccessControl.ControlFlags]([int]$changed.ControlFlags -bxor [int][Security.AccessControl.ControlFlags]::DiscretionaryAclProtected))
+ Assert-G5 (!(Test-G5RestoredDescriptor $Original (Get-G5DescriptorBytes $changed))) 'ACL negative control rejects changed inheritance protection'
+ $changed=[Security.AccessControl.RawSecurityDescriptor]::new($Original,0)
+ $changed.SetFlags([Security.AccessControl.ControlFlags]([int]$changed.ControlFlags -bxor [int][Security.AccessControl.ControlFlags]::GroupDefaulted))
+ Assert-G5 (!(Test-G5RestoredDescriptor $Original (Get-G5DescriptorBytes $changed))) 'ACL negative control rejects any other descriptor control-flag change'
+}
+function Get-G5InjectedDenyCount([Security.AccessControl.FileSecurity]$Acl){
+ return @($Acl.GetAccessRules($true,$false,[Security.Principal.SecurityIdentifier]) | Where-Object {
+  $_.IdentityReference.Value -eq $script:injectedCgiSid.Value -and $_.AccessControlType -eq [Security.AccessControl.AccessControlType]::Deny -and
+  (([int]$_.FileSystemRights -band [int][Security.AccessControl.FileSystemRights]::ExecuteFile) -ne 0)
+ }).Count
+}
 function Restore-G5CgiAcl {
  if(!$script:cgiAclChanged){return}
- if($null -eq $script:originalCgiAcl -or $null -eq $script:originalCgiSddl){throw 'Original isolated CGI permissions are unavailable for restoration.'}
+ if($null -eq $script:originalCgiAcl -or $null -eq $script:originalCgiBinary -or $null -eq $script:injectedCgiSid){throw 'Original isolated CGI permissions are unavailable for restoration.'}
  Write-G5AclEvidence 'restore-expected' $script:originalCgiAcl
  Write-G5AclEvidence 'restore-before' (Get-Acl -LiteralPath $cgiPath -ErrorAction Stop)
  Set-Acl -LiteralPath $cgiPath -AclObject $script:originalCgiAcl -ErrorAction Stop
  $restored=Get-Acl -LiteralPath $cgiPath -ErrorAction Stop
  Write-G5AclEvidence 'restore-after' $restored
- $sddl=$restored.GetSecurityDescriptorSddlForm([Security.AccessControl.AccessControlSections]::All)
- if($sddl -cne $script:originalCgiSddl){throw 'Isolated CGI permissions were not restored exactly.'}
+ if(!(Test-G5RestoredDescriptor $script:originalCgiBinary ($restored.GetSecurityDescriptorBinaryForm())) -or (Get-G5InjectedDenyCount $restored) -ne 0){
+  throw 'Isolated CGI owner/group, ordered ACLs, permissions and protection were not restored.'
+ }
  $script:cgiAclChanged=$false
 }
 
@@ -412,13 +502,17 @@ try{
  $health=Wait-G5Health;$cgi=Get-G5Child $cgiPath;$database=Get-G5Child $dbPath;$web=Get-G5Child $caddyPath
  $script:originalCgiAcl=Get-Acl -LiteralPath $cgiPath -ErrorAction Stop
  $script:originalCgiSddl=$script:originalCgiAcl.GetSecurityDescriptorSddlForm([Security.AccessControl.AccessControlSections]::All)
+ $script:originalCgiBinary=$script:originalCgiAcl.GetSecurityDescriptorBinaryForm()
  Write-G5AclEvidence 'original' $script:originalCgiAcl
+ Assert-G5AclComparator $script:originalCgiBinary
  $deniedAcl=New-Object Security.AccessControl.FileSecurity
  $deniedAcl.SetSecurityDescriptorBinaryForm($script:originalCgiAcl.GetSecurityDescriptorBinaryForm())
- $currentSid=[Security.Principal.WindowsIdentity]::GetCurrent().User
- $denyExecute=New-Object Security.AccessControl.FileSystemAccessRule($currentSid,[Security.AccessControl.FileSystemRights]::ExecuteFile,[Security.AccessControl.AccessControlType]::Deny)
+ $script:injectedCgiSid=[Security.Principal.WindowsIdentity]::GetCurrent().User
+ Assert-G5 ((Get-G5InjectedDenyCount $script:originalCgiAcl) -eq 0) 'Original CGI descriptor contains no instance of the injected ExecuteFile denial'
+ $denyExecute=New-Object Security.AccessControl.FileSystemAccessRule($script:injectedCgiSid,[Security.AccessControl.FileSystemRights]::ExecuteFile,[Security.AccessControl.AccessControlType]::Deny)
  $deniedAcl.AddAccessRule($denyExecute)
  Write-G5AclEvidence 'deny-candidate' $deniedAcl
+ Assert-G5 (!(Test-G5RestoredDescriptor $script:originalCgiBinary ($deniedAcl.GetSecurityDescriptorBinaryForm())) -and (Get-G5InjectedDenyCount $deniedAcl) -eq 1) 'ACL negative control rejects the remaining injected ExecuteFile denial'
  try{
   $script:cgiAclChanged=$true
   Set-Acl -LiteralPath $cgiPath -AclObject $deniedAcl -ErrorAction Stop
@@ -438,7 +532,7 @@ try{
  }finally{
   Restore-G5CgiAcl
  }
- Assert-G5 (!$script:cgiAclChanged) 'Exact original CGI permissions are restored before the subsequent normal restart'
+ Assert-G5 (!$script:cgiAclChanged) 'Original CGI owner/group, ordered permissions and protection are restored before the normal restart'
  $restart=Start-G5Launcher
  $health=Wait-G5Health;$cgi=Get-G5Child $cgiPath;$database=Get-G5Child $dbPath;$web=Get-G5Child $caddyPath
  $receipt=Invoke-G5 'read'

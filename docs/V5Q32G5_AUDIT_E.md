@@ -82,6 +82,18 @@ directory/system permissions. Evidence contains assertions and process events,
 not credentials, database dumps, media contents or private certificate keys.
 The source contract supplements this native test; it cannot substitute for it.
 
+Windows diagnostics exposed one test-fixture representation difference: restoring
+the original descriptor retained identical owner, group and ordered access rules,
+but Windows set `SE_DACL_AUTO_INHERITED` (`0x0400`). The restoration comparison
+therefore permits only that observed unset-to-set metadata transition for this
+unprotected, existing-DACL file. All other descriptor bytes, including ownership,
+access masks, ordered allow/deny entries and protection/inheritance controls,
+must match. Native negative controls verify that real permission changes and a
+remaining injected deny are rejected; normal executable startup is also tested
+after restoration. This follows Microsoft's documented
+[automatic inheritance conversion](https://learn.microsoft.com/en-us/windows/win32/secauthz/automatic-propagation-of-inheritable-aces),
+not a general ACL-normalization or permission-repair policy.
+
 ## Deployment and retained limits
 
 Install the matching Windows package after backing up the user-owned database
