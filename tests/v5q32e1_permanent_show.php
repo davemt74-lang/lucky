@@ -1,0 +1,29 @@
+<?php
+declare(strict_types=1);
+define('LUCKY_TESTING',true);
+require_once __DIR__.'/../lib/Bootstrap.php';
+require_once __DIR__.'/../lib/DirectorBroadcast.php';
+function e1Check(bool $test,string $label):void {if(!$test)throw new RuntimeException('V5Q32E1: '.$label);echo "PASS $label\n";}
+$root=dirname(__DIR__).'/';
+$read=static fn(string $path)=>(string)file_get_contents($root.$path);
+$schema=$read('lib/migrations/v5q32e1_permanent_show_url.sql');
+$broadcast=$read('lib/DirectorBroadcast.php');
+$api=$read('api/director-live.php');
+$publisher=$read('public/director-publish.js');
+$viewer=$read('public/director-view.js');
+$director=$read('director.php');
+$page=$read('live-view.php');
+e1Check(str_contains($schema,'UNIQUE KEY uq_director_show_recording')&&str_contains($schema,'ON DELETE CASCADE'),'One permanent public slug per recording; deletion cascades');
+e1Check(str_contains($broadcast,'function ensureShow')&&str_contains($broadcast,'function resolveShow'),'Permanent show channel has server-side allocation and resolution');
+e1Check(str_contains($broadcast,"b.visibility='public'")&&str_contains($broadcast,'r.owner_admin_id=c.host_admin_id'),'Resolver discloses only active, owned PUBLIC programs');
+e1Check(str_contains($api,"\$action==='show_link'")&&str_contains($api,'assertCsrf()'),'Show URL creation requires signed-in host and CSRF');
+e1Check(str_contains($api,"\$action==='host_status'")&&str_contains($broadcast,'function hostStatus'),'Host telemetry is a separate authenticated action');
+e1Check(str_contains($api,"\$action==='resolve_show'")&&str_contains($api,'DirectorBroadcast::resolveShow'),'Public permalink resolution has its own read-only endpoint');
+e1Check(str_contains($page,'data-show-id')&&str_contains($page,'OFF AIR'),'Permanent URL has its own standby viewer page');
+e1Check(str_contains($viewer,"request('resolve_show'")&&str_contains($viewer,'stopFeed()'),'Viewer polls for restarted publications without URL changes');
+e1Check(str_contains($publisher,"visibility==='public'?(stableShowUrl()")&&str_contains($publisher,"visibility==='private'"),'Public share uses permalink while private retains bearer invitation');
+e1Check(str_contains($director,'id="director-show-url"')&&str_contains($director,'id="director-live-viewers"')&&str_contains($director,'id="director-live-health"'),'Live dashboard exposes permalink, viewer count and health');
+e1Check(str_contains($read('public/director-game.js'),"const url=live||stable")&&str_contains($read('public/director-game.js'),"open.href=url||'live-view.php'"),'Game Director shares standby permalink before publish');
+foreach(['install.php','upgrade.php'] as $file)e1Check(str_contains($read($file),'v5q32e1_permanent_show_url.sql'),$file.' provisions stable URL migration');
+e1Check(str_contains($read('.github/workflows/deploy.yml'),'v5q32e1_permanent_show_url.sql'),'Production ZIP requires show URL schema');
+echo "V5Q32E1 PERMANENT SHOW CONTRACT: 14/14\n";

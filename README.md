@@ -6,7 +6,11 @@ Both the proof editor and the Video Studio show live, named USB/built-in camera 
 
 **Important:** Camera permission is granted by the browser over HTTPS. Selecting camera sources does not start a recording. All uploads remain claim-scoped and protected by admin + CSRF server checks. Previewed streams stop on page exit. Existing proof history is preserved.
 
-For existing installations back up database and `storage/`, upload the full deployment package while preserving `storage/config.php` and uploaded clips, then run `upgrade.php` if any earlier migration is pending. Refresh the host, proof and editor pages to clear old JS assets.
+For existing installations back up database and `storage/`, upload the full deployment package while preserving `storage/config.php` and uploaded clips, then run `upgrade.php` if any earlier migration is pending. **V5Q32E1 needs the `director_show_channels` migration:** run `upgrade.php` after uploading the new package to enable permanent Live Show URLs. Refresh the host, proof and editor pages to clear old JS assets.
+
+### V5Q32E1 — Permanent Live Show pages
+
+Open a recording session in Camera Director to get its public **Show URL**. It stays fixed for every subsequent publish of that recording session. The page reads **OFF AIR** between public broadcasts and reconnects automatically when the Director publishes Program again. A private broadcast still requires its separate invitation link and is never accessible through the public Show URL. The Director Live View dashboard shows the number of active signaling viewer sessions, elapsed time and broadcast heartbeat status. Links are scoped to their recording; starting a new recording generates a new Show URL. The publishing browser must remain open and sending the live Program. Run `upgrade.php` after uploading the full package.
 
 **Open field tests:** Physical USB-camera bandwidth, hosted MySQL and FFmpeg have not been tested. End-to-end footage capture on your actual host remains required.
 

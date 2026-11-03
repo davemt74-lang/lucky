@@ -1,9 +1,10 @@
 /* HF8C3: public/private read-only Program video and mixed audio viewer. */
 (() => {
  'use strict';
- const id=document.body.dataset.broadcastId||'',key=document.body.dataset.broadcastKey||'';
+ let id=document.body.dataset.broadcastId||'',key=document.body.dataset.broadcastKey||'';
+ const show=document.body.dataset.showId||'';
  const view=document.getElementById('director-view-video'),info=document.getElementById('director-view-status');
- let peer=null,alive=true,fallbackStream=null;
+ let peer=null,alive=true,fallbackStream=null,epoch=0,showTimer=null,showQuery=0;
  const sound=document.getElementById('director-view-sound');
  const state=(message,error=false)=>{info.textContent=message;info.classList.toggle('is-error',error);};
  const ICE={iceServers:[{urls:'stun:stun.l.google.com:19302'}]};
@@ -27,14 +28,17 @@
   });
  }
  async function connect(){
-  if(!/^[a-f0-9]{32}$/.test(id)||(key!==''&&!/^[a-f0-9]{48}$/.test(key)))throw Error('Open a valid Live View link from Camera Director.');
+  const liveId=id,liveKey=key,version=++epoch;
+  if(!/^[a-f0-9]{32}$/.test(liveId)||(liveKey!==''&&!/^[a-f0-9]{48}$/.test(liveKey)))throw Error('Open a valid Live View link from Camera Director.');
   if(!window.RTCPeerConnection)throw Error('Live View needs a WebRTC-capable browser.');
-  await request('watch',{id,key});
+  await request('watch',{id:liveId,key:liveKey});
+  if(!alive||version!==epoch)return;
   const viewer=Array.from(crypto.getRandomValues(new Uint8Array(16)),x=>x.toString(16).padStart(2,'0')).join('');
-  peer=new RTCPeerConnection(ICE);
-  peer.addTransceiver('video',{direction:'recvonly'});
-  peer.addTransceiver('audio',{direction:'recvonly'});
-  peer.ontrack=e=>{
+  const connection=new RTCPeerConnection(ICE);peer=connection;
+  connection.addTransceiver('video',{direction:'recvonly'});
+  connection.addTransceiver('audio',{direction:'recvonly'});
+  connection.ontrack=e=>{
+   if(!alive||version!==epoch)return;
    if(e.streams?.[0]){view.srcObject=e.streams[0];}
    else{
     if(!fallbackStream)fallbackStream=new MediaStream();
@@ -43,24 +47,58 @@
    }
    void view.play().catch(()=>{});state('● LIVE · Camera Director Program');
   };
-  peer.onconnectionstatechange=()=>{
-   if(peer.connectionState==='failed'||peer.connectionState==='disconnected')state('Feed interrupted. Reload the Live View link to reconnect.',true);
-   if(peer.connectionState==='connected')state('● LIVE · Camera Director Program');
+  connection.onconnectionstatechange=()=>{
+   if(!alive||version!==epoch)return;
+   if(connection.connectionState==='failed'){
+    if(show){stopFeed();id='';state('Program interrupted. Reconnecting…');}
+    else state('Feed interrupted. Reload the Live View link to reconnect.',true);
+   }
+   if(connection.connectionState==='disconnected')state(show?'Program interrupted. Waiting for connection…':'Feed interrupted. Reload the Live View link to reconnect.',true);
+   if(connection.connectionState==='connected')state('● LIVE · Camera Director Program');
   };
-  await peer.setLocalDescription(await peer.createOffer());
-  await gathered(peer);
-  await request('offer',{id,key,viewer,sdp:peer.localDescription.sdp},'POST');
+  await connection.setLocalDescription(await connection.createOffer());
+  await gathered(connection);
+  if(!alive||version!==epoch)return;
+  await request('offer',{id:liveId,key:liveKey,viewer,sdp:connection.localDescription.sdp},'POST');
   let answered=false;
-  for(let i=0;i<22&&alive;i++){
-   const result=await request('poll',{id,key,viewer});
-   if(result.answer){await peer.setRemoteDescription({type:'answer',sdp:result.answer});answered=true;break;}
+  for(let i=0;i<22&&alive&&version===epoch;i++){
+   const result=await request('poll',{id:liveId,key:liveKey,viewer});
+   if(!alive||version!==epoch)return;
+   if(result.answer){await connection.setRemoteDescription({type:'answer',sdp:result.answer});answered=true;break;}
    await new Promise(resolve=>setTimeout(resolve,1200));
   }
-  if(!answered&&alive)throw Error('The Director has not answered. Keep the desktop proof and Program open, then reload.');
+  if(!alive||version!==epoch)return;
+  if(!answered)throw Error('The Director has not answered. Keep Program open, then reload.');
   // Poll only the authenticated publication status, so revocation blanks stale video immediately.
-  while(alive){await new Promise(resolve=>setTimeout(resolve,3500));if(!alive)return;await request('watch',{id,key});}
+  while(alive&&version===epoch){await new Promise(resolve=>setTimeout(resolve,3500));
+   if(!alive||version!==epoch)return;await request('watch',{id:liveId,key:liveKey});}
  }
- function stop(){alive=false;try{peer?.close();}catch(_){}if(view)view.srcObject=null;fallbackStream=null;}
+ function stopFeed(){epoch++;try{peer?.close();}catch(_){}peer=null;if(view)view.srcObject=null;fallbackStream=null;}
+ function stop(){alive=false;clearInterval(showTimer);stopFeed();}
+ function launch(){
+  const current=epoch+1;
+  void connect().catch(e=>{
+   if(!alive||current!==epoch)return;
+   stopFeed();if(show)id='';
+   state(show?'OFF AIR · Waiting for a public Program broadcast…':'Live View unavailable: '+e.message,!show);
+  });
+ }
+ async function refreshShow(){
+  if(!alive)return;
+  const query=++showQuery;
+  try{
+   const result=await request('resolve_show',{show});
+   if(!alive||query!==showQuery)return;
+   const next=result.live&&/^[a-f0-9]{32}$/.test(result.broadcastId||'')?result.broadcastId:'';
+   if(next===id)return;
+   stopFeed();id=next;key='';
+   if(next){state('Connecting to the live Program…');launch();}
+   else state('OFF AIR · Waiting for a public Program broadcast…');
+  }catch(e){
+   if(!alive||query!==showQuery)return;
+   stopFeed();id='';state('This show is unavailable: '+e.message,true);
+  }
+ }
  sound?.addEventListener('click',()=>{
   if(!view)return;
   view.muted=!view.muted;
@@ -89,13 +127,18 @@
   state(root.children.length?'Live public broadcasts · Only the host selects the Program.':'No public broadcasts are live right now.');
  }
  window.addEventListener('pagehide',stop);
- if(!id){
+ if(!id&&!show){
   const refresh=()=>void listPublic().catch(e=>state('Unable to load public broadcasts: '+e.message,true));
   document.getElementById('director-public-refresh')?.addEventListener('click',refresh);
   refresh();
   const refreshTimer=setInterval(refresh,12000);
   window.addEventListener('pagehide',()=>clearInterval(refreshTimer));
+ }else if(show){
+  if(/^[a-f0-9]{32}$/.test(show)){
+   void refreshShow();showTimer=setInterval(()=>void refreshShow(),4500);
+  }else state('Invalid show URL.',true);
  }else{
-  void connect().catch(e=>{stop();state('Live View unavailable: '+e.message,true);});
+  launch();
  }
+ window.addEventListener('pagehide',stop);
 })();

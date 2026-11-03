@@ -64,17 +64,20 @@
   renderRundownControls();
  }
  function syncBroadcast(){
-  const url=$('director-live-url')?.value||'';
-  const onAir=Boolean(window.LuckyDirectorPublisher?.state?.().onAir&&url);
+  const live=$('director-live-url')?.value||'';
+  const stable=$('director-show-url')?.value||'';
+  const url=live||stable;
+  const onAir=Boolean(window.LuckyDirectorPublisher?.state?.().onAir&&live);
   const field=$('director-game-broadcast-url');if(field.value!==url)field.value=url;
   label('director-game-on-air',onAir?'● ON AIR':'OFF AIR');
   $('director-game-on-air').classList.toggle('is-live',onAir);
-  $('director-game-broadcast-copy').disabled=!onAir;
-  const open=$('director-game-broadcast-open');open.href=onAir?url:'live-view.php';
-  open.setAttribute('aria-disabled',String(!onAir));
+  $('director-game-broadcast-copy').disabled=!url;
+  const open=$('director-game-broadcast-open');open.href=url||'live-view.php';
+  open.setAttribute('aria-disabled',String(!url));
   label('director-game-broadcast-help',onAir?
    'This link shows the final Program output. Private invitations must be shared only with intended viewers.':
-   'Broadcast URL appears when you publish Program with consent. Open Live View controls to go on air.');
+   stable?'Permanent public show page · OFF AIR until Program is published publicly. Private broadcasts need a separate invitation.':
+   'Open a recording session to create its permanent show URL. Publishing still requires explicit consent.');
  }
 
  function fillClaims(){
@@ -252,7 +255,7 @@
  for(const command of ['next','skip','replay'])$('director-rundown-'+command).addEventListener('click',()=>rundownControl(command));
  $('director-game-broadcast-copy').addEventListener('click',async()=>{
   const url=$('director-game-broadcast-url').value;if(!url)return;
-  try{await navigator.clipboard.writeText(url);feedback('Live Program broadcast URL copied.');}
+  try{await navigator.clipboard.writeText(url);feedback('Show viewing URL copied.');}
   catch(_){$('director-game-broadcast-url').select();feedback('Select and copy the broadcast URL from the field.');}
  });
  $('director-game-camera-source').addEventListener('change',refreshCameras);

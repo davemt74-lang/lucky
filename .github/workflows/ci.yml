@@ -33,6 +33,7 @@ jobs:
           php tests/v5q32b_program_stage.php
           php tests/v5q32c_live_program_display.php
           php tests/v5q32d_show_rundown.php
+          php tests/v5q32e1_permanent_show.php
           php tests/v5q22_phone_controller_contract.php
           php tests/v5q22b_game_catalog.php
           php tests/v5q22c_cloud_updates.php
@@ -149,6 +150,7 @@ jobs:
           php tests/v5q29e4d1hf8c0_visibility_db.php
           php tests/v5q29e4d1hf8c2_scenes_db.php
           php tests/v5q29e4d1hf8c4_recording_director_db.php
+          php tests/v5q32e1_permanent_show_db.php
           php tests/v5q29e4d1hf8c5_recording_live_db.php
           php tests/v5q29e4d1hf8c7_director_sync_db.php
           php tests/v5q30_party_studio_db.php
@@ -206,6 +208,7 @@ jobs:
           python tests/v5q32b_program_stage_browser.py
           python tests/v5q32c_live_program_display_browser.py
           python tests/v5q32d_show_rundown_browser.py
+          python tests/v5q32e1_permanent_show_browser.py
           python tests/v5q13_phone_proof_browser.py
           python tests/v5q14_single_proof_flow.py
           python tests/v5q15b_prize_acceptance_browser.py

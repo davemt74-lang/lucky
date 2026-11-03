@@ -27,6 +27,47 @@ final class DirectorBroadcast {
   $q->execute([$id,$host]);
   if(!$q->fetchColumn())throw new DomainException('Recording session is closed or not owned by this administrator.',403);
  }
+ /** Issued once per recording. Public IDs contain no recording reference or bearer credentials. */
+ public static function ensureShow(PDO $db,string $recording,int $host):string {
+  self::recording($db,$recording,$host);
+  $id=bin2hex(random_bytes(16));
+  $q=$db->prepare('INSERT IGNORE INTO director_show_channels(public_id,recording_session_id,host_admin_id) VALUES (?,?,?)');
+  $q->execute([$id,$recording,$host]);
+  $q=$db->prepare('SELECT public_id FROM director_show_channels WHERE recording_session_id=? AND host_admin_id=?');
+  $q->execute([$recording,$host]);$public=$q->fetchColumn();
+  if(!is_string($public)||preg_match('/^[a-f0-9]{32}$/D',$public)!==1)
+   throw new RuntimeException('Unable to prepare a stable Live Show address.');
+  return $public;
+ }
+ /** A permanent show URL is public but only resolves a live PUBLIC Program. */
+ public static function resolveShow(PDO $db,string $show):array {
+  self::id($show);
+  $q=$db->prepare("SELECT b.id FROM director_show_channels c
+   JOIN recording_sessions r ON r.id=c.recording_session_id AND r.owner_admin_id=c.host_admin_id
+   LEFT JOIN director_broadcast_recordings d ON d.recording_session_id=c.recording_session_id
+   LEFT JOIN director_broadcasts b ON b.id=d.broadcast_id AND b.host_admin_id=c.host_admin_id
+    AND b.visibility='public' AND r.status IN ('draft','active')
+    AND b.updated_at>UTC_TIMESTAMP()-INTERVAL 14 SECOND
+   WHERE c.public_id=?
+   ORDER BY b.created_at DESC LIMIT 1");
+  $q->execute([$show]);$row=$q->fetch(PDO::FETCH_ASSOC);
+  if(!$row)throw new DomainException('Show address not found.',404);
+  return ['live'=>!empty($row['id']),'broadcastId'=>$row['id']?:null,'maxViewers'=>self::MAX_VIEWERS];
+ }
+ /** Host-only operational overview; viewer count is recently active signaling sessions. */
+ public static function hostStatus(PDO $db,string $recording,int $host):array {
+  self::recording($db,$recording,$host);
+  $q=$db->prepare("SELECT b.id,b.visibility,b.created_at,b.updated_at,
+   (SELECT COUNT(*) FROM director_viewers v WHERE v.broadcast_id=b.id
+    AND v.updated_at>UTC_TIMESTAMP()-INTERVAL 30 SECOND) AS viewer_count
+   FROM director_broadcast_recordings d JOIN director_broadcasts b ON b.id=d.broadcast_id
+   WHERE d.recording_session_id=? AND b.host_admin_id=? AND b.updated_at>UTC_TIMESTAMP()-INTERVAL 14 SECOND
+   ORDER BY b.created_at DESC LIMIT 1");
+  $q->execute([$recording,$host]);$row=$q->fetch(PDO::FETCH_ASSOC)?:null;
+  return ['live'=>$row!==null,'visibility'=>$row['visibility']??null,
+   'viewerCount'=>(int)($row['viewer_count']??0),'maxViewers'=>self::MAX_VIEWERS,
+   'startedAt'=>$row['created_at']??null,'lastHeartbeat'=>$row['updated_at']??null];
+ }
  public static function start(PDO $db,string $session,string $claim,int $host,string $visibility='private',bool $publicAck=false):array {
   if(!in_array($visibility,['private','public'],true))throw new DomainException('Invalid broadcast visibility.',422);
   if($visibility==='public'&&!$publicAck)throw new DomainException('Confirm that anyone may watch this public broadcast.',403);
@@ -47,6 +88,7 @@ final class DirectorBroadcast {
   if(!in_array($visibility,['private','public'],true))throw new DomainException('Invalid broadcast visibility.',422);
   if($visibility==='public'&&!$publicAck)throw new DomainException('Confirm that anyone may watch this public broadcast.',403);
   self::recording($db,$recording,$host);
+  $publicId=self::ensureShow($db,$recording,$host);
   $id=bin2hex(random_bytes(16));$key=token();
   $db->beginTransaction();
   try{
@@ -58,7 +100,7 @@ final class DirectorBroadcast {
    $db->prepare('INSERT INTO director_broadcast_recordings(broadcast_id,recording_session_id) VALUES (?,?)')->execute([$id,$recording]);
    $db->commit();
   }catch(Throwable $e){$db->rollBack();throw $e;}
-  return ['id'=>$id,'key'=>$visibility==='private'?$key:'','visibility'=>$visibility];
+  return ['id'=>$id,'key'=>$visibility==='private'?$key:'','visibility'=>$visibility,'showId'=>$publicId];
  }
  private static function host(PDO $db,string $broadcast,int $host):array {
   self::id($broadcast);
