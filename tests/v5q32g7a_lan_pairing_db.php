@@ -203,9 +203,24 @@ try{
  lanConfig($app,'homeserver');
  $metadata=lanRequest($base,'/api/installation-urls.php','GET','',null,$spoof);$publicMeta=lanJson($metadata);
  $keys=array_keys($publicMeta);sort($keys);
- lanCheck($metadata['status']===200&&$keys===['deployment','lanOrigin','leaseSeconds','ok']&&$publicMeta['ok']===true&&
-  $publicMeta['deployment']==='homeserver'&&$publicMeta['lanOrigin']==='https://192.168.10.42:8843'&&
-  is_int($publicMeta['leaseSeconds'])&&$publicMeta['leaseSeconds']>0&&$publicMeta['leaseSeconds']<=30,
+ $expectedKeys=$keys===['deployment','lanOrigin','leaseSeconds','ok'];
+ $deployment=$publicMeta['deployment']??null;
+ $originMatches=($publicMeta['lanOrigin']??null)==='https://192.168.10.42:8843';
+ $lease=$publicMeta['leaseSeconds']??null;
+ $validMetadata=$metadata['status']===200&&$expectedKeys&&$publicMeta['ok']===true&&
+  $deployment==='homeserver'&&$originMatches&&is_int($lease)&&$lease>0&&$lease<=30;
+ if(!$validMetadata){
+  $networkPath=$app.'/storage/'.InstallationUrls::NETWORK_FILE;
+  clearstatcache(true,$networkPath);
+  $mtime=filemtime($networkPath);
+  echo 'LAN fixture diagnostics '.json_encode([
+   'status'=>$metadata['status'],'expectedKeys'=>$expectedKeys,
+   'deployment'=>in_array($deployment,['cloud','homeserver'],true)?$deployment:'unexpected',
+   'originMatches'=>$originMatches,'leaseSeconds'=>is_int($lease)?$lease:null,
+   'fileAgeSeconds'=>$mtime===false?null:time()-$mtime,
+  ],JSON_THROW_ON_ERROR)."\n";
+ }
+ lanCheck($validMetadata,
   'Unauthenticated refresh returns only the canonical LAN origin and bounded remaining lease, never credentials or account data');
  $beforeMetadata=lanSnapshot($db,$owners,$auditStart);
  lanConfig($app,'homeserver',['db_name'=>'missing_lan_fixture_'.bin2hex(random_bytes(8)),

@@ -83,6 +83,12 @@ production environments have been certified.
 
 ## Deployment and remaining work
 
+Windows startup readiness is checked through a bounded, launcher-owned native
+client. A temporarily refused connection during MariaDB recovery remains a retry;
+native stderr alone is neither a fatal PowerShell error nor proof of readiness.
+The existing retry budget and live-database checks remain in force. Each probe
+cleans up only its own retained process, without exposing credentials in logs.
+
 Back up the database, private configuration, setup identity and media. Install
 the new web files without replacing runtime storage. There is no G7A database
 migration; `upgrade.php` remains appropriate if an installation is behind earlier

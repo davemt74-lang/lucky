@@ -94,6 +94,12 @@ jobs:
           $tree=(& git rev-parse 'HEAD^{tree}').Trim()
           if($LASTEXITCODE -ne 0 -or $build.version -cne $env:LUCKY_RELEASE_VERSION -or $build.commit -cne $env:GITHUB_SHA -or $build.tree -cne $tree){throw 'Installed application build identity mismatch'}
           Write-Host 'INSTALLED_BUILD_IDENTITY_PASS'
+          # Exercise expected native readiness failures before the first real
+          # startup. Stderr is not a PowerShell failure or proof of readiness;
+          # only the bounded owned client's exit status decides the result.
+          $readinessEvidence=Join-Path $env:RUNNER_TEMP 'lucky-homeserver-runtime-evidence'
+          & $windowsPowerShell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\tests\homeserver_database_readiness_windows.ps1 -Installation $installation -EvidenceDir $readinessEvidence
+          if($LASTEXITCODE -ne 0){throw 'Native database-readiness subprocess certification failed'}
           try {
             $out=& $windowsPowerShell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $start -Smoke -NoBrowser 2>&1 | Out-String
             $smokeExit=$LASTEXITCODE
